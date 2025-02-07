@@ -1,8 +1,8 @@
-# E2Echo 后端 API
+# E2Echo Server
 
-**简介**:E2Echo 后端 API
+**简介**:E2Echo 后端项目以 ECC（采用 secp521r1 曲线）加密技术为核心，严格遵循“私钥不上服务端”和“用户间公钥线下交换”的安全原则，为用户提供了一种高度安全的端到端加密聊天解决方案。
 
-**Version**:1.0-SNAPSHOT
+**Version**:0.0.1-alpha
 
 [TOC]
 
