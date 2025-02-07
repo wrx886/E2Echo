@@ -1,0 +1,50 @@
+server:
+    port: 8080
+
+spring:
+    data:
+        redis:
+            host: localhost
+            port: 6379
+            database: 0
+    jackson:
+        time-zone: GMT+8
+    datasource:
+        type: com.zaxxer.hikari.HikariDataSource
+        url: jdbc:mysql://localhost:3306/e2echo?useUnicode=true&characterEncoding=utf-8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=GMT%2b8
+        username: root
+        password: root
+        hikari:
+            connection-test-query: SELECT 1 # 自动检测连接
+            connection-timeout: 60000 #数据库连接超时时间,默认30秒
+            idle-timeout: 500000 #空闲连接存活最大时间，默认600000（10分钟）
+            max-lifetime: 540000 #此属性控制池中连接的最长生命周期，值0表示无限生命周期，默认1800000即30分钟
+            maximum-pool-size: 12 #连接池最大连接数，默认是10
+            minimum-idle: 10 #最小空闲连接数量
+            pool-name: SPHHikariPool # 连接池名称
+
+#用于打印框架生成的sql语句，便于调试
+mybatis-plus:
+    configuration:
+        log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+# Minio 配置
+minio:
+    endpoint: http://localhost:9000
+    access-key: minioadmin
+    secret-key: minioadmin
+    bucket-name: e2echo
+
+springdoc:
+    # 默认是false，需要设置为true
+    default-flat-param-object: true
+
+jwt-utils:
+    secret-key: 85a761e3b9464d3f9bdfa36cb65114ed
+    expiration-day: 3650
+
+test-user:
+    phone: 12345678910
+    public-key: 30819b301006072a8648ce3d020106052b8104002303818600040016125c6654ad3c7d77337064649f1583779bc44b5fecae8329425453638570b76014c94508adcf6d0e200f671a20562e09a0abb8154980dd6bd25f8dc01b11a5e30196751a1eb18a7a2391669ed41e850ec0a83bc71d9796859c424fd596dd1a4a9ea2f625cb72dc15b65dcf058c6addaf31c79e6217bf6bba5c6fe05a7b836eca1e91
+    private-key: 3081f7020100301006072a8648ce3d020106052b810400230481df3081dc02010104420133aadcf03c59fab06fcd4554cfc9b1c1ee91e80f21758458efcaa573e16cff735817876419a915ff41ab3fa8eb943040425b840aada391f0361fae4a4353aa8684a00706052b81040023a1818903818600040016125c6654ad3c7d77337064649f1583779bc44b5fecae8329425453638570b76014c94508adcf6d0e200f671a20562e09a0abb8154980dd6bd25f8dc01b11a5e30196751a1eb18a7a2391669ed41e850ec0a83bc71d9796859c424fd596dd1a4a9ea2f625cb72dc15b65dcf058c6addaf31c79e6217bf6bba5c6fe05a7b836eca1e91
+    access-token: eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjIwNTM5NDQ4NTQsInN1YiI6IkxvZ2luVXNlciIsInVzZXJJZCI6MX0.kqWDsaBCFekcsE6K0nT0b-FRb4Kk_lBeQdVt96QG5LM
