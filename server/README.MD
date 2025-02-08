@@ -10,9 +10,12 @@
 
 # 构建
 
-## 构建
-
-- 确认使用的环境时 JDK 17
+- 环境：
+  - JDK 17
+  - MySQL 8
+  - Redis 5.0
+  - Minio 22.8
+  - Maven 3.9
 
 - 修改 server\src\main\resources\application.yml 文件
 
