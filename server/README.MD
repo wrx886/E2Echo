@@ -8,6 +8,30 @@
 
 [TOC]
 
+# 构建
+
+## 构建
+
+- 确认使用的环境时 JDK 17
+
+- 修改 server\src\main\resources\application.yml 文件
+
+  - 修改关于 MySQL、Redis、Minio 的 url 和 登入用户 相关信息
+  - 修改 jwt-utils 中的密钥和有效天数
+  - 其余配置按需修改
+
+- 使用 maven 完成构建
+
+  ```bash
+  # 转到 server 目录下
+  cd server
+  # 清空已构建目标
+  mvn clean
+  # 开始构建
+  mvn package
+  ```
+
+- 构建完毕后，可在 server\target 中找到对应的 jar 包
 
 # 用户登入相关接口
 
