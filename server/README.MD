@@ -4,6 +4,8 @@
 
 **Version**:0.0.1-alpha
 
+**备注**:发送手机验证码的逻辑（com.github.wrx886.e2echo.server.web.service.SmsService）没有实现，而是将信息打印到控制台。
+
 [TOC]
 
 
