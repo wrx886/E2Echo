@@ -42,6 +42,11 @@ public class LoginService {
     private JwtUtils jwtUtils;
 
     public void getPhoneCode(String phone) {
+        // 判断手机号是否为空
+        if (phone == null) {
+            throw new E2EchoException(ResultCodeEnum.LOGIN_PHONE_EMPTY);
+        }
+
         // 生成 key
         String key = RedisPrefix.LOGIN_PHONE_CODE_PREFIX + phone;
 
