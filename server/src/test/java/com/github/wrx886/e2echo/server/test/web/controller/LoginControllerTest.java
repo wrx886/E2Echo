@@ -59,12 +59,12 @@ public class LoginControllerTest {
         loginVo.setPublicKey(testUserInfo.getPublicKey());
 
         // 4. 登入并获取 Token
-        mockMvc.perform(MockMvcRequestBuilders.post("/server/login/login")
+        assert resultUtil.getResultFromMockResponse(mockMvc.perform(MockMvcRequestBuilders.post("/server/login/login")
                 .content(objectMapper.writeValueAsString(loginVo))
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(MockMvcResultMatchers.status().isOk())
                 .andDo(MockMvcResultHandlers.print())
-                .andReturn().getResponse();
+                .andReturn().getResponse(), String.class).getCode().equals(ResultCodeEnum.OK.getCode());
     }
 
     // 获取手机验证码

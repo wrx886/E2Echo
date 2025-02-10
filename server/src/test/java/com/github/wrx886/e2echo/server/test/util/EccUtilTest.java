@@ -1,6 +1,5 @@
 package com.github.wrx886.e2echo.server.test.util;
 
-import java.security.KeyPair;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -8,6 +7,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
 import com.github.wrx886.e2echo.server.util.EccUtil;
+import com.github.wrx886.e2echo.server.util.EccUtil.KeyPairHex;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT)
 @ActiveProfiles("test")
@@ -16,14 +16,14 @@ public class EccUtilTest {
     @Test
     public void test() throws Exception {
         // 生成一组密钥对
-        KeyPair keyPair = EccUtil.generateKeyPair();
+        KeyPairHex keyPair = EccUtil.generateKeyPair();
 
         // 将公钥转为 HEX 格式
-        String publicKey = EccUtil.publicKeyToHex(keyPair.getPublic());
+        String publicKey = keyPair.getPublicKeyHex();
         System.out.println("publicKey: " + publicKey);
 
         // 将私钥转为 HEX 格式
-        String privateKey = EccUtil.privateKeyToHex(keyPair.getPrivate());
+        String privateKey = keyPair.getPrivateKeyHex();
         System.out.println("privateKey: " + privateKey);
 
         // 随机生成数据
