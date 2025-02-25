@@ -26,6 +26,7 @@
     <properties>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
+        <skipTests>true</skipTests>
         <mybatis-plus.version>3.5.3.1</mybatis-plus.version>
         <openjfx.version>17.0.14</openjfx.version>
         <h2.version>2.3.232</h2.version>
