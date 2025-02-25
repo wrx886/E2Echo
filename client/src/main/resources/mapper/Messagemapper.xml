@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.github.wrx886.e2echo.client.mapper.MessageMapper">
+
+    <!-- listSessionVos --> 
+    <select id="listSessionVos" resultType="com.github.wrx886.e2echo.client.model.vo.SessionVo">
+        SELECT
+            s.id AS session_id,
+            s.name AS session_name,
+            u.id AS from_id,
+            u.name AS from_name,
+            m.data AS message,
+            m.type AS message_type,
+            m.send_time AS last_time
+        FROM `users` AS s
+            LEFT JOIN (
+                SELECT
+                    m.session_id,
+                    m.from_id,
+                    m.data,
+                    m.type,
+                    m.send_time,
+                    m.owner_id,
+                    ROW_NUMBER() OVER (PARTITION BY m.session_id ORDER BY m.send_time DESC) AS rn
+                FROM `messages` AS m
+            ) AS m ON m.session_id = s.id AND m.rn = 1
+            LEFT JOIN `users` AS u ON u.id = m.from_id
+        WHERE s.owner_id = #{owner_id}
+        ORDER BY m.send_time DESC
+    </select>
+
+    <!-- listMessageVoBySessionId --> 
+    <select id="listMessageVoBySessionId" resultType="com.github.wrx886.e2echo.client.model.vo.MessageVo">
+        SELECT
+            m.id            AS id,
+            m.owner_id      AS owner_id,
+            m.from_id       AS from_id,
+            m.session_id    AS session_id,
+            m.data          AS data,
+            m.type          AS type,
+            m.uuid          AS uuid,
+            m.send_time     AS send_time,
+            u.name          AS from_name
+        FROM `messages` AS m
+            LEFT JOIN `users` AS u ON u.id = m.from_id
+        WHERE m.session_id = ${session_id}
+    </select>
+</mapper>
