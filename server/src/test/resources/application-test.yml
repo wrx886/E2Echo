@@ -47,4 +47,4 @@ test-user:
     phone: 12345678910
     public-key: 04162dd8a037f4910945f2faab09eb0beeb4a61c34d92c50888cc87ded010b6a3f8cda33d96b3ee99600a0bc1ace8e8b6c4c3e8f954460c8d8d5a3419f3cf7a830
     private-key: 71159bed96c6755bf11fb1411154fc5cec299167554c761d2df8f5a2c163e706
-    access-token: eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjIwNTQ1MzU4MTgsInN1YiI6IkxvZ2luVXNlciIsInVzZXJJZCI6Mn0.EjqslCidPqLe_KBb2ipptr51FnsPNB_tfVtqHhovvcM
+    access-token: eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjIwNTU4MTIzMTYsInN1YiI6IkxvZ2luVXNlciIsInVzZXJJZCI6MX0.gg0mBcwxeqWZBfMh53q5X-23bh0C-f5K2o0tnL9ICvU

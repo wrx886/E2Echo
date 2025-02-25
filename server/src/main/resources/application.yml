@@ -2,6 +2,9 @@
 server:
   port: 8080
 
+custom:
+  init-sql: classpath:init.sql
+
 spring:
   data:
     # Redis 相关配置

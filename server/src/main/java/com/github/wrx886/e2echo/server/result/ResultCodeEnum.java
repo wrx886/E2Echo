@@ -26,7 +26,7 @@ public enum ResultCodeEnum {
     LOGIN_SIGN_CODE_ERROR(513, "签名码错误"),
     LOGIN_SIGN_CODE_EXPIRED(514, "签名码已过期"),
     LOGIN_USER_INFO_NOT_MATCH(515, "用户信息不匹配"),
-    LOGIN_USER_DELETED(516, "登入用户以被删除"),
+    LOGIN_USER_DELETED(516, "登入用户已被删除"),
 
     // 消息收发业务
     MESSAGE_SENDER_INFO_NOT_MATCH(301, "发送者信息不匹配"),
