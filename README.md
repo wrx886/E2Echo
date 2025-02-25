@@ -22,8 +22,8 @@ E2Echo 是一个端到端加密的聊天软件，旨在为用户提供安全、�
 
 ### 前端
 
-- **框架**: Vue 3、Electron
-- **本地存储**: Dexie (IndexedDB)
+- **框架**: JavaFX、Spring Boot
+- **本地存储**: H2 数据库
 
 ## 安装与运行
 
