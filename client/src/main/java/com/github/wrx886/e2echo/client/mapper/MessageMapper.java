@@ -1,5 +1,6 @@
 package com.github.wrx886.e2echo.client.mapper;
 
+import java.util.Date;
 import java.util.List;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
@@ -14,5 +15,8 @@ public interface MessageMapper extends BaseMapper<Message> {
 
     // 根据会话 id 获取消息
     List<MessageVo> listMessageVoBySessionId(Long sessionId);
+
+    // 获取该登入用户的最新刷新时间
+    Date getLastSendTime(Long ownerId);
 
 }

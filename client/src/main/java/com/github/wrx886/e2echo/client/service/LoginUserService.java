@@ -1,5 +1,7 @@
 package com.github.wrx886.e2echo.client.service;
 
+import java.util.Date;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -8,10 +10,12 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.github.wrx886.e2echo.client.api.LoginApi;
 import com.github.wrx886.e2echo.client.api.MessageWebSocketApi;
 import com.github.wrx886.e2echo.client.mapper.LoginUserMapper;
+import com.github.wrx886.e2echo.client.mapper.MessageMapper;
 import com.github.wrx886.e2echo.client.model.api.LoginApiVo;
 import com.github.wrx886.e2echo.client.model.api.SignCodeApiVo;
 import com.github.wrx886.e2echo.client.model.entity.LoginUser;
 import com.github.wrx886.e2echo.client.store.LoginUserStore;
+import com.github.wrx886.e2echo.client.store.MessageStore;
 import com.github.wrx886.e2echo.client.util.EccUtil;
 
 // 登入用户服务
@@ -26,6 +30,12 @@ public class LoginUserService extends ServiceImpl<LoginUserMapper, LoginUser> {
 
     @Autowired
     private MessageWebSocketApi messageWebSocketApi;
+
+    @Autowired
+    private MessageMapper messageMapper;
+
+    @Autowired
+    private MessageStore messageStore;
 
     // 登入
     public void login(
@@ -63,6 +73,12 @@ public class LoginUserService extends ServiceImpl<LoginUserMapper, LoginUser> {
 
         // 写入 MessageWebSocketApi
         messageWebSocketApi.setBaseUrl(baseUrl);
+
+        // 从数据库中获取最新刷时间
+        Date lastDate = messageMapper.getLastSendTime(loginUserStore.getId());
+        if(lastDate != null) {
+            messageStore.setLastUpdateTime(lastDate);
+        }
     }
 
     // 获取验证码

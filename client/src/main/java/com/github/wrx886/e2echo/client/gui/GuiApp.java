@@ -1,26 +1,14 @@
 package com.github.wrx886.e2echo.client.gui;
 
-import java.io.File;
-
-import org.springframework.beans.BeanUtils;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.wrx886.e2echo.client.common.BeanProvider;
 import com.github.wrx886.e2echo.client.gui.common.SceneRouter;
 import com.github.wrx886.e2echo.client.gui.scene.login.LoginScene;
 import com.github.wrx886.e2echo.client.gui.scene.main.MainScene;
-import com.github.wrx886.e2echo.client.store.MessageStore;
-
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.scene.control.Alert;
 import javafx.stage.Stage;
 
 public class GuiApp extends Application {
-
-    private ObjectMapper objectMapper = BeanProvider.getBean(ObjectMapper.class);
-
-    private MessageStore messageStore = BeanProvider.getBean(MessageStore.class);
 
     // 场景路由
     private SceneRouter sceneRouter;
@@ -38,15 +26,6 @@ public class GuiApp extends Application {
                 alert.showAndWait();
             });
         });
-
-        try {
-            // 读取上次刷新时间
-            MessageStore jsonMessageStore = objectMapper.readValue(new File("./messageStore.json"),
-                    MessageStore.class);
-            BeanUtils.copyProperties(jsonMessageStore, messageStore);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
     }
 
     @Override
@@ -68,15 +47,6 @@ public class GuiApp extends Application {
 
         // 显示界面
         primaryStage.show();
-    }
-
-    @Override
-    public void stop() throws Exception {
-        try {
-            objectMapper.writeValue(new File("./messageStore.json"), messageStore);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
     }
 
 }

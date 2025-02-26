@@ -45,4 +45,12 @@
             LEFT JOIN `users` AS u ON u.id = m.from_id
         WHERE m.session_id = ${session_id}
     </select>
-</mapper>
+
+    <!-- getLastSendTime --> 
+
+    <select id="getLastSendTime" resultType="java.util.Date">
+        SELECT
+            MAX(send_time)
+        FROM messages
+        WHERE owner_id = #{ownerId}
+    </select></mapper>
