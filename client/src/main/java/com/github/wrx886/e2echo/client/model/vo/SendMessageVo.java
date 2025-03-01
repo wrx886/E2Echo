@@ -10,12 +10,15 @@ import lombok.ToString;
 @Data
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)
-public class SendMessageVo extends Message {
+public class SendMessageVo<E> extends Message {
 
     // 发送者公钥
     private String fromPublicKey;
 
     // 群聊 uuid
     private String groupUuid;
+
+    // 发送的消息
+    private E sendData;
 
 }

@@ -2,8 +2,11 @@
 CREATE TABLE IF NOT EXISTS files (
     id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '自增主键',
     owner_id BIGINT NOT NULL COMMENT '所属登入用户',
-    message_id BIGINT NOT NULL COMMENT '消息id',
-    path VARCHAR(256) NOT NULL COMMENT '文件路径'
+    aes_key VARCHAR(256) NOT NULL COMMENT '加密 aes key',
+    sha256 VARCHAR(256) NOT NULL COMMENT '文件 sha256',
+    url VARCHAR(256) UNIQUE NOT NULL COMMENT '消息id',
+    path VARCHAR(256) NOT NULL COMMENT '文件路径',
+    file_name VARCHAR(256) NOT NULL COMMENT '文件名'
 );
 
 -- 创建群聊表

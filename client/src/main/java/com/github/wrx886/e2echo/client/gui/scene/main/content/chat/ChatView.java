@@ -3,8 +3,10 @@ package com.github.wrx886.e2echo.client.gui.scene.main.content.chat;
 import com.github.wrx886.e2echo.client.common.BeanProvider;
 import com.github.wrx886.e2echo.client.gui.common.NodeRouter;
 import com.github.wrx886.e2echo.client.gui.scene.main.content.edit.UserEditView;
+import com.github.wrx886.e2echo.client.model.entity.File;
 import com.github.wrx886.e2echo.client.model.enums.MessageType;
 import com.github.wrx886.e2echo.client.model.vo.MessageVo;
+import com.github.wrx886.e2echo.client.service.FileService;
 import com.github.wrx886.e2echo.client.service.MessageService;
 import com.github.wrx886.e2echo.client.service.UserService;
 import com.github.wrx886.e2echo.client.store.GuiStore;
@@ -17,6 +19,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.TextArea;
 import javafx.scene.layout.VBox;
+import javafx.stage.FileChooser;
 
 // 聊天界面视图
 public class ChatView extends VBox {
@@ -26,6 +29,8 @@ public class ChatView extends VBox {
     private GuiStore guiStore = BeanProvider.getBean(GuiStore.class);
 
     private UserService userService = BeanProvider.getBean(UserService.class);
+
+    private FileService fileService = BeanProvider.getBean(FileService.class);
 
     // 主界面路由
     private final NodeRouter contentRouter;
@@ -39,8 +44,14 @@ public class ChatView extends VBox {
     // 聊天内容
     private final ListView<MessageVo> messageListView;
 
+    // 发送文件
+    private final Button fileSendButton;
+
     // 要发送的消息
     private final TextArea textArea;
+
+    // 发送按钮
+    private final Button sendButton;
 
     // 构造函数
     public ChatView(NodeRouter contentRouter) {
@@ -65,12 +76,17 @@ public class ChatView extends VBox {
         messageListView.setCellFactory(param -> new ChatMessageListCell());
         root.add(messageListView);
 
+        // 文件选择器
+        fileSendButton = new Button("文件");
+        fileSendButton.setOnAction(this::fileSendButtonOnAction);
+        root.add(fileSendButton);
+
         // 文本输入框
         textArea = new TextArea();
         root.add(textArea);
 
         // 发送按钮
-        Button sendButton = new Button("发送");
+        sendButton = new Button("发送");
         sendButton.setOnAction(this::sendButtonOnAction);
         root.add(sendButton);
     }
@@ -87,9 +103,39 @@ public class ChatView extends VBox {
     }
 
     // 用户信息修改
-    public void updateSessionButtonOnAction(Event event) {
+    private void updateSessionButtonOnAction(Event event) {
         guiStore.getEditUser().set(userService.getById(guiStore.getCurrentSessionVo().get().getSessionId()));
         contentRouter.push(UserEditView.class);
+    }
+
+    // 发送文件
+    private void fileSendButtonOnAction(Event event) {
+        // 创建文件选择器实例
+        FileChooser fileChooser = new FileChooser();
+
+        // 设置文件选择器的标题
+        fileChooser.setTitle("选择文件");
+
+        // 设置初始目录（可选）
+        fileChooser.setInitialDirectory(new java.io.File(System.getProperty("user.home")));
+
+        // 添加文件类型过滤器（可选）
+        // FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter("视频文件
+        // (*.mp4)", "*");
+        // fileChooser.getExtensionFilters().add(extFilter);
+
+        // 显示文件选择对话框并获取用户选择的文件
+        java.io.File selectedFile = fileChooser.showOpenDialog(null);
+
+        // 上传文件
+        File file = fileService.upload(selectedFile.getAbsolutePath());
+
+        // 发送文件
+        messageService.send(guiStore.getCurrentSessionVo().get().getSessionId(), file, MessageType.FILE);
+
+        // 刷新
+        messageService.updateMessageVosBySession(guiStore.getCurrentSessionVo().get());
+        messageService.updateSessionVos();
     }
 
 }

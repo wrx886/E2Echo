@@ -22,6 +22,7 @@ import com.github.wrx886.e2echo.client.mapper.GroupUserMapper;
 import com.github.wrx886.e2echo.client.mapper.MessageMapper;
 import com.github.wrx886.e2echo.client.model.api.MessageApiVo;
 import com.github.wrx886.e2echo.client.model.api.ReceiveMessageApiVo;
+import com.github.wrx886.e2echo.client.model.entity.File;
 import com.github.wrx886.e2echo.client.model.entity.Message;
 import com.github.wrx886.e2echo.client.model.entity.User;
 import com.github.wrx886.e2echo.client.model.enums.MessageApiType;
@@ -72,6 +73,9 @@ public class MessageService extends ServiceImpl<MessageMapper, Message> implemen
     @Autowired
     private GroupUserMapper groupUserMapper;
 
+    @Autowired
+    private FileService fileService;
+
     // 初始化后处理
     @Override
     public void afterPropertiesSet() throws Exception {
@@ -82,67 +86,86 @@ public class MessageService extends ServiceImpl<MessageMapper, Message> implemen
 
     // 发送消息
     public <E> void send(Long sessionId, E messageData, MessageType messageType) {
-        // 获取会话信息
-        User session = userService.getById(sessionId);
-        // 获取发送者信息
-        User from = userService.putPersonByPublicKey(loginUserStore.getId(), loginUserStore.getPublicKey());
-
-        // 针对消息类型处理消息
-        String data;
-        if (MessageType.TEXT.equals(messageType)) {
-            if (messageData instanceof String s) {
-                data = s;
-            } else {
-                throw new E2Echoxception(null, "消息类型错误！");
-            }
-        } else {
-            throw new UnsupportedOperationException("数据类型未处理！");
-        }
-
-        // 构建消息实体
-        SendMessageVo sendMessageVo = new SendMessageVo();
-        sendMessageVo.setData(data);
-        sendMessageVo.setFromId(from.getId());
-        sendMessageVo.setFromPublicKey(loginUserStore.getPublicKey());
-        sendMessageVo.setGroupUuid(session.getGroupUuid());
-        sendMessageVo.setOwnerId(loginUserStore.getId());
-        sendMessageVo.setSendTime(new Date());
-        sendMessageVo.setSessionId(session.getId());
-        sendMessageVo.setType(messageType);
-        sendMessageVo.setUuid(UUID.randomUUID().toString());
-
-        // 序列化消息实体
-        String sendData;
         try {
-            sendData = objectMapper.writeValueAsString(sendMessageVo);
-        } catch (JsonProcessingException e) {
+            // 获取会话信息
+            User session = userService.getById(sessionId);
+            // 获取发送者信息
+            User from = userService.putPersonByPublicKey(loginUserStore.getId(), loginUserStore.getPublicKey());
+
+            // 针对消息类型处理消息
+            SendMessageVo<File> sendMessageVo = new SendMessageVo<>();
+            if (MessageType.TEXT.equals(messageType)) {
+                if (messageData instanceof String s) {
+                    sendMessageVo.setData(s);
+                } else {
+                    throw new RuntimeException("消息类型错误！");
+                }
+            } else if (MessageType.AUDIO.equals(messageType) ||
+                    MessageType.FILE.equals(messageType) ||
+                    MessageType.PICTURE.equals(messageType) ||
+                    MessageType.VIDEO.equals(messageType)) {
+                // 对于文件类型的数据进行处理，此时传入的是文件
+                if (messageData instanceof File file) {
+                    sendMessageVo.setSendData(file);
+                } else {
+                    throw new RuntimeException("消息类型错误");
+                }
+            } else {
+                throw new UnsupportedOperationException("数据类型未处理！");
+            }
+
+            // 构建消息实体
+            sendMessageVo.setFromId(from.getId());
+            sendMessageVo.setFromPublicKey(loginUserStore.getPublicKey());
+            sendMessageVo.setGroupUuid(session.getGroupUuid());
+            sendMessageVo.setOwnerId(loginUserStore.getId());
+            sendMessageVo.setSendTime(new Date());
+            sendMessageVo.setSessionId(session.getId());
+            sendMessageVo.setType(messageType);
+            sendMessageVo.setUuid(UUID.randomUUID().toString());
+
+            // 序列化消息实体
+            String sendData;
+            try {
+                sendData = objectMapper.writeValueAsString(sendMessageVo);
+            } catch (JsonProcessingException e) {
+                e.printStackTrace();
+                throw new E2Echoxception(null, "序列化失败！");
+            }
+
+            // 构建发送参数
+            MessageApiVo messageApiVo = new MessageApiVo();
+            messageApiVo.setData(EccUtil.encrypt(sendData, session.getPublicKey()));
+            messageApiVo.setFromPublicKey(loginUserStore.getPublicKey());
+            messageApiVo.setSendTime(sendMessageVo.getSendTime());
+            messageApiVo.setSign(EccUtil.sign(sendData, loginUserStore.getPrivateKey()));
+            messageApiVo.setToPublicKey(session.getPublicKey());
+            if (UserType.PERSON.equals(session.getType())) {
+                // 个人
+                messageApiVo.setMessageType(MessageApiType.USER);
+            } else if (UserType.GROUP.equals(session.getType())) {
+                // 群聊
+                messageApiVo.setMessageType(MessageApiType.GROUP);
+            } else {
+                throw new E2Echoxception(null, "消息类型错误");
+            }
+
+            // 发送消息
+            messageApi.send(loginUserStore.getBaseUrl(), loginUserStore.getAccessToken(), messageApiVo);
+
+            // 插入消息到数据库
+            if (MessageApiType.USER.equals(messageApiVo.getMessageType())) {
+                if (sendMessageVo.getData() == null) {
+                    sendMessageVo.setData(objectMapper.writeValueAsString(sendMessageVo.getSendData()));
+                }
+                save(sendMessageVo);
+            }
+        } catch (E2Echoxception e) {
             e.printStackTrace();
-            throw new E2Echoxception(null, "序列化失败！");
-        }
-
-        // 构建发送参数
-        MessageApiVo messageApiVo = new MessageApiVo();
-        messageApiVo.setData(EccUtil.encrypt(sendData, session.getPublicKey()));
-        messageApiVo.setFromPublicKey(loginUserStore.getPublicKey());
-        messageApiVo.setSendTime(sendMessageVo.getSendTime());
-        messageApiVo.setSign(EccUtil.sign(sendData, loginUserStore.getPrivateKey()));
-        messageApiVo.setToPublicKey(session.getPublicKey());
-        if (UserType.PERSON.equals(session.getType())) {
-            // 个人
-            messageApiVo.setMessageType(MessageApiType.USER);
-        } else if (UserType.GROUP.equals(session.getType())) {
-            // 群聊
-            messageApiVo.setMessageType(MessageApiType.GROUP);
-        } else {
-            throw new E2Echoxception(null, "消息类型错误");
-        }
-
-        // 发送消息
-        messageApi.send(loginUserStore.getBaseUrl(), loginUserStore.getAccessToken(), messageApiVo);
-
-        // 插入消息到数据库
-        if (MessageApiType.USER.equals(messageApiVo.getMessageType())) {
-            save(sendMessageVo);
+            throw new E2Echoxception(e.getCode(), e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException(e.getMessage());
         }
     }
 
@@ -237,114 +260,140 @@ public class MessageService extends ServiceImpl<MessageMapper, Message> implemen
 
     // 处理一条消息
     private void handleMessageApiVo(MessageApiVo messageApiVo) {
-        // 判断是否为消息接收者
-        if (!loginUserStore.getPublicKey().equals(messageApiVo.getToPublicKey())) {
-            throw new E2Echoxception(null, "接收者错误");
-        }
-
-        // 解包
-        SendMessageVo sendMessageVo;
         try {
-            // 解密数据
-            String data = EccUtil.decrypt(messageApiVo.getData(), loginUserStore.getPrivateKey());
-            // 验证数据签名
-            assert EccUtil.verify(data, messageApiVo.getSign(), messageApiVo.getFromPublicKey());
-            // 将数据转为需要的格式
-            sendMessageVo = objectMapper.readValue(data, SendMessageVo.class);
-        } catch (Exception e) {
-            e.printStackTrace();
-            throw new E2Echoxception(null, e.getMessage());
-        }
-
-        // 这里只处理用户信息
-        if (MessageApiType.GROUP.equals(messageApiVo.getMessageType())) {
-            // 群聊消息，直接反发给所有群成员
-
-            // 查询群聊
-            User group = userService.getOne(new LambdaQueryWrapper<User>()
-                    .eq(User::getOwnerId, loginUserStore.getId())
-                    .eq(User::getGroupUuid, sendMessageVo.getGroupUuid())
-                    .eq(User::getPublicKey, loginUserStore.getPublicKey())
-                    .eq(User::getType, UserType.GROUP));
-
-            // 群聊不存在
-            if (group == null) {
-                throw new E2Echoxception(null, "群聊不存在");
+            // 判断是否为消息接收者
+            if (!loginUserStore.getPublicKey().equals(messageApiVo.getToPublicKey())) {
+                throw new E2Echoxception(null, "接收者错误");
             }
 
-            // 根据群聊 UUID 查询群成员
-            List<User> members = groupUserMapper.listUserByGroupId(group.getId());
-            System.out.println(members);
-
-            // 判断发送者是否存在
-            boolean exist = false;
-            for (User member : members) {
-                if (member.getPublicKey().equals(sendMessageVo.getFromPublicKey())) {
-                    exist = true;
-                    break;
-                }
-            }
-
-            // 发送者不在群内
-            if (!exist) {
-                throw new E2Echoxception(null, "发送者不在群内");
-            }
-
-            // 完成反发
-            System.out.println(members);
-            for (User member : members) {
-                try {
-                    // 构建发送参数
-                    String sendData = objectMapper.writeValueAsString(sendMessageVo);
-                    MessageApiVo returnMessageApiVo = new MessageApiVo();
-                    returnMessageApiVo.setData(EccUtil.encrypt(sendData, member.getPublicKey()));
-                    returnMessageApiVo.setFromPublicKey(loginUserStore.getPublicKey());
-                    returnMessageApiVo.setMessageType(MessageApiType.USER);
-                    returnMessageApiVo.setSendTime(new Date());
-                    returnMessageApiVo.setSign(EccUtil.sign(sendData, loginUserStore.getPrivateKey()));
-                    returnMessageApiVo.setToPublicKey(member.getPublicKey());
-                    // 发送
-                    messageWebSocketApi.send(returnMessageApiVo);
-                    return;
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    throw new E2Echoxception(null, e.getMessage());
-                }
-            }
-        } else if (!MessageApiType.USER.equals(messageApiVo.getMessageType())) {
-            throw new E2Echoxception(null, "消息类型错误");
-        }
-
-        // 获取会话和发送者信息
-        User session, from;
-        if (sendMessageVo.getGroupUuid() == null) {
-            // 私聊
-            session = userService.putPersonByPublicKey(loginUserStore.getId(), sendMessageVo.getFromPublicKey());
-            from = session;
-        } else {
-            // 群聊
-            session = userService.putGroupByGroupUuid(loginUserStore.getId(), sendMessageVo.getGroupUuid(),
-                    messageApiVo.getFromPublicKey());
-            from = userService.putPersonByPublicKey(loginUserStore.getId(), sendMessageVo.getFromPublicKey());
-        }
-
-        // 填充 Message 信息
-        sendMessageVo.setFromId(from.getId());
-        sendMessageVo.setOwnerId(loginUserStore.getId());
-        sendMessageVo.setSessionId(session.getId());
-
-        // 按消息类型处理消息
-        if (MessageType.TEXT.equals(sendMessageVo.getType())) {
-            // 文本消息，直接插入即可
+            // 解包
+            SendMessageVo<?> sendMessageVo;
             try {
-                save(sendMessageVo);
+                // 解密数据
+                String data = EccUtil.decrypt(messageApiVo.getData(), loginUserStore.getPrivateKey());
+                // 验证数据签名
+                assert EccUtil.verify(data, messageApiVo.getSign(), messageApiVo.getFromPublicKey());
+                // 将数据转为需要的格式
+                sendMessageVo = objectMapper.readValue(data, SendMessageVo.class);
             } catch (Exception e) {
                 e.printStackTrace();
                 throw new E2Echoxception(null, e.getMessage());
             }
-        } else {
-            // 其他类型消息
-            throw new UnsupportedOperationException("Unimplemented type %d".formatted(sendMessageVo.getType()));
+
+            // 这里只处理用户信息
+            if (MessageApiType.GROUP.equals(messageApiVo.getMessageType())) {
+                // 群聊消息，直接反发给所有群成员
+
+                // 查询群聊
+                User group = userService.getOne(new LambdaQueryWrapper<User>()
+                        .eq(User::getOwnerId, loginUserStore.getId())
+                        .eq(User::getGroupUuid, sendMessageVo.getGroupUuid())
+                        .eq(User::getPublicKey, loginUserStore.getPublicKey())
+                        .eq(User::getType, UserType.GROUP));
+
+                // 群聊不存在
+                if (group == null) {
+                    throw new E2Echoxception(null, "群聊不存在");
+                }
+
+                // 根据群聊 UUID 查询群成员
+                List<User> members = groupUserMapper.listUserByGroupId(group.getId());
+                System.out.println(members);
+
+                // 判断发送者是否存在
+                boolean exist = false;
+                for (User member : members) {
+                    if (member.getPublicKey().equals(sendMessageVo.getFromPublicKey())) {
+                        exist = true;
+                        break;
+                    }
+                }
+
+                // 发送者不在群内
+                if (!exist) {
+                    throw new E2Echoxception(null, "发送者不在群内");
+                }
+
+                // 完成反发
+                System.out.println(members);
+                for (User member : members) {
+                    try {
+                        // 构建发送参数
+                        String sendData = objectMapper.writeValueAsString(sendMessageVo);
+                        MessageApiVo returnMessageApiVo = new MessageApiVo();
+                        returnMessageApiVo.setData(EccUtil.encrypt(sendData, member.getPublicKey()));
+                        returnMessageApiVo.setFromPublicKey(loginUserStore.getPublicKey());
+                        returnMessageApiVo.setMessageType(MessageApiType.USER);
+                        returnMessageApiVo.setSendTime(new Date());
+                        returnMessageApiVo.setSign(EccUtil.sign(sendData, loginUserStore.getPrivateKey()));
+                        returnMessageApiVo.setToPublicKey(member.getPublicKey());
+                        // 发送
+                        messageWebSocketApi.send(returnMessageApiVo);
+                        return;
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        throw new E2Echoxception(null, e.getMessage());
+                    }
+                }
+            } else if (!MessageApiType.USER.equals(messageApiVo.getMessageType())) {
+                throw new E2Echoxception(null, "消息类型错误");
+            }
+
+            // 获取会话和发送者信息
+            User session, from;
+            if (sendMessageVo.getGroupUuid() == null) {
+                // 私聊
+                session = userService.putPersonByPublicKey(loginUserStore.getId(), sendMessageVo.getFromPublicKey());
+                from = session;
+            } else {
+                // 群聊
+                session = userService.putGroupByGroupUuid(loginUserStore.getId(), sendMessageVo.getGroupUuid(),
+                        messageApiVo.getFromPublicKey());
+                from = userService.putPersonByPublicKey(loginUserStore.getId(), sendMessageVo.getFromPublicKey());
+            }
+
+            // 填充 Message 信息
+            sendMessageVo.setData(objectMapper.writeValueAsString(sendMessageVo.getSendData()));
+            sendMessageVo.setFromId(from.getId());
+            sendMessageVo.setOwnerId(loginUserStore.getId());
+            sendMessageVo.setSessionId(session.getId());
+
+            // 按消息类型处理消息
+            if (MessageType.TEXT.equals(sendMessageVo.getType())) {
+                // 文本消息，直接插入即可
+                try {
+                    save(sendMessageVo);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    throw new E2Echoxception(null, e.getMessage());
+                }
+            } else if (MessageType.AUDIO.equals(sendMessageVo.getType()) ||
+                    MessageType.FILE.equals(sendMessageVo.getType()) ||
+                    MessageType.PICTURE.equals(sendMessageVo.getType()) ||
+                    MessageType.VIDEO.equals(sendMessageVo.getType())) {
+                // 处理文件类型的数据
+
+                // 将数据转为对应类型
+                File receiveFile = jsonUtil.typeCast(sendMessageVo.getSendData(), File.class);
+
+                // 下载文件
+                File file = fileService.download(receiveFile);
+
+                // 序列化
+                sendMessageVo.setData(objectMapper.writeValueAsString(file));
+
+                // 保存
+                save(sendMessageVo);
+            } else {
+                // 其他类型消息
+                throw new UnsupportedOperationException("Unimplemented type %d".formatted(sendMessageVo.getType()));
+            }
+        } catch (E2Echoxception e) {
+            e.printStackTrace();
+            throw new E2Echoxception(e.getCode(), e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException(e.getMessage());
         }
     }
 

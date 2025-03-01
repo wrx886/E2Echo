@@ -21,7 +21,7 @@ public class LoginConfig {
     private final String phone = "12345678910";
 
     // 有效手机验证码
-    private final String phoneCode = "193997";
+    private final String phoneCode = "225449";
 
     // 服务器地址
     private final String baseUrl = "http://localhost:8080";

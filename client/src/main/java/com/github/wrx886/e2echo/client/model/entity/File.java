@@ -20,12 +20,24 @@ public class File {
     @TableField(value = "owner_id")
     private Long ownerId;
 
-    // 对应的消息id
-    @TableField(value = "message_id")
-    private Long messageId;
+    // 文件 AES KEY
+    @TableField(value = "aes_key")
+    private String aesKey;
+
+    // 文件 SHA256
+    @TableField(value = "sha256")
+    private String sha256;
+
+    // 文件网络路径
+    @TableField(value = "url")
+    private String url;
 
     // 文件本地路径
     @TableField(value = "path")
     private String path;
+
+    // 文件名
+    @TableField(value = "file_name")
+    private String fileName;
 
 }
