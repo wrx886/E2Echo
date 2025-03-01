@@ -6,6 +6,10 @@ custom:
   init-sql: classpath:init.sql
 
 spring:
+  servlet:
+    multipart:
+      max-file-size: 128MB
+      max-request-size: 128MB
   data:
     # Redis 相关配置
     redis:

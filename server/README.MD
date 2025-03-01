@@ -17,7 +17,7 @@
   - JDK 17
   - MySQL 8
   - Redis 5.0
-  - Minio 22.8
+  - Minio RELEASE.2021-04-22T15-44-28Z
   - Maven 3.9
 - 修改 server\src\main\resources\application.yml 文件
 

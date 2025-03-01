@@ -50,8 +50,16 @@ public class FileService {
 
     // 文件名生成器
     private static String generateFileName(MultipartFile file) {
+        // 获取文件扩展名
+        String extension = "";
+        int i = file.getOriginalFilename().lastIndexOf('.');
+        if (i >= 0) {
+            extension = file.getOriginalFilename().substring(i);
+        }
+
         // 当前日期（文件夹） + UUID（文件名）
         return new SimpleDateFormat("yyyyMMdd").format(new Date()) + "/"
-                + UUID.randomUUID();
+                + UUID.randomUUID() + extension;
     }
+
 }
