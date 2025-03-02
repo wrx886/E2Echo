@@ -11,13 +11,16 @@ import com.github.wrx886.e2echo.client.service.MessageService;
 import com.github.wrx886.e2echo.client.service.UserService;
 import com.github.wrx886.e2echo.client.store.GuiStore;
 
+import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
 import javafx.event.Event;
+import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.TextArea;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 
@@ -58,12 +61,25 @@ public class ChatView extends VBox {
         // 主界面路由
         this.contentRouter = contentRouter;
 
+        // 设置宽度
+        setPrefWidth(520);
+
+        // 设置高度
+        setPrefHeight(690);
+
+        // 设置元素间距
+        setSpacing(5);
+
+        // 设置对其方案
+        setAlignment(Pos.TOP_LEFT);
+
         // 获取孩子列表
         ObservableList<Node> root = getChildren();
 
         // 当前会话名称
         sessionNameLabel = new Label();
         sessionNameLabel.textProperty().bind(guiStore.getCurrentSessionName());
+        VBox.setVgrow(sessionNameLabel, Priority.ALWAYS);
         root.add(sessionNameLabel);
 
         // 修改会话属性
@@ -76,6 +92,13 @@ public class ChatView extends VBox {
         messageListView.setCellFactory(param -> new ChatMessageListCell());
         root.add(messageListView);
 
+        // 设置监听器，默认滑到底部
+        guiStore.getCurrentMessageVos().addListener((ListChangeListener<MessageVo>) change -> {
+            if (!guiStore.getCurrentMessageVos().isEmpty()) {
+                messageListView.scrollTo(guiStore.getCurrentMessageVos().size() - 1);
+            }
+        });
+
         // 文件选择器
         fileSendButton = new Button("文件");
         fileSendButton.setOnAction(this::fileSendButtonOnAction);
@@ -83,6 +106,8 @@ public class ChatView extends VBox {
 
         // 文本输入框
         textArea = new TextArea();
+        textArea.setMaxWidth(520);
+        textArea.setWrapText(true);
         root.add(textArea);
 
         // 发送按钮

@@ -42,8 +42,8 @@ public class GuiApp extends Application {
 
         // 设置界面大小
         primaryStage.setTitle("E2Echo");
-        primaryStage.setWidth(800);
-        primaryStage.setHeight(600);
+        primaryStage.setWidth(1000);
+        primaryStage.setHeight(750);
 
         // 显示界面
         primaryStage.show();

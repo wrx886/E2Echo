@@ -7,7 +7,10 @@ import com.github.wrx886.e2echo.client.model.vo.SessionVo;
 
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
+import javafx.scene.control.OverrunStyle;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
 // 会话列表单元格
@@ -15,6 +18,45 @@ public class SessionListCell extends ListCell<SessionVo> {
 
     // 日期格式化工具
     private SimpleDateFormat simpleDateFormat = BeanProvider.getBean(SimpleDateFormat.class);
+
+    // 会话名称
+    private final Label sessionNameLabel;
+
+    // 更新时间
+    private final Label lastTimeLabel;
+
+    // 消息
+    private final Label fromAndmessageLabel;
+
+    // 总容器
+    private final VBox vBox;
+
+    // 构造函数
+    public SessionListCell() {
+
+        // 会话名称
+        sessionNameLabel = new Label();
+        sessionNameLabel.setTextOverrun(OverrunStyle.ELLIPSIS);
+        sessionNameLabel.setMaxWidth(130);
+
+        // 更新时间
+        lastTimeLabel = new Label();
+
+        // 发送者和消息
+        fromAndmessageLabel = new Label();
+        fromAndmessageLabel.setTextOverrun(OverrunStyle.ELLIPSIS);
+        fromAndmessageLabel.setMaxWidth(250);
+
+        // 空白填充
+        Region hBox1Region = new Region();
+        HBox.setHgrow(hBox1Region, Priority.ALWAYS);
+
+        // 容器1：存放会话名称和更新时间
+        HBox hBox = new HBox(sessionNameLabel, hBox1Region, lastTimeLabel);
+
+        // 容器2：存放 容器1 和 容器2
+        vBox = new VBox(hBox, fromAndmessageLabel);
+    }
 
     @Override
     protected void updateItem(SessionVo item, boolean empty) {
@@ -27,30 +69,18 @@ public class SessionListCell extends ListCell<SessionVo> {
         } else {
             // 单元格不为空
 
-            // 横向布局1：会话名称 + 更新时间
-            HBox hBox1 = new HBox();
-
             // 会话名称
-            Label sessionNameLabel = new Label(item.getSessionName());
-            hBox1.getChildren().add(sessionNameLabel);
+            sessionNameLabel.setText(item.getSessionName());
 
             // 更新时间
             if (item.getLastTime() != null) {
-                Label lastTimeLabel = new Label(simpleDateFormat.format(item.getLastTime()));
-                hBox1.getChildren().add(lastTimeLabel);
+                lastTimeLabel.setText(simpleDateFormat.format(item.getLastTime()));
+            } else {
+                lastTimeLabel.setText(null);
             }
 
-            // 纵向布局
-            VBox vBox = new VBox();
-            vBox.getChildren().add(hBox1);
-
-            // 组合发送者和消息
-            Label messageLabel = new Label();
-            if (item.getFromName() != null && item.getMessage() != null) {
-                String messageString = item.getFromName() + ": " + item.getMessage();
-                messageLabel.setText(messageString);
-            }
-            vBox.getChildren().add(messageLabel);
+            // 发送者和消息
+            fromAndmessageLabel.setText(item.getFromName() + ": " + item.getMessage());
 
             // 放入
             setGraphic(vBox);

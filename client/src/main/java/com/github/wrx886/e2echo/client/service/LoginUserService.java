@@ -37,6 +37,9 @@ public class LoginUserService extends ServiceImpl<LoginUserMapper, LoginUser> {
     @Autowired
     private MessageStore messageStore;
 
+    @Autowired
+    private MessageService messageService;
+
     // 登入
     public void login(
             String baseUrl,
@@ -76,9 +79,15 @@ public class LoginUserService extends ServiceImpl<LoginUserMapper, LoginUser> {
 
         // 从数据库中获取最新刷时间
         Date lastDate = messageMapper.getLastSendTime(loginUserStore.getId());
-        if(lastDate != null) {
+        if (lastDate != null) {
             messageStore.setLastUpdateTime(lastDate);
         }
+
+        // 接收数据
+        messageService.receive();
+
+        // 刷新
+        messageService.updateSessionVos();
     }
 
     // 获取验证码

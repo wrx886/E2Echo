@@ -14,6 +14,8 @@ import com.github.wrx886.e2echo.client.store.GuiStore;
 import com.github.wrx886.e2echo.client.store.LoginUserStore;
 
 import javafx.event.Event;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.RadioButton;
@@ -33,6 +35,9 @@ public class UserEditView extends GridPane {
     private MessageService messageService = BeanProvider.getBean(MessageService.class);
 
     private GroupUserService groupUserService = BeanProvider.getBean(GroupUserService.class);
+
+    // GridPane 内元素的外边距
+    private static final Insets GRID_MARGIN = new Insets(5);
 
     // 主界面路由
     private final NodeRouter contenRouter;
@@ -80,25 +85,43 @@ public class UserEditView extends GridPane {
         // 主界面路由
         this.contenRouter = contenRouter;
 
+        // 设置宽度
+        setPrefWidth(520);
+
+        // 设置高度
+        setPrefHeight(690);
+
+        // 设置对齐方案
+        setAlignment(Pos.CENTER);
+
         // 名称标签
         nameLabel = new Label("名称");
+        GridPane.setMargin(nameLabel, GRID_MARGIN);
         add(nameLabel, 0, 0);
 
         // 名称输入框
         nameTextField = new TextField();
+        GridPane.setMargin(nameTextField, GRID_MARGIN);
         add(nameTextField, 1, 0);
 
         // 公钥标签
         publicKeyLabel = new Label("公钥");
+        GridPane.setMargin(publicKeyLabel, GRID_MARGIN);
         add(publicKeyLabel, 0, 1);
 
         // 公钥输入框
         publicKeyTextField = new TextField();
+        GridPane.setMargin(publicKeyTextField, GRID_MARGIN);
         add(publicKeyTextField, 1, 1);
 
         // 类型
-        typeLabel = new Label();
+        typeLabel = new Label("类型");
+        GridPane.setMargin(typeLabel, GRID_MARGIN);
         add(typeLabel, 0, 2);
+
+        // 类型布局容器
+        GridPane typeGridPane = new GridPane();
+        add(typeGridPane, 1, 2);
 
         // 类型管理
         typeToggleGroup = new ToggleGroup();
@@ -106,25 +129,29 @@ public class UserEditView extends GridPane {
         // 类型-用户
         typeUserRadioButton = new RadioButton("用户");
         typeUserRadioButton.setToggleGroup(typeToggleGroup);
+        GridPane.setMargin(typeUserRadioButton, GRID_MARGIN);
+        typeGridPane.add(typeUserRadioButton, 0, 0);
 
         // 类型-群聊
         typeGroupRadioButton = new RadioButton("群聊");
         typeGroupRadioButton.setToggleGroup(typeToggleGroup);
-
-        // 类型布局容器
-        add(new HBox(typeUserRadioButton, typeGroupRadioButton), 1, 2);
+        GridPane.setMargin(typeGroupRadioButton, GRID_MARGIN);
+        typeGridPane.add(typeGroupRadioButton, 1, 0);
 
         // 群聊 UUID 标签
         groupUuidLabel = new Label("群聊UUID");
+        GridPane.setMargin(groupUuidLabel, GRID_MARGIN);
         add(groupUuidLabel, 0, 3);
 
         // 群聊 UUID 输入框
         groupUuidTextField = new TextField();
+        GridPane.setMargin(groupUuidTextField, GRID_MARGIN);
         add(groupUuidTextField, 1, 3);
 
         // 群聊 UUID 按钮
         groupUuidButton = new Button("生成");
         groupUuidButton.setOnAction(this::groupUuidButtonOnAction);
+        GridPane.setMargin(groupUuidButton, GRID_MARGIN);
         add(groupUuidButton, 2, 3);
 
         // 保存按钮
@@ -136,7 +163,10 @@ public class UserEditView extends GridPane {
         cancelButton.setOnAction(this::cancelButtonOnAction);
 
         // 放置
-        add(new HBox(cancelButton, saveButton), 1, 4);
+        HBox buttonHBox = new HBox(cancelButton, saveButton);
+        buttonHBox.setSpacing(5);
+        buttonHBox.setAlignment(Pos.CENTER);
+        add(buttonHBox, 1, 4);
 
         // 监听器
         guiStore.getEditUser().addListener((observable, oldValue, newValue) -> {

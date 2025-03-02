@@ -32,6 +32,9 @@ public class Sidebar extends VBox {
         // 侧边栏路由
         this.panelNodeRouter = panelNodeRouter;
 
+        // 设置元素间距
+        setSpacing(10);
+
         // 会话按钮
         sessionButton = new Button("会话");
         sessionButton.setOnAction(this::sessionButtonOnAction);

@@ -280,6 +280,8 @@ public class MessageService extends ServiceImpl<MessageMapper, Message> implemen
                 throw new E2Echoxception(null, e.getMessage());
             }
 
+            System.out.println(sendMessageVo);
+
             // 这里只处理用户信息
             if (MessageApiType.GROUP.equals(messageApiVo.getMessageType())) {
                 // 群聊消息，直接反发给所有群成员
@@ -298,7 +300,6 @@ public class MessageService extends ServiceImpl<MessageMapper, Message> implemen
 
                 // 根据群聊 UUID 查询群成员
                 List<User> members = groupUserMapper.listUserByGroupId(group.getId());
-                System.out.println(members);
 
                 // 判断发送者是否存在
                 boolean exist = false;
@@ -315,7 +316,6 @@ public class MessageService extends ServiceImpl<MessageMapper, Message> implemen
                 }
 
                 // 完成反发
-                System.out.println(members);
                 for (User member : members) {
                     try {
                         // 构建发送参数
@@ -353,7 +353,6 @@ public class MessageService extends ServiceImpl<MessageMapper, Message> implemen
             }
 
             // 填充 Message 信息
-            sendMessageVo.setData(objectMapper.writeValueAsString(sendMessageVo.getSendData()));
             sendMessageVo.setFromId(from.getId());
             sendMessageVo.setOwnerId(loginUserStore.getId());
             sendMessageVo.setSessionId(session.getId());

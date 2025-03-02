@@ -2,7 +2,6 @@ package com.github.wrx886.e2echo.client.gui.scene.main.content.group;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.github.wrx886.e2echo.client.common.BeanProvider;
-import com.github.wrx886.e2echo.client.common.E2Echoxception;
 import com.github.wrx886.e2echo.client.model.entity.GroupUser;
 import com.github.wrx886.e2echo.client.model.entity.User;
 import com.github.wrx886.e2echo.client.service.GroupUserService;
@@ -67,7 +66,6 @@ public class GroupMemberCell extends ListCell<User> {
         } else {
             memberNameLabel.setText(item.getName());
             memberPublicKeyLabel.setText(item.getPublicKey());
-
             setGraphic(vBox);
         }
     }
@@ -78,7 +76,7 @@ public class GroupMemberCell extends ListCell<User> {
         if (member != null) {
             // 不允许删除群主
             if (member.getPublicKey().equals(loginUserStore.getPublicKey())) {
-                throw new E2Echoxception(null, "不允许删除群主");
+                throw new RuntimeException("不允许删除群主");
             }
 
             groupUserService.remove(new LambdaQueryWrapper<GroupUser>()

@@ -11,10 +11,14 @@ import com.github.wrx886.e2echo.client.store.GuiStore;
 
 import javafx.collections.ObservableList;
 import javafx.event.Event;
+import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
+import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.ToggleButton;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
 // 会话窗口列表
@@ -23,6 +27,9 @@ public class SessionListView extends VBox {
     private MessageService messageService = BeanProvider.getBean(MessageService.class);
 
     private GuiStore guiStore = BeanProvider.getBean(GuiStore.class);
+
+    // 标题标签
+    private final Label titleLabel;
 
     // 主界面路由
     private final NodeRouter contenNodeRouter;
@@ -44,28 +51,51 @@ public class SessionListView extends VBox {
         // 设置主界面路由
         this.contenNodeRouter = contenNodeRouter;
 
+        // 设置宽度
+        setPrefWidth(270);
+
+        // 设置高度
+        setPrefHeight(690);
+
+        // 设置元素间距
+        setSpacing(5);
+
+        // 设置对齐方案
+        setAlignment(Pos.BOTTOM_CENTER);
+
         // 获取根节点
         ObservableList<Node> root = getChildren();
+
+        // 标题标签
+        titleLabel = new Label("会话");
+        root.add(titleLabel);
+
+        // 按钮布局
+        HBox buttonHBox = new HBox();
+        buttonHBox.setSpacing(5);
+        buttonHBox.setAlignment(Pos.CENTER_LEFT);
+        root.add(buttonHBox);
 
         // 添加会话按钮
         addSessionButton = new Button("添加");
         addSessionButton.setOnAction(this::addSessionButtonOnAction);
-        root.add(addSessionButton);
+        buttonHBox.getChildren().add(addSessionButton);
 
         // 刷新按钮
         reflushButton = new Button("刷新");
         reflushButton.setOnAction(this::reflushButtonOnAction);
-        root.add(reflushButton);
+        buttonHBox.getChildren().add(reflushButton);
 
         // 自动接收按钮
-        autoReceiveToggleButton = new ToggleButton("自动接收已关闭");
+        autoReceiveToggleButton = new ToggleButton("自动接收和群聊已关闭");
         autoReceiveToggleButton.setOnAction(this::autoReceiveToggleButtonOnAction);
-        root.add(autoReceiveToggleButton);
+        buttonHBox.getChildren().add(autoReceiveToggleButton);
 
         // 会话列表
         sessionListView = new ListView<>(guiStore.getSessionVos());
         sessionListView.setCellFactory(param -> new SessionListCell());
         sessionListView.setOnMouseClicked(this::sessionListViewOnMouseClicked);
+        VBox.setVgrow(sessionListView, Priority.ALWAYS);
         root.add(sessionListView);
 
     }
@@ -102,10 +132,10 @@ public class SessionListView extends VBox {
     private void autoReceiveToggleButtonOnAction(Event event) {
         if (autoReceiveToggleButton.isSelected()) {
             messageService.registryAutoReceive(MessageApiType.GROUP);
-            autoReceiveToggleButton.setText("自动接收已开启");
+            autoReceiveToggleButton.setText("自动接收和群聊已开启");
         } else {
             messageService.registryAutoReceive(null);
-            autoReceiveToggleButton.setText("自动接收已关闭");
+            autoReceiveToggleButton.setText("自动接收和群聊已关闭");
         }
     }
 

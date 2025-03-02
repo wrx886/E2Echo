@@ -8,10 +8,12 @@ import com.github.wrx886.e2echo.client.service.GroupUserService;
 import com.github.wrx886.e2echo.client.store.GuiStore;
 
 import javafx.event.Event;
+import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.TextField;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
 // 群成员管理视图
@@ -39,6 +41,16 @@ public class GroupMemberView extends VBox {
     // 构造函数
     public GroupMemberView(NodeRouter contenNodeRouter) {
 
+        // 设置宽度
+        setPrefWidth(520);
+
+        // 设置高度
+        setPrefHeight(690);
+
+        // 这是间隙和对其方式
+        setAlignment(Pos.TOP_LEFT);
+        setSpacing(5);
+
         // 群聊名称
         groupNameLabel = new Label();
         groupNameLabel.textProperty().bind(guiStore.getCurrentGroupName());
@@ -47,6 +59,7 @@ public class GroupMemberView extends VBox {
         // 放入群成员列表
         groupMemberListView = new ListView<>(guiStore.getCurrentGroupMembers());
         groupMemberListView.setCellFactory(param -> new GroupMemberCell());
+        VBox.setVgrow(groupMemberListView, Priority.ALWAYS);
         getChildren().add(groupMemberListView);
 
         // 添加新成员标签

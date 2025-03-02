@@ -9,7 +9,6 @@ import com.github.wrx886.e2echo.client.util.EccUtil;
 import com.github.wrx886.e2echo.client.util.EccUtil.KeyPairHex;
 
 import javafx.event.Event;
-import javafx.geometry.HPos;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -17,7 +16,6 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.GridPane;
-import javafx.scene.layout.HBox;
 
 // 登入页面
 public class LoginScene extends Scene {
@@ -144,19 +142,23 @@ public class LoginScene extends Scene {
         GridPane.setMargin(privateKeyTextField, GRID_MARGIN);
         root.add(privateKeyTextField, 1, 4);
 
+        // 按钮布局
+        GridPane buttonGridPane = new GridPane();
+        buttonGridPane.setAlignment(Pos.CENTER);
+        root.add(buttonGridPane, 1, 5);
+
         // 登入按钮
         loginButton = new Button("登入");
         loginButton.setOnAction(this::onActionLoginButton);
+        GridPane.setMargin(loginButton, GRID_MARGIN);
+        buttonGridPane.add(loginButton, 0, 0);
 
         // 生成密钥对按钮
         generateKeyPairButton = new Button("生产密钥对");
         generateKeyPairButton.setOnAction(this::generateKeyPairButtonOnAction);
+        GridPane.setMargin(generateKeyPairButton, GRID_MARGIN);
+        buttonGridPane.add(generateKeyPairButton, 1, 0);
 
-        // 按钮布局
-        HBox buttonHBox = new HBox(loginButton, generateKeyPairButton);
-        GridPane.setMargin(buttonHBox, GRID_MARGIN);
-        GridPane.setHalignment(buttonHBox, HPos.CENTER);
-        root.add(buttonHBox, 1, 5);
     }
 
     // 获取验证码

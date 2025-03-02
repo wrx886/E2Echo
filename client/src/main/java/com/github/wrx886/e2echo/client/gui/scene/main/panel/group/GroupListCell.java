@@ -4,6 +4,7 @@ import com.github.wrx886.e2echo.client.model.entity.User;
 
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
+import javafx.scene.control.OverrunStyle;
 import javafx.scene.layout.VBox;
 
 public class GroupListCell extends ListCell<User> {
@@ -22,6 +23,8 @@ public class GroupListCell extends ListCell<User> {
 
         // 群聊名称标签
         nameLabel = new Label();
+        nameLabel.setMaxWidth(250);
+        nameLabel.setTextOverrun(OverrunStyle.ELLIPSIS);
 
         // 群聊 UUID
         groupUuidLabel = new Label();
