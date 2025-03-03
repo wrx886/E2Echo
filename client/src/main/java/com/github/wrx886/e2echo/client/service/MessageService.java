@@ -80,8 +80,8 @@ public class MessageService extends ServiceImpl<MessageMapper, Message> implemen
     @Override
     public void afterPropertiesSet() throws Exception {
         // 这里负责绑定 messageWebSocketApi 需要处理的方法
-        messageWebSocketApi.bindCommandMethod("receive", this::receiveHandler);
-        messageWebSocketApi.bindCommandMethod("autoReceive", this::autoReceiveHander);
+        messageWebSocketApi.bind("receive", this::receiveHandler);
+        messageWebSocketApi.bind("autoReceive", this::autoReceiveHander);
     }
 
     // 发送消息
