@@ -280,8 +280,6 @@ public class MessageService extends ServiceImpl<MessageMapper, Message> implemen
                 throw new E2Echoxception(null, e.getMessage());
             }
 
-            System.out.println(sendMessageVo);
-
             // 这里只处理用户信息
             if (MessageApiType.GROUP.equals(messageApiVo.getMessageType())) {
                 // 群聊消息，直接反发给所有群成员
@@ -301,6 +299,8 @@ public class MessageService extends ServiceImpl<MessageMapper, Message> implemen
                 // 根据群聊 UUID 查询群成员
                 List<User> members = groupUserMapper.listUserByGroupId(group.getId());
 
+                System.out.println(members);
+
                 // 判断发送者是否存在
                 boolean exist = false;
                 for (User member : members) {
@@ -312,7 +312,7 @@ public class MessageService extends ServiceImpl<MessageMapper, Message> implemen
 
                 // 发送者不在群内
                 if (!exist) {
-                    throw new E2Echoxception(null, "发送者不在群内");
+                    throw new RuntimeException("发送者不在群内");
                 }
 
                 // 完成反发
@@ -329,12 +329,13 @@ public class MessageService extends ServiceImpl<MessageMapper, Message> implemen
                         returnMessageApiVo.setToPublicKey(member.getPublicKey());
                         // 发送
                         messageWebSocketApi.send(returnMessageApiVo);
-                        return;
                     } catch (Exception e) {
                         e.printStackTrace();
-                        throw new E2Echoxception(null, e.getMessage());
                     }
                 }
+
+                // 结束
+                return;
             } else if (!MessageApiType.USER.equals(messageApiVo.getMessageType())) {
                 throw new E2Echoxception(null, "消息类型错误");
             }
