@@ -17,7 +17,7 @@ public class User extends BaseEntity {
     @TableField(value = "phone")
     private String phone;
 
-    @Schema(description = "ECC521 HEX 公钥")
+    @Schema(description = "ECC HEX 公钥")
     @TableField(value = "public_key")
     private String publicKey;
 

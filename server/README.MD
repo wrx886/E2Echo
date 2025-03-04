@@ -2,11 +2,9 @@
 
 **简介**:E2Echo 后端项目以 ECC（采用 secp256k1 曲线）加密技术为核心，严格遵循“私钥不上服务端”和“用户间公钥线下交换”的安全原则，为用户提供了一种高度安全的端到端加密聊天解决方案。
 
-**Version**:0.0.1-alpha
+**Version**:1.0-SNAPSHOT
 
 **备注**:发送手机验证码的逻辑（com.github.wrx886.e2echo.server.web.service.SmsService）没有实现，而是将信息打印到控制台。
-
-**补充说明**：服务端的ECC模块（com.github.wrx886.e2echo.server.util.EccUtil）中的加密和解密和客户端的ECC模块不通用，但是签名和验证通用，生成的密钥也通用。
 
 [toc]
 
@@ -440,14 +438,14 @@
 
 **响应参数**:
 
-| 参数名称              | 参数说明        | 类型           | schema         |
-| --------------------- | --------------- | -------------- | -------------- |
-| code                  | 返回码          | integer(int32) | integer(int32) |
-| message               | 返回消息        | string         |                |
-| data                  |                 | User           | User           |
-| &emsp;&emsp;id        | 自增主键        | integer(int64) |                |
-| &emsp;&emsp;phone     | 用户的手机号    | string         |                |
-| &emsp;&emsp;publicKey | ECC521 HEX 公钥 | string         |                |
+| 参数名称              | 参数说明     | 类型           | schema         |
+| --------------------- | ------------ | -------------- | -------------- |
+| code                  | 返回码       | integer(int32) | integer(int32) |
+| message               | 返回消息     | string         |                |
+| data                  |              | User           | User           |
+| &emsp;&emsp;id        | 自增主键     | integer(int64) |                |
+| &emsp;&emsp;phone     | 用户的手机号 | string         |                |
+| &emsp;&emsp;publicKey | ECC HEX 公钥 | string         |                |
 
 **响应示例**:
 
