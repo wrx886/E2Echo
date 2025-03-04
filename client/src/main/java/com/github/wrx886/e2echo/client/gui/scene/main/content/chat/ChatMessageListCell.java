@@ -104,7 +104,7 @@ public class ChatMessageListCell extends ListCell<MessageVo> {
                     File file = objectMapper.readValue(item.getData(), File.class);
 
                     // 写入文件名
-                    dataTextLabel.setText(file.getFileName());
+                    dataTextLabel.setText("[文件] " + file.getFileName());
 
                     // 开启按钮
                     openButton.setDisable(false);

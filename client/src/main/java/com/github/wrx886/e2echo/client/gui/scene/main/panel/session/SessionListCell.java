@@ -2,7 +2,10 @@ package com.github.wrx886.e2echo.client.gui.scene.main.panel.session;
 
 import java.text.SimpleDateFormat;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.wrx886.e2echo.client.common.BeanProvider;
+import com.github.wrx886.e2echo.client.model.entity.File;
+import com.github.wrx886.e2echo.client.model.enums.MessageType;
 import com.github.wrx886.e2echo.client.model.vo.SessionVo;
 
 import javafx.scene.control.Label;
@@ -18,6 +21,9 @@ public class SessionListCell extends ListCell<SessionVo> {
 
     // 日期格式化工具
     private SimpleDateFormat simpleDateFormat = BeanProvider.getBean(SimpleDateFormat.class);
+
+    // json
+    private ObjectMapper objectMapper = BeanProvider.getBean(ObjectMapper.class);
 
     // 会话名称
     private final Label sessionNameLabel;
@@ -80,7 +86,21 @@ public class SessionListCell extends ListCell<SessionVo> {
             }
 
             // 发送者和消息
-            fromAndmessageLabel.setText(item.getFromName() + ": " + item.getMessage());
+            if (item.getFromName() != null && item.getMessage() != null) {
+                if (MessageType.TEXT.equals(item.getMessageType())) {
+                    fromAndmessageLabel.setText(item.getFromName() + ": " + item.getMessage());
+                } else if (MessageType.FILE.equals(item.getMessageType())) {
+                    try {
+                        File file = objectMapper.readValue(item.getMessage(), File.class);
+                        fromAndmessageLabel.setText(item.getFromName() + ": " + "[文件] " + file.getFileName());
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        throw new RuntimeException(e.getMessage());
+                    }
+                }
+            } else {
+                fromAndmessageLabel.setText(null);
+            }
 
             // 放入
             setGraphic(vBox);

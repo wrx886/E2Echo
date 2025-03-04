@@ -2,6 +2,8 @@ package com.github.wrx886.e2echo.client.model.vo;
 
 import java.util.Date;
 
+import com.github.wrx886.e2echo.client.model.enums.MessageType;
+
 import lombok.Data;
 
 // 会话
@@ -24,7 +26,7 @@ public class SessionVo {
     private String message;
 
     // 最新消息类型
-    private Integer messageType;
+    private MessageType messageType;
 
     // 最新消息时间
     private Date lastTime;
