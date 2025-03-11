@@ -20,6 +20,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.TextArea;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
@@ -49,6 +50,9 @@ public class ChatView extends VBox {
 
     // 发送文件
     private final Button fileSendButton;
+
+    // 发送图片
+    private final Button pictureSendButton;
 
     // 要发送的消息
     private final TextArea textArea;
@@ -99,10 +103,21 @@ public class ChatView extends VBox {
             }
         });
 
+        // 发送条
+        HBox sendLineHBox = new HBox();
+        sendLineHBox.setSpacing(5);
+        sendLineHBox.setAlignment(Pos.CENTER_LEFT);
+        root.add(sendLineHBox);
+
         // 文件选择器
         fileSendButton = new Button("文件");
         fileSendButton.setOnAction(this::fileSendButtonOnAction);
-        root.add(fileSendButton);
+        sendLineHBox.getChildren().add(fileSendButton);
+
+        // 图片发送器
+        pictureSendButton = new Button("图片");
+        pictureSendButton.setOnAction(this::pictureSendButtonOnAction);
+        sendLineHBox.getChildren().add(pictureSendButton);
 
         // 文本输入框
         textArea = new TextArea();
@@ -135,6 +150,43 @@ public class ChatView extends VBox {
 
     // 发送文件
     private void fileSendButtonOnAction(Event event) {
+        // 获取文件
+        String filePath = fileChoose();
+        if (filePath == null) {
+            return;
+        }
+
+        // 上传文件
+        File file = fileService.upload(filePath);
+        // 发送文件
+        messageService.send(guiStore.getCurrentSessionVo().get().getSessionId(), file, MessageType.FILE);
+
+        // 刷新
+        messageService.updateMessageVosBySession(guiStore.getCurrentSessionVo().get());
+        messageService.updateSessionVos();
+    }
+
+    // 发送图片
+    private void pictureSendButtonOnAction(Event event) {
+        // 获取文件
+        String filePath = fileChoose("图片类型", "*.jpg", "*.png", "*.gif", "*.jfif");
+        if (filePath == null) {
+            return;
+        }
+
+        // 上传文件
+        File file = fileService.upload(filePath);
+
+        // 发送文件
+        messageService.send(guiStore.getCurrentSessionVo().get().getSessionId(), file, MessageType.PICTURE);
+
+        // 刷新
+        messageService.updateMessageVosBySession(guiStore.getCurrentSessionVo().get());
+        messageService.updateSessionVos();
+    }
+
+    // 文件选择器
+    private String fileChoose(String description, String... extensions) {
         // 创建文件选择器实例
         FileChooser fileChooser = new FileChooser();
 
@@ -145,22 +197,20 @@ public class ChatView extends VBox {
         fileChooser.setInitialDirectory(new java.io.File(System.getProperty("user.home")));
 
         // 添加文件类型过滤器（可选）
-        // FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter("视频文件
-        // (*.mp4)", "*");
-        // fileChooser.getExtensionFilters().add(extFilter);
+        if (description != null && extensions.length > 0) {
+            FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter(
+                    description, extensions);
+            fileChooser.getExtensionFilters().add(extFilter);
+        }
 
         // 显示文件选择对话框并获取用户选择的文件
         java.io.File selectedFile = fileChooser.showOpenDialog(null);
 
-        // 上传文件
-        File file = fileService.upload(selectedFile.getAbsolutePath());
-
-        // 发送文件
-        messageService.send(guiStore.getCurrentSessionVo().get().getSessionId(), file, MessageType.FILE);
-
-        // 刷新
-        messageService.updateMessageVosBySession(guiStore.getCurrentSessionVo().get());
-        messageService.updateSessionVos();
+        return selectedFile != null ? selectedFile.getAbsolutePath() : null;
     }
 
+    // 文件选择器
+    private String fileChoose() {
+        return fileChoose(null);
+    }
 }

@@ -97,6 +97,16 @@ public class SessionListCell extends ListCell<SessionVo> {
                         e.printStackTrace();
                         throw new RuntimeException(e.getMessage());
                     }
+                } else if (MessageType.PICTURE.equals(item.getMessageType())) {
+                    try {
+                        File file = objectMapper.readValue(item.getMessage(), File.class);
+                        fromAndmessageLabel.setText(item.getFromName() + ": " + "[图片] " + file.getFileName());
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        throw new RuntimeException(e.getMessage());
+                    }
+                } else {
+                    throw new RuntimeException("不支持的消息类型！");
                 }
             } else {
                 fromAndmessageLabel.setText(null);

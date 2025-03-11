@@ -13,10 +13,14 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.OverrunStyle;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+
+import java.io.FileInputStream;
 import java.io.IOException;
 
 public class ChatMessageListCell extends ListCell<MessageVo> {
@@ -36,11 +40,15 @@ public class ChatMessageListCell extends ListCell<MessageVo> {
     // 内容-文字
     private final Label dataTextLabel;
 
+    // 内容-图片
+    private final ImageView dataImageView;
+
     // 打开文件
     private final Button openButton;
 
     // 展示容器
     private final VBox vBox;
+    private final VBox vBox1;
 
     // 构造函数
     public ChatMessageListCell() {
@@ -65,15 +73,19 @@ public class ChatMessageListCell extends ListCell<MessageVo> {
         dataTextLabel.setMaxWidth(430);
         dataTextLabel.setWrapText(true);
 
+        // 内容-图片
+        dataImageView = new ImageView();
+
         // 打开文件
         openButton = new Button("打开");
 
         // 文本的开启按钮容器
-        HBox hBox2 = new HBox(dataTextLabel, openButton);
-        hBox2.setSpacing(5);
+        vBox1 = new VBox(dataTextLabel);
+        vBox1.setSpacing(5);
 
         // 容器
-        vBox = new VBox(hBox1, hBox2);
+        vBox = new VBox(hBox1, vBox1);
+        vBox.setSpacing(5);
     }
 
     @Override
@@ -94,17 +106,37 @@ public class ChatMessageListCell extends ListCell<MessageVo> {
                 // 发送时间
                 sendTimeLabel.setText(simpleDateFormat.format(item.getSendTime()));
 
+                // 删除容器
+                vBox1.getChildren().remove(dataImageView);
+                vBox1.getChildren().remove(openButton);
+
                 if (MessageType.TEXT.equals(item.getType())) {
                     // 文字展示
                     dataTextLabel.setText(item.getData());
-                    openButton.setDisable(true);
-                    openButton.setVisible(false);
-                } else if (MessageType.FILE.equals(item.getType())) {
+                } else if (MessageType.FILE.equals(item.getType()) || MessageType.PICTURE.equals(item.getType())) {
                     // 解析文件
                     File file = objectMapper.readValue(item.getData(), File.class);
 
-                    // 写入文件名
-                    dataTextLabel.setText("[文件] " + file.getFileName());
+                    // 图片显示
+                    if (MessageType.PICTURE.equals(item.getType())) {
+                        // 增加图片容器
+                        vBox1.getChildren().add(dataImageView);
+
+                        Image image = new Image(new FileInputStream(file.getPath()));
+                        dataImageView.setImage(image);
+
+                        // 计算图片显示大小
+                        double scale = 430 / Math.max(image.getHeight(), image.getWidth());
+                        dataImageView.setFitWidth(scale * image.getWidth());
+                        dataImageView.setFitHeight(scale * image.getHeight());
+                        dataTextLabel.setText("[图片] " + file.getFileName());
+                    } else {
+                        dataImageView.setImage(null);
+                        dataTextLabel.setText("[文件] " + file.getFileName());
+                    }
+
+                    // 增加打开按钮
+                    vBox1.getChildren().add(openButton);
 
                     // 开启按钮
                     openButton.setDisable(false);
@@ -132,7 +164,7 @@ public class ChatMessageListCell extends ListCell<MessageVo> {
         String osName = System.getProperty("os.name").toLowerCase();
 
         try {
-            if (osName.contains("win")) {
+            if (osName.contains("windows")) {
                 // Windows
                 processBuilder.command("cmd", "/c", "\"" + filePath + "\"");
             } else if (osName.contains("mac")) {
