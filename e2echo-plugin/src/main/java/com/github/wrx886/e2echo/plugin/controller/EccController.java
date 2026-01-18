@@ -22,25 +22,25 @@ public class EccController {
 
     private final EccService eccService;
 
-    @Operation(summary = "加密")
+    @Operation(summary = "加密，需要传入：fromPublicKeyHex, toPublicKeyHex, data")
     @PostMapping("/encrypt")
     public Result<EccMessage> encrypt(@RequestBody EccMessage eccMessage) {
         return Result.ok(eccService.encrypt(eccMessage));
     }
 
-    @Operation(summary = "解密")
+    @Operation(summary = "解密，需要传入所有属性值")
     @PostMapping("/decrypt")
     public Result<EccMessage> decrypt(@RequestBody EccMessage eccMessage) {
         return Result.ok(eccService.decrypt(eccMessage));
     }
 
-    @Operation(summary = "签名")
+    @Operation(summary = "签名，需要传入：fromPublicKeyHex, toPublicKeyHex（可选）, data")
     @PostMapping("/sign")
     public Result<EccMessage> sign(@RequestBody EccMessage eccMessage) {
         return Result.ok(eccService.sign(eccMessage));
     }
 
-    @Operation(summary = "验证签名")
+    @Operation(summary = "验证签名，需要传入所有属性值")
     @PostMapping("/verify")
     public Result<Boolean> verify(@RequestBody EccMessage eccMessage) {
         return Result.ok(EccService.verify(eccMessage));

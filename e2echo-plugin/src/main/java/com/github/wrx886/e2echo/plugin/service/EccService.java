@@ -104,6 +104,11 @@ public class EccService {
             throw new E2EchoException(ResultCodeEnum.ECC_PUBLIC_KEY_IS_EMPTY);
         }
 
+        // 检查发送方公钥是否存在
+        if (eccMessage.getFromPublicKeyHex() == null || eccMessage.getFromPublicKeyHex().isBlank()) {
+            throw new E2EchoException(ResultCodeEnum.ECC_PUBLIC_KEY_IS_EMPTY);
+        }
+
         // 检查发送方公钥是否匹配
         if (!eccMessage.getFromPublicKeyHex().equals(eccKeyStore.getPublicKeyHex())) {
             throw new E2EchoException(ResultCodeEnum.ECC_PUBLIC_KEY_NOT_MATCH);
@@ -162,6 +167,11 @@ public class EccService {
         // 接收方公钥不匹配
         if (!eccMessage.getToPublicKeyHex().equals(eccKeyStore.getPublicKeyHex())) {
             throw new E2EchoException(ResultCodeEnum.ECC_PUBLIC_KEY_NOT_MATCH);
+        }
+
+        // 发送方公钥不存在
+        if (eccMessage.getFromPublicKeyHex() == null || eccMessage.getFromPublicKeyHex().isBlank()) {
+            throw new E2EchoException(ResultCodeEnum.ECC_PUBLIC_KEY_IS_EMPTY);
         }
 
         // 验证签名
@@ -224,10 +234,10 @@ public class EccService {
 
         // 设置基本信息
         EccMessage result = new EccMessage();
-        result.setUuid(eccMessage.getUuid());
-        result.setTimestamp(eccMessage.getTimestamp());
+        result.setUuid(UUID.randomUUID().toString());
+        result.setTimestamp(Long.toString(System.currentTimeMillis()));
         result.setFromPublicKeyHex(eccMessage.getFromPublicKeyHex());
-        result.setToPublicKeyHex(eccMessage.getToPublicKeyHex());
+        result.setToPublicKeyHex(eccMessage.getToPublicKeyHex() != null ? eccMessage.getToPublicKeyHex() : "");
         result.setData(eccMessage.getData());
 
         // 签名
