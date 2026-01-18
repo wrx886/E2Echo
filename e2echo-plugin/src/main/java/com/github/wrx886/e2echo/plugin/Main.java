@@ -13,8 +13,19 @@ import javafx.application.Application;
 public class Main {
 
     public static void main(String[] args) {
+        // 设置 web 端口
+        System.setProperty("server.port", isPortAvailable(35010) ? "35010" : "0");
+
         SpringApplication.run(Main.class, args);
         Application.launch(GuiMain.class, args);
+    }
+
+    private static boolean isPortAvailable(int port) {
+        try (java.net.ServerSocket serverSocket = new java.net.ServerSocket(port)) {
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
 }
