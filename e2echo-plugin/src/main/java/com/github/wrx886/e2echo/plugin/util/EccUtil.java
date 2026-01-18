@@ -12,6 +12,7 @@ import org.bouncycastle.util.encoders.Hex;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import javax.crypto.Cipher;
 
@@ -29,10 +30,11 @@ public final class EccUtil {
 
     // RAW HEX 格式的密钥对
     @Data
+    @NoArgsConstructor
     @AllArgsConstructor
     public static class KeyPairHex {
-        private final String publicKeyHex;
-        private final String privateKeyHex;
+        private String publicKeyHex;
+        private String privateKeyHex;
     }
 
     /**
