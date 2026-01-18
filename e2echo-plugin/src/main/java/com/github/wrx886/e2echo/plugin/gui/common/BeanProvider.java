@@ -1,4 +1,4 @@
-package com.github.wrx886.e2echo.plugin.util;
+package com.github.wrx886.e2echo.plugin.gui.common;
 
 import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component;
 
 // Bean 提供者工具类，为 JavaFX 提供 SpringBoot 上下文和 Bean 获取功能
 @Component
-public class BeanProviderUtil implements ApplicationContextAware {
+public class BeanProvider implements ApplicationContextAware {
     // 上下文
     private static ApplicationContext applicationContext;
 
@@ -23,6 +23,6 @@ public class BeanProviderUtil implements ApplicationContextAware {
 
     @Override
     public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
-        BeanProviderUtil.applicationContext = applicationContext;
+        BeanProvider.applicationContext = applicationContext;
     }
 }
