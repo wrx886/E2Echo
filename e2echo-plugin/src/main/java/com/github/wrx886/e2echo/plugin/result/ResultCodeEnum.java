@@ -18,7 +18,8 @@ public enum ResultCodeEnum {
     ECC_SIGNATURE_NOT_MATCH("AA06", "ECC 签名不匹配"),
     ECC_SIGNATURE_VERIFY_FAILED("AA07", "ECC 签名验证失败"),
     ECC_DECRYPT_FAILED("AA08", "ECC 解密失败"),
-    ECC_KEY_PAIR_INVALID("AA09", "ECC 公钥和私钥不匹配或不合法");
+    ECC_KEY_PAIR_INVALID("AA09", "ECC 公钥和私钥不匹配或不合法"),
+    ECC_KEY_PAIR_GENERATION_FAILED("AA10", "ECC 公钥和私钥生成失败");
 
     @Schema(description = "状态码")
     private final String code;

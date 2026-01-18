@@ -11,6 +11,7 @@ import com.github.wrx886.e2echo.plugin.result.E2EchoException;
 import com.github.wrx886.e2echo.plugin.result.ResultCodeEnum;
 import com.github.wrx886.e2echo.plugin.store.EccKeyStore;
 import com.github.wrx886.e2echo.plugin.util.EccUtil;
+import com.github.wrx886.e2echo.plugin.util.EccUtil.KeyPairHex;
 
 import lombok.AllArgsConstructor;
 
@@ -20,6 +21,19 @@ public class EccService {
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
     private final EccKeyStore eccKeyStore;
+
+    /**
+     * 生成密钥对
+     * 
+     * @return 密钥对
+     */
+    public KeyPairHex generateKeyPair() {
+        try {
+            return EccUtil.generateKeyPair();
+        } catch (Exception e) {
+            throw new E2EchoException(ResultCodeEnum.ECC_KEY_PAIR_GENERATION_FAILED);
+        }
+    }
 
     /**
      * 登入
