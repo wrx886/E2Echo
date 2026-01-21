@@ -5,6 +5,8 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.springframework.stereotype.Component;
 
+import com.github.wrx886.e2echo.plugin.util.EccUtil.KeyPairHex;
+
 // ECC密钥存储组件
 @Component
 public final class EccKeyStore {
@@ -18,6 +20,12 @@ public final class EccKeyStore {
     // 私钥 HEX 格式
     private String privateKeyHex;
 
+    /**
+     * 设置密钥对
+     * 
+     * @param publicKeyHex  公钥 HEX 格式
+     * @param privateKeyHex 私钥 HEX 格式
+     */
     public void set(String publicKeyHex, String privateKeyHex) {
         lock.writeLock().lock();
         try {
@@ -30,31 +38,25 @@ public final class EccKeyStore {
     }
 
     /**
-     * 获取 RAW HEX 格式的公钥
+     * 获取密钥对
      * 
-     * @return RAW HEX 格式的公钥
+     * @return HEX 格式密钥对
      */
-    public String getPublicKeyHex() {
+    public KeyPairHex get() {
         lock.readLock().lock();
         try {
-            return publicKeyHex;
+            // 获取密钥对
+            return new KeyPairHex(publicKeyHex, privateKeyHex);
         } finally {
             lock.readLock().unlock();
         }
     }
 
     /**
-     * 获取 RAW HEX 格式的私钥
-     * 
-     * @return RAW HEX 格式的私钥
+     * 清空密钥对
      */
-    public String getPrivateKeyHex() {
-        lock.readLock().lock();
-        try {
-            return privateKeyHex;
-        } finally {
-            lock.readLock().unlock();
-        }
+    public void clear() {
+        set(null, null);
     }
 
 }

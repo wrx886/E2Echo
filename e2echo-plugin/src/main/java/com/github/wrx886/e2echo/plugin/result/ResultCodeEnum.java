@@ -20,6 +20,7 @@ public enum ResultCodeEnum {
     ECC_DECRYPT_FAILED("AA08", "ECC 解密失败"),
     ECC_KEY_PAIR_INVALID("AA09", "ECC 公钥和私钥不匹配或不合法"),
     ECC_KEY_PAIR_GENERATION_FAILED("AA10", "ECC 公钥和私钥生成失败"),
+    ECC_DATA_IS_EMPTY("AA11", "ECC 数据为空"),
 
     // GUI 相关
     GUI_SAVE_JSON_FILE_FAILED("AB01", "GUI 保存 JSON 文件失败"),

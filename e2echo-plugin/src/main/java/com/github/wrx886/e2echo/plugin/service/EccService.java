@@ -1,6 +1,6 @@
 package com.github.wrx886.e2echo.plugin.service;
 
-import java.util.Map;
+import java.util.LinkedHashMap;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
@@ -38,27 +38,27 @@ public class EccService {
     /**
      * 登入
      * 
-     * @param publcKeyHex   公钥
+     * @param publicKeyHex  公钥
      * @param privateKeyHex 私钥
      */
-    public void login(String publcKeyHex, String privateKeyHex) {
+    public void login(String publicKeyHex, String privateKeyHex) {
         try {
             // 检查公钥和私钥是否匹配
             String plain = UUID.randomUUID().toString();
-            String cipher = EccUtil.encrypt(plain, publcKeyHex);
+            String cipher = EccUtil.encrypt(plain, publicKeyHex);
             String decrypted = EccUtil.decrypt(cipher, privateKeyHex);
             if (!plain.equals(decrypted)) {
                 // 公私钥不匹配
                 throw new E2EchoException(ResultCodeEnum.ECC_KEY_PAIR_INVALID);
             }
             String sign = EccUtil.sign(plain, privateKeyHex);
-            if (!EccUtil.verify(plain, sign, publcKeyHex)) {
+            if (!EccUtil.verify(plain, sign, publicKeyHex)) {
                 // 公私钥不匹配
                 throw new E2EchoException(ResultCodeEnum.ECC_KEY_PAIR_INVALID);
             }
 
             // 设置密钥对
-            eccKeyStore.set(publcKeyHex, privateKeyHex);
+            eccKeyStore.set(publicKeyHex, privateKeyHex);
         } catch (E2EchoException e) {
             throw e;
         } catch (Exception e) {
@@ -70,7 +70,7 @@ public class EccService {
      * 登出
      */
     public void logout() {
-        eccKeyStore.set(null, null);
+        eccKeyStore.clear();
     }
 
     /**
@@ -79,12 +79,13 @@ public class EccService {
      * @return ROW HEX 格式的公钥
      */
     public String getPublicKey() {
+        KeyPairHex keyPairHex = eccKeyStore.get();
         // 用户未登入
-        if (eccKeyStore.getPublicKeyHex() == null || eccKeyStore.getPrivateKeyHex() == null) {
+        if (keyPairHex.getPublicKeyHex() == null || keyPairHex.getPrivateKeyHex() == null) {
             throw new E2EchoException(ResultCodeEnum.ECC_NOT_LOGIN);
         }
 
-        return eccKeyStore.getPublicKeyHex();
+        return keyPairHex.getPublicKeyHex();
     }
 
     /**
@@ -94,8 +95,10 @@ public class EccService {
      * @return 加密后的 ECC 消息
      */
     public EccMessage encrypt(EccMessage eccMessage) {
+        KeyPairHex keyPairHex = eccKeyStore.get();
+
         // 用户未登入
-        if (eccKeyStore.getPublicKeyHex() == null || eccKeyStore.getPrivateKeyHex() == null) {
+        if (keyPairHex.getPublicKeyHex() == null || keyPairHex.getPrivateKeyHex() == null) {
             throw new E2EchoException(ResultCodeEnum.ECC_NOT_LOGIN);
         }
 
@@ -110,7 +113,7 @@ public class EccService {
         }
 
         // 检查发送方公钥是否匹配
-        if (!eccMessage.getFromPublicKeyHex().equals(eccKeyStore.getPublicKeyHex())) {
+        if (!eccMessage.getFromPublicKeyHex().equals(keyPairHex.getPublicKeyHex())) {
             throw new E2EchoException(ResultCodeEnum.ECC_PUBLIC_KEY_NOT_MATCH);
         }
 
@@ -123,22 +126,24 @@ public class EccService {
         result.setFromPublicKeyHex(eccMessage.getFromPublicKeyHex());
         result.setToPublicKeyHex(eccMessage.getToPublicKeyHex());
 
+        // 检查数据是否为空
+        if (eccMessage.getData() == null || eccMessage.getData().isBlank()) {
+            throw new E2EchoException(ResultCodeEnum.ECC_DATA_IS_EMPTY);
+        }
+
         // 加密数据
         try {
-            result.setData(EccUtil.encrypt(eccMessage.getData(), result.getToPublicKeyHex()));
+            result.setData(EccUtil.encrypt(eccMessage.getData(),
+                    result.getToPublicKeyHex()));
         } catch (Exception e) {
             throw new E2EchoException(ResultCodeEnum.ECC_ENCRYPT_FAILED);
         }
 
         // 生成签名
         try {
-            result.setSignature(EccUtil.sign(objectMapper.writeValueAsString(
-                    Map.of("uuid", result.getUuid(),
-                            "timestamp", result.getTimestamp(),
-                            "fromPublicKeyHex", result.getFromPublicKeyHex(),
-                            "toPublicKeyHex", result.getToPublicKeyHex(),
-                            "data", result.getData())),
-                    eccKeyStore.getPrivateKeyHex()));
+            result.setSignature(EccUtil.sign(
+                    objectMapper.writeValueAsString(toMap(result)),
+                    keyPairHex.getPrivateKeyHex()));
         } catch (Exception e) {
             throw new E2EchoException(ResultCodeEnum.ECC_SIGN_FAILED);
         }
@@ -154,8 +159,10 @@ public class EccService {
      * @return 未加密的 ECC 消息
      */
     public EccMessage decrypt(EccMessage eccMessage) {
+        KeyPairHex keyPairHex = eccKeyStore.get();
+
         // 用户未登入
-        if (eccKeyStore.getPublicKeyHex() == null || eccKeyStore.getPrivateKeyHex() == null) {
+        if (keyPairHex.getPublicKeyHex() == null || keyPairHex.getPrivateKeyHex() == null) {
             throw new E2EchoException(ResultCodeEnum.ECC_NOT_LOGIN);
         }
 
@@ -165,7 +172,7 @@ public class EccService {
         }
 
         // 接收方公钥不匹配
-        if (!eccMessage.getToPublicKeyHex().equals(eccKeyStore.getPublicKeyHex())) {
+        if (!eccMessage.getToPublicKeyHex().equals(keyPairHex.getPublicKeyHex())) {
             throw new E2EchoException(ResultCodeEnum.ECC_PUBLIC_KEY_NOT_MATCH);
         }
 
@@ -176,12 +183,8 @@ public class EccService {
 
         // 验证签名
         try {
-            if (!EccUtil.verify(objectMapper.writeValueAsString(
-                    Map.of("uuid", eccMessage.getUuid(),
-                            "timestamp", eccMessage.getTimestamp(),
-                            "fromPublicKeyHex", eccMessage.getFromPublicKeyHex(),
-                            "toPublicKeyHex", eccMessage.getToPublicKeyHex(),
-                            "data", eccMessage.getData())),
+            if (!EccUtil.verify(
+                    objectMapper.writeValueAsString(toMap(eccMessage)),
                     eccMessage.getSignature(), eccMessage.getFromPublicKeyHex())) {
                 throw new E2EchoException(ResultCodeEnum.ECC_SIGNATURE_NOT_MATCH);
             }
@@ -201,7 +204,7 @@ public class EccService {
 
         // 解密消息
         try {
-            result.setData(EccUtil.decrypt(eccMessage.getData(), eccKeyStore.getPrivateKeyHex()));
+            result.setData(EccUtil.decrypt(eccMessage.getData(), keyPairHex.getPrivateKeyHex()));
         } catch (Exception e) {
             throw new E2EchoException(ResultCodeEnum.ECC_DECRYPT_FAILED);
         }
@@ -217,8 +220,10 @@ public class EccService {
      * @return 已签名的 ECC 消息
      */
     public EccMessage sign(EccMessage eccMessage) {
+        KeyPairHex keyPairHex = eccKeyStore.get();
+
         // 用户未登入
-        if (eccKeyStore.getPublicKeyHex() == null || eccKeyStore.getPrivateKeyHex() == null) {
+        if (keyPairHex.getPublicKeyHex() == null || keyPairHex.getPrivateKeyHex() == null) {
             throw new E2EchoException(ResultCodeEnum.ECC_NOT_LOGIN);
         }
 
@@ -228,8 +233,13 @@ public class EccService {
         }
 
         // 签名方公钥不匹配
-        if (!eccMessage.getFromPublicKeyHex().equals(eccKeyStore.getPublicKeyHex())) {
+        if (!eccMessage.getFromPublicKeyHex().equals(keyPairHex.getPublicKeyHex())) {
             throw new E2EchoException(ResultCodeEnum.ECC_PUBLIC_KEY_NOT_MATCH);
+        }
+
+        // 检查数据是否为空
+        if (eccMessage.getData() == null || eccMessage.getData().isBlank()) {
+            throw new E2EchoException(ResultCodeEnum.ECC_DATA_IS_EMPTY);
         }
 
         // 设置基本信息
@@ -242,13 +252,9 @@ public class EccService {
 
         // 签名
         try {
-            result.setSignature(EccUtil.sign(objectMapper.writeValueAsString(
-                    Map.of("uuid", result.getUuid(),
-                            "timestamp", result.getTimestamp(),
-                            "fromPublicKeyHex", result.getFromPublicKeyHex(),
-                            "toPublicKeyHex", result.getToPublicKeyHex(),
-                            "data", result.getData())),
-                    eccKeyStore.getPrivateKeyHex()));
+            result.setSignature(EccUtil.sign(
+                    objectMapper.writeValueAsString(toMap(result)),
+                    keyPairHex.getPrivateKeyHex()));
         } catch (Exception e) {
             throw new E2EchoException(ResultCodeEnum.ECC_SIGN_FAILED);
         }
@@ -265,17 +271,29 @@ public class EccService {
     public static boolean verify(EccMessage eccMessage) {
         try {
             // 验证签名
-            return EccUtil.verify(objectMapper.writeValueAsString(
-                    Map.of("uuid", eccMessage.getUuid(),
-                            "timestamp", eccMessage.getTimestamp(),
-                            "fromPublicKeyHex", eccMessage.getFromPublicKeyHex(),
-                            "toPublicKeyHex", eccMessage.getToPublicKeyHex(),
-                            "data", eccMessage.getData())),
+            return EccUtil.verify(
+                    objectMapper.writeValueAsString(toMap(eccMessage)),
                     eccMessage.getSignature(), eccMessage.getFromPublicKeyHex());
         } catch (Exception e) {
             // 出现异常，返回失败
             return false;
         }
+    }
+
+    /**
+     * 将 ECC 消息转为 Map
+     * 
+     * @param eccMessage ECC 消息
+     * @return Map
+     */
+    private static LinkedHashMap<String, String> toMap(EccMessage eccMessage) {
+        LinkedHashMap<String, String> map = new LinkedHashMap<>();
+        map.put("uuid", eccMessage.getUuid());
+        map.put("timestamp", eccMessage.getTimestamp());
+        map.put("fromPublicKeyHex", eccMessage.getFromPublicKeyHex());
+        map.put("toPublicKeyHex", eccMessage.getToPublicKeyHex());
+        map.put("data", eccMessage.getData());
+        return map;
     }
 
 }
