@@ -3,7 +3,7 @@ package com.github.wrx886.e2echo.server.util;
 import java.util.LinkedHashMap;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.wrx886.e2echo.server.model.entity.EccMessage;
+import com.github.wrx886.e2echo.server.model.EccMessage;
 
 public final class EccMessageUtil {
 

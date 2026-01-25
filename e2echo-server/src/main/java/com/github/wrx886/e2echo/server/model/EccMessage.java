@@ -1,4 +1,4 @@
-package com.github.wrx886.e2echo.server.model.entity;
+package com.github.wrx886.e2echo.server.model;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
