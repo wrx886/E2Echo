@@ -117,6 +117,11 @@ public class EccService {
             throw new E2EchoException(ResultCodeEnum.ECC_PUBLIC_KEY_NOT_MATCH);
         }
 
+        // 检查数据是否为空
+        if (eccMessage.getData() == null) {
+            throw new E2EchoException(ResultCodeEnum.ECC_DATA_IS_NULL);
+        }
+
         // 生成 UUID 和时间戳
         EccMessage result = new EccMessage();
         result.setUuid(UUID.randomUUID().toString());
@@ -125,11 +130,6 @@ public class EccService {
         // 设置发送方和接收方公钥
         result.setFromPublicKeyHex(eccMessage.getFromPublicKeyHex());
         result.setToPublicKeyHex(eccMessage.getToPublicKeyHex());
-
-        // 检查数据是否为空
-        if (eccMessage.getData() == null || eccMessage.getData().isBlank()) {
-            throw new E2EchoException(ResultCodeEnum.ECC_DATA_IS_EMPTY);
-        }
 
         // 加密数据
         try {
@@ -238,8 +238,8 @@ public class EccService {
         }
 
         // 检查数据是否为空
-        if (eccMessage.getData() == null || eccMessage.getData().isBlank()) {
-            throw new E2EchoException(ResultCodeEnum.ECC_DATA_IS_EMPTY);
+        if (eccMessage.getData() == null) {
+            throw new E2EchoException(ResultCodeEnum.ECC_DATA_IS_NULL);
         }
 
         // 设置基本信息
