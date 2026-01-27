@@ -3,6 +3,8 @@ package com.github.wrx886.e2echo.server.service.impl;
 import java.util.Date;
 import java.util.List;
 
+import org.springframework.stereotype.Service;
+
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.github.wrx886.e2echo.server.mapper.MessageMapper;
@@ -13,6 +15,7 @@ import com.github.wrx886.e2echo.server.result.ResultCodeEnum;
 import com.github.wrx886.e2echo.server.service.MessageService;
 import com.github.wrx886.e2echo.server.util.EccMessageUtil;
 
+@Service
 public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> implements MessageService {
 
     /**

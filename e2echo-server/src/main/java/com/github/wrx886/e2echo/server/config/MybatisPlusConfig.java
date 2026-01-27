@@ -1,5 +1,6 @@
 package com.github.wrx886.e2echo.server.config;
 
+import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -9,6 +10,7 @@ import com.baomidou.mybatisplus.extension.plugins.inner.BlockAttackInnerIntercep
 import com.baomidou.mybatisplus.extension.plugins.inner.PaginationInnerInterceptor;
 
 @Configuration
+@MapperScan("com.github.wrx886.e2echo.server.mapper")
 public class MybatisPlusConfig {
 
     @Bean
