@@ -26,7 +26,7 @@ public class BaseEntity {
     private Date createTime;
 
     @Schema(description = "更新时间")
-    @TableField(value = "update_time", fill = FieldFill.UPDATE, select = false)
+    @TableField(value = "update_time", fill = FieldFill.INSERT_UPDATE, select = false)
     @JsonIgnore
     private Date updateTime;
 

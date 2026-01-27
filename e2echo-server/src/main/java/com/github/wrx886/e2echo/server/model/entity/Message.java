@@ -39,7 +39,7 @@ public class Message extends BaseEntity {
     private String signature;
 
     // 如果为群聊消息，toPublicKeyHex 改为群聊的 UUID
-    @TableField(value = "group")
+    @TableField(value = "group_")
     @Schema(description = "是否是群聊消息")
     private Boolean group;
 
