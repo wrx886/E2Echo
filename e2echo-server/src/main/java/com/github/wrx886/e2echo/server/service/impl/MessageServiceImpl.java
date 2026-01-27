@@ -31,7 +31,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         // 封装成数据库实体
         Message message = new Message();
         message.setUuid(eccMessage.getUuid());
-        message.setTimestamp(new Date(Long.valueOf(eccMessage.getTimestamp())));
+        message.setTimestamp(Long.valueOf(eccMessage.getTimestamp()));
         message.setFromPublicKeyHex(eccMessage.getFromPublicKeyHex());
         message.setToPublicKeyHex(eccMessage.getToPublicKeyHex());
         message.setData(eccMessage.getData());
@@ -64,7 +64,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         return messages.stream().map(message -> {
             EccMessage eccMessage = new EccMessage();
             eccMessage.setUuid(message.getUuid());
-            eccMessage.setTimestamp(Long.toString(message.getTimestamp().getTime()));
+            eccMessage.setTimestamp(Long.toString(message.getTimestamp()));
             eccMessage.setFromPublicKeyHex(message.getFromPublicKeyHex());
             eccMessage.setToPublicKeyHex(message.getToPublicKeyHex());
             eccMessage.setData(message.getData());
@@ -76,7 +76,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
     /**
      * 发送群聊消息
      * 
-     * @param eccMessage 群聊消息，toPublicKeyHex 存储群聊 UUID
+     * @param eccMessage 群聊消息，toPublicKeyHex 存储群聊 UUID（格式：{群主公钥}:{群聊UUID}）
      */
     @Override
     public void sendGroup(EccMessage eccMessage) {
@@ -86,7 +86,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         // 封装成数据库实体
         Message message = new Message();
         message.setUuid(eccMessage.getUuid());
-        message.setTimestamp(new Date(Long.valueOf(eccMessage.getTimestamp())));
+        message.setTimestamp(Long.valueOf(eccMessage.getTimestamp()));
         message.setFromPublicKeyHex(eccMessage.getFromPublicKeyHex());
         message.setToPublicKeyHex(eccMessage.getToPublicKeyHex());
         message.setData(eccMessage.getData());
@@ -100,7 +100,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
     /**
      * 获取群聊消息
      * 
-     * @param groupUuid      群聊 UUID
+     * @param groupUuid      群聊 UUID（格式：{群主公钥}:{群聊UUID}）
      * @param startTimestamp 起始时间
      */
     @Override
@@ -118,7 +118,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         return messages.stream().map(message -> {
             EccMessage eccMessage = new EccMessage();
             eccMessage.setUuid(message.getUuid());
-            eccMessage.setTimestamp(Long.toString(message.getTimestamp().getTime()));
+            eccMessage.setTimestamp(Long.toString(message.getTimestamp()));
             eccMessage.setFromPublicKeyHex(message.getFromPublicKeyHex());
             eccMessage.setToPublicKeyHex(message.getToPublicKeyHex());
             eccMessage.setData(message.getData());

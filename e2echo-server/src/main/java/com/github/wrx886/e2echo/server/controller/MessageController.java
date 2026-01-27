@@ -43,7 +43,7 @@ public class MessageController {
     @Operation(summary = "发送群聊消息")
     @PostMapping("/sendGroup")
     public Result<Void> sendGroup(
-            @Parameter(description = "消息，toPublicKeyHex字段填写群聊 UUID") @RequestBody EccMessage eccMessage) {
+            @Parameter(description = "消息，toPublicKeyHex字段填写群聊 UUID（格式：{群主公钥}:{群聊UUID}）") @RequestBody EccMessage eccMessage) {
         messageService.sendGroup(eccMessage);
         return Result.ok();
     }
@@ -51,7 +51,7 @@ public class MessageController {
     @Operation(summary = "接收群聊消息")
     @PostMapping("/receiveGroup")
     public Result<List<EccMessage>> receiveGroup(
-            @Parameter(description = "群聊 UUID") String groupUuid,
+            @Parameter(description = "群聊 UUID（格式：{群主公钥}:{群聊UUID}）") String groupUuid,
             @Parameter(description = "起始时间") String startTimestamp) {
         return Result.ok(messageService.receiveGroup(groupUuid, startTimestamp));
     }

@@ -25,7 +25,7 @@ public interface MessageService extends IService<Message> {
     List<EccMessage> receiveOne(String toPublicKeyHex, String startTimestamp);
 
     /**
-     * 发送群聊消息
+     * 发送群聊消息（格式：{群主公钥}:{群聊UUID}）
      * 
      * @param eccMessage 群聊消息，toPublicKeyHex 存储群聊 UUID
      */
@@ -34,7 +34,7 @@ public interface MessageService extends IService<Message> {
     /**
      * 获取群聊消息
      * 
-     * @param groupUuid      群聊 UUID
+     * @param groupUuid      群聊 UUID（格式：{群主公钥}:{群聊UUID}）
      * @param startTimestamp 起始时间
      * @return 群聊消息
      */

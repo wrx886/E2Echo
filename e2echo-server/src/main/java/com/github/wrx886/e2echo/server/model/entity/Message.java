@@ -1,7 +1,5 @@
 package com.github.wrx886.e2echo.server.model.entity;
 
-import java.util.Date;
-
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 
@@ -18,9 +16,9 @@ public class Message extends BaseEntity {
     @Schema(description = "UUID")
     private String uuid;
 
-    @TableField(value = "timestamp")
+    @TableField(value = "timestamp_")
     @Schema(description = "时间戳(int64)，表示自1970年1月1日00:00:00 UTC以来的毫秒数")
-    private Date timestamp;
+    private Long timestamp;
 
     @TableField(value = "from_public_key_hex")
     @Schema(description = "发送者公钥")
@@ -38,7 +36,7 @@ public class Message extends BaseEntity {
     @Schema(description = "签名")
     private String signature;
 
-    // 如果为群聊消息，toPublicKeyHex 改为群聊的 UUID
+    // 如果为群聊消息，toPublicKeyHex 改为群聊的 UUID（（格式：{群主公钥}:{群聊UUID}））
     @TableField(value = "group_")
     @Schema(description = "是否是群聊消息")
     private Boolean group;
