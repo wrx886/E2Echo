@@ -80,7 +80,7 @@ public class MessageWebSocketHandler extends BaseWebSocketHandler {
      * 
      * @param session 会话
      */
-    public void unsubscribe(WebSocketSession session) {
+    public void unsubscribeOne(WebSocketSession session) {
         messageService.unsubscribeOne(session.getId());
     }
 
