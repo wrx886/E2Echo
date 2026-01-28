@@ -20,6 +20,13 @@ public enum ResultCodeEnum {
     MESSAGE_SIGNATURE_IS_EMPTY("A008", "ECC 签名为空"),
     MESSAGE_SIGNATURE_NOT_MATCH("A009", "ECC 签名不匹配"),
 
+    // WebSocket 相关
+    WEB_SOCKET_REQUEST_FARMAT_ERROR("B001", "WebSocket 请求格式错误"),
+    WEB_SOCKET_REQUEST_ID_EMPTY("B002", "WebSocket 请求 ID 为空"),
+    WEB_SOCKET_REQUEST_COMMAND_EMPTY("B003", "WebSocket 命令为空"),
+    WEB_SOCKET_REQUEST_NOT_FOUND("B004", "WebSocket 命令未找到"),
+    WEB_SOCKET_REQUEST_PARAM_ERROR("B005", "WebSocket 参数错误"),
+
     ;
 
     @Schema(description = "状态码")
