@@ -22,6 +22,9 @@ import com.github.wrx886.e2echo.server.model.socket.WebSocketResult;
 import com.github.wrx886.e2echo.server.result.E2EchoException;
 import com.github.wrx886.e2echo.server.result.ResultCodeEnum;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 public abstract class BaseWebSocketHandler extends TextWebSocketHandler {
 
     private static ObjectMapper objectMapper = new ObjectMapper();
@@ -167,16 +170,11 @@ public abstract class BaseWebSocketHandler extends TextWebSocketHandler {
                     new TextMessage(objectMapper.writeValueAsString(
                             WebSocketResult.build(webSocketRequest.getId(), webSocketRequest.getCommand(),
                                     e.getResultCodeEnum()))));
-        } catch (Exception e) {
-            e.printStackTrace();
-            session.sendMessage(
-                    new TextMessage(objectMapper.writeValueAsString(WebSocketResult.fail(webSocketRequest.getId(),
-                            webSocketRequest.getCommand(), e.getMessage()))));
         } catch (Throwable t) {
-            t.printStackTrace();
+            log.error("", t.getMessage());
             session.sendMessage(
-                    new TextMessage(objectMapper.writeValueAsString(WebSocketResult.fail(webSocketRequest.getId(),
-                            webSocketRequest.getCommand(), t.getMessage()))));
+                    new TextMessage(objectMapper.writeValueAsString(WebSocketResult.fail(
+                            webSocketRequest.getId(), webSocketRequest.getCommand()))));
         }
     }
 
