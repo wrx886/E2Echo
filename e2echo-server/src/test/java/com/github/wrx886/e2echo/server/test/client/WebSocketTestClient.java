@@ -2,7 +2,11 @@ package com.github.wrx886.e2echo.server.test.client;
 
 import java.net.URI;
 import java.util.UUID;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.enums.ReadyState;
@@ -114,6 +118,37 @@ public class WebSocketTestClient extends WebSocketClient implements AutoCloseabl
     // 发送请求
     public final void sendMessage(String command) throws Exception {
         sendMessage(command, null);
+    }
+
+    // 发送请求并等待（超时时间：1 分钟）
+    public final <E> WebSocketResult<?> sendMessageAndWait(String command, E data)
+            throws Exception {
+        // 阻塞队列
+        BlockingQueue<WebSocketResult<?>> blockingQueue = new ArrayBlockingQueue<>(1);
+
+        // 发送请求
+        sendMessage(command, data, (result) -> {
+            try {
+                if (!blockingQueue.offer(result, 1, TimeUnit.SECONDS)) {
+                    throw new TimeoutException("队列超时");
+                }
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        // 等待回调函数运行
+        WebSocketResult<?> result = blockingQueue.poll(1, TimeUnit.MINUTES);
+        if (result == null) {
+            throw new TimeoutException("请求响应超时");
+        }
+        return result;
+    }
+
+    // 发送消息并等待（超时时间：1 分钟）
+    public final WebSocketResult<?> sendMessageAndWait(String command)
+            throws Exception {
+        return sendMessageAndWait(command, null);
     }
 
     // 绑定命令特有处理方法
