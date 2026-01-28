@@ -40,4 +40,42 @@ public interface MessageService extends IService<Message> {
      */
     List<EccMessage> receiveGroup(String groupUuid, String startTimestamp);
 
+    /**
+     * 订阅私聊消息
+     * 
+     * @param sessionId      会话 ID
+     * @param toPublicKeyHex 接收者公钥
+     */
+    void subscribeOne(String sessionId, String toPublicKeyHex);
+
+    /**
+     * 取消订阅私聊消息
+     * 
+     * @param sessionId 会话 ID
+     */
+    void unsubscribeOne(String sessionId);
+
+    /**
+     * 订阅群聊消息
+     * 
+     * @param sessionId 会话 ID
+     * @param groupUuid 群聊 UUID（格式：{群主公钥}:{群聊UUID}）
+     */
+    void subscribeGroup(String sessionId, String groupUuid);
+
+    /**
+     * 取消订阅群聊消息
+     * 
+     * @param sessionId 会话 ID
+     * @param groupUuid 群聊 UUID（格式：{群主公钥}:{群聊UUID}）
+     */
+    void unsubscribeGroup(String sessionId, String groupUuid);
+
+    /**
+     * 取消订阅会话订阅的私聊和群聊消息
+     * 
+     * @param sessionId 会话 ID
+     */
+    void unsubscribeAll(String sessionId);
+
 }

@@ -1,7 +1,9 @@
 package com.github.wrx886.e2echo.server.service.impl;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.stereotype.Service;
 
@@ -13,10 +15,23 @@ import com.github.wrx886.e2echo.server.model.entity.Message;
 import com.github.wrx886.e2echo.server.result.E2EchoException;
 import com.github.wrx886.e2echo.server.result.ResultCodeEnum;
 import com.github.wrx886.e2echo.server.service.MessageService;
+import com.github.wrx886.e2echo.server.socket.MessageWebSocketHandler;
 import com.github.wrx886.e2echo.server.util.EccMessageUtil;
 
 @Service
 public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> implements MessageService {
+
+    // 会话 ID -> 接收者公钥
+    private final ConcurrentHashMap<String, String> sessionId2ToPublicKeyHex = new ConcurrentHashMap<>();
+
+    // 接收者公钥 -> 会话 ID 列表
+    private final ConcurrentHashMap<String, List<String>> toPublicKeyHex2SessionIds = new ConcurrentHashMap<>();
+
+    // 会话 ID -> 群聊 UUID 列表
+    private final ConcurrentHashMap<String, List<String>> sessionId2GroupUuids = new ConcurrentHashMap<>();
+
+    // 群聊 UUID -> 会话 ID 列表
+    private final ConcurrentHashMap<String, List<String>> groupUuid2SessionIds = new ConcurrentHashMap<>();
 
     /**
      * 发送消息
@@ -40,6 +55,9 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
 
         // 插入数据库
         this.save(message);
+
+        // 发送消息到 WebSocket 通道
+        sendOneSocket(eccMessage);
     }
 
     /**
@@ -95,6 +113,9 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
 
         // 插入数据库
         this.save(message);
+
+        // 发送消息到 WebSocket 通道
+        sendGroupSocket(eccMessage);
     }
 
     /**
@@ -181,6 +202,137 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
             throw new E2EchoException(ResultCodeEnum.MESSAGE_SIGNATURE_NOT_MATCH);
         }
 
+    }
+
+    /**
+     * 订阅私聊消息
+     * 
+     * @param sessionId      会话 ID
+     * @param toPublicKeyHex 接收者公钥
+     */
+    @Override
+    public void subscribeOne(String sessionId, String toPublicKeyHex) {
+        unsubscribeOne(sessionId); // 先取消订阅
+        toPublicKeyHex2SessionIds.compute(toPublicKeyHex, (k, sessionIds) -> {
+            sessionId2ToPublicKeyHex.put(sessionId, toPublicKeyHex);
+            sessionIds = sessionIds == null ? new ArrayList<>() : sessionIds;
+            sessionIds.add(sessionId);
+            return sessionIds;
+        });
+    }
+
+    /**
+     * 取消订阅私聊消息
+     * 
+     * @param sessionId 会话 ID
+     */
+    @Override
+    public void unsubscribeOne(String sessionId) {
+        sessionId2ToPublicKeyHex.computeIfPresent(sessionId, (k, toPublicKeyHex) -> {
+            toPublicKeyHex2SessionIds.computeIfPresent(toPublicKeyHex, (kk, sessionIds) -> {
+                sessionIds.remove(sessionId);
+                return sessionIds.isEmpty() ? null : sessionIds;
+            });
+            return null; // 删除
+        });
+    }
+
+    /**
+     * 订阅群聊消息
+     * 
+     * @param sessionId 会话 ID
+     * @param groupUuid 群聊 UUID（格式：{群主公钥}:{群聊UUID}）
+     */
+    @Override
+    public void subscribeGroup(String sessionId, String groupUuid) {
+        // 先开 sessionId2GroupUuids 形成锁，再开启 groupUuid2SessionIds，下同
+        sessionId2GroupUuids.compute(groupUuid, (k, groupUuids) -> {
+            groupUuid2SessionIds.compute(groupUuid, (kk, sessionIds) -> {
+                sessionIds = sessionIds == null ? new ArrayList<>() : sessionIds;
+                sessionIds.add(sessionId);
+                return sessionIds;
+            });
+
+            groupUuids = groupUuids == null ? new ArrayList<>() : groupUuids;
+            groupUuids.add(sessionId);
+            return groupUuids;
+        });
+    }
+
+    /**
+     * 取消订阅群聊消息
+     * 
+     * @param sessionId 会话 ID
+     * @param groupUuid 群聊 UUID（格式：{群主公钥}:{群聊UUID}）
+     */
+    @Override
+    public void unsubscribeGroup(String sessionId, String groupUuid) {
+        sessionId2GroupUuids.computeIfPresent(groupUuid, (k, groupUuids) -> {
+            groupUuid2SessionIds.computeIfPresent(groupUuid, (kk, sessionIds) -> {
+                sessionIds.remove(sessionId);
+                return sessionIds.isEmpty() ? null : sessionIds;
+            });
+
+            groupUuids.remove(sessionId);
+            return groupUuids.isEmpty() ? null : groupUuids;
+        });
+    }
+
+    /**
+     * 取消订阅会话订阅的私聊和群聊消息
+     * 
+     * @param sessionId 会话 ID
+     */
+    @Override
+    public void unsubscribeAll(String sessionId) {
+        // 取消私聊订阅
+        unsubscribeOne(sessionId);
+        // 取消群聊订阅
+        sessionId2GroupUuids.computeIfPresent(sessionId, (k, groupUuids) -> {
+            for (String groupUuid : groupUuids) {
+                groupUuid2SessionIds.computeIfPresent(groupUuid, (kk, sessionIds) -> {
+                    sessionIds.remove(sessionId);
+                    return sessionIds.isEmpty() ? null : sessionIds;
+                });
+            }
+            return null; // 删除 Session
+        });
+    }
+
+    /**
+     * 发送私聊消息到 WebSocket 通道，命令为：autoReveiveOne
+     * 
+     * @param eccMessage 私聊消息
+     */
+    private void sendOneSocket(EccMessage eccMessage) {
+        toPublicKeyHex2SessionIds.computeIfPresent(eccMessage.getToPublicKeyHex(), (k, sessionIds) -> {
+            for (String sessionId : sessionIds) {
+                try {
+                    MessageWebSocketHandler.sendMessage(sessionId, "autoReveiveOne", eccMessage);
+                } catch (Exception e) {
+                    log.error("", e);
+                }
+            }
+            return sessionIds;
+        });
+    }
+
+    /**
+     * 发送群聊消息到 WebSocket 通道，命令为：autoReveiveGroup
+     * 
+     * @param eccMessage 群聊消息
+     */
+    private void sendGroupSocket(EccMessage eccMessage) {
+        groupUuid2SessionIds.computeIfPresent(eccMessage.getToPublicKeyHex(), (k, sessionIds) -> {
+            for (String sessionId : sessionIds) {
+                try {
+                    MessageWebSocketHandler.sendMessage(sessionId, "autoReveiveGroup", eccMessage);
+                } catch (Exception e) {
+                    log.error("", e);
+                }
+            }
+            return sessionIds;
+        });
     }
 
 }
