@@ -1,7 +1,6 @@
 package com.github.wrx886.e2echo.server.service.impl;
 
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -69,13 +68,10 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
      */
     @Override
     public List<EccMessage> receiveOne(String toPublicKeyHex, String startTimestamp) {
-        // 起始时间
-        Date startTime = new Date(Long.valueOf(startTimestamp));
-
         // 查询数据库
         List<Message> messages = this.list(new LambdaQueryWrapper<Message>()
                 .eq(Message::getToPublicKeyHex, toPublicKeyHex)
-                .ge(Message::getTimestamp, startTime)
+                .ge(Message::getTimestamp, Long.valueOf(startTimestamp))
                 .eq(Message::getGroup, false));
 
         // 转换并返回
@@ -126,13 +122,10 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
      */
     @Override
     public List<EccMessage> receiveGroup(String groupUuid, String startTimestamp) {
-        // 起始时间
-        Date startTime = new Date(Long.valueOf(startTimestamp));
-
         // 获取群聊消息
         List<Message> messages = this.list(new LambdaQueryWrapper<Message>()
                 .eq(Message::getToPublicKeyHex, groupUuid)
-                .ge(Message::getTimestamp, startTime)
+                .ge(Message::getTimestamp, Long.valueOf(startTimestamp))
                 .eq(Message::getGroup, true));
 
         // 转换并返回
