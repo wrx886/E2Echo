@@ -45,7 +45,7 @@ public class WebSocketResult<E> {
     }
 
     public static <E> WebSocketResult<E> build(String id, String command, ResultCodeEnum resultCodeEnum, E data) {
-        return new WebSocketResult<E>(id, command, null, resultCodeEnum.getCode(), resultCodeEnum.getMessage());
+        return new WebSocketResult<E>(id, command, data, resultCodeEnum.getCode(), resultCodeEnum.getMessage());
     }
 
     public static WebSocketResult<Void> build(String id, String command, ResultCodeEnum resultCodeEnum) {
