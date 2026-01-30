@@ -7,6 +7,7 @@ import lombok.Getter;
 public enum E2EchoExceptionCodeEnum {
     OK("0000", "OK"),
     FAIL("0001", "FAIL"),
+    CUSTOM("0003", "CUSTOM MESSAGE"),
 
     // ECC 相关
     ECC_PUBLIC_KEY_IS_EMPTY("AA01", "ECC：公钥为空"),
