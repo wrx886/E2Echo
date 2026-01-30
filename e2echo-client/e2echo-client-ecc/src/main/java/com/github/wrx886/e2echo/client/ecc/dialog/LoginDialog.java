@@ -1,6 +1,7 @@
 package com.github.wrx886.e2echo.client.ecc.dialog;
 
 import java.io.File;
+import java.util.Map;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.wrx886.e2echo.client.common.common.BeanProvider;
@@ -145,11 +146,12 @@ public final class LoginDialog extends Dialog<String> {
         // 读取 JSON 文件
         if (file != null) {
             try {
-                KeyPairHex keyPairHex = objectMapper.readValue(file, KeyPairHex.class);
-                publicKeyTextField.setText(keyPairHex.getPublicKeyHex());
-                privateKeyPasswordField.setText(keyPairHex.getPrivateKeyHex());
+                @SuppressWarnings("unchecked")
+                Map<String, String> keyPairHexMap = objectMapper.readValue(file, Map.class);
+                publicKeyTextField.setText(keyPairHexMap.get("publicKeyHex"));
+                privateKeyPasswordField.setText(keyPairHexMap.get("privateKeyHex"));
             } catch (Exception e) {
-                throw new E2EchoException(E2EchoExceptionCodeEnum.GUI_READ_JSON_FILE_FAILED);
+                throw new E2EchoException(E2EchoExceptionCodeEnum.ECC_READ_JSON_FILE_FAILED);
             }
         }
     }
@@ -168,7 +170,7 @@ public final class LoginDialog extends Dialog<String> {
                 objectMapper.writeValue(file,
                         new KeyPairHex(publicKeyTextField.getText(), privateKeyPasswordField.getText()));
             } catch (Exception e) {
-                throw new E2EchoException(E2EchoExceptionCodeEnum.GUI_SAVE_JSON_FILE_FAILED);
+                throw new E2EchoException(E2EchoExceptionCodeEnum.ECC_SAVE_JSON_FILE_FAILED);
             }
         }
     }
