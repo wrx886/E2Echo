@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.3.12</version>
+    </parent>
+
+    <groupId>com.github.wrx886.e2echo</groupId>
+    <artifactId>e2echo-client</artifactId>
+    <version>1.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    <modules>
+        <module>e2echo-client-common</module>
+        <module>e2echo-client-starter</module>
+        <module>e2echo-client-ecc</module>
+        <module>e2echo-client-gui</module>
+        <module>e2echo-client-srv</module>
+    </modules>
+
+    <properties>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>2025.1.0</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- Source: https://mvnrepository.com/artifact/org.bouncycastle/bcprov-jdk18on -->
+            <dependency>
+                <groupId>org.bouncycastle</groupId>
+                <artifactId>bcprov-jdk18on</artifactId>
+                <version>1.78.1</version>
+            </dependency>
+
+            <!-- Source: https://mvnrepository.com/artifact/org.openjfx/javafx-controls -->
+            <dependency>
+                <groupId>org.openjfx</groupId>
+                <artifactId>javafx-controls</artifactId>
+                <version>17.0.17</version>
+            </dependency>
+
+            <!-- Source: https://mvnrepository.com/artifact/io.github.mkpaz/atlantafx-base -->
+            <dependency>
+                <groupId>io.github.mkpaz</groupId>
+                <artifactId>atlantafx-base</artifactId>
+                <version>2.0.1</version>
+            </dependency>
+
+        </dependencies>
+    </dependencyManagement>
+
+</project>
