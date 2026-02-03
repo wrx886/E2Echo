@@ -24,4 +24,13 @@ public class Knife4jConfig {
                 .pathsToMatch("/server/message/**")
                 .build();
     }
+
+    @Bean
+    public GroupedOpenApi pingAPI() {
+        return GroupedOpenApi.builder()
+                .group("Ping")
+                .pathsToMatch("/server/ping/**")
+                .build();
+    }
+
 }
