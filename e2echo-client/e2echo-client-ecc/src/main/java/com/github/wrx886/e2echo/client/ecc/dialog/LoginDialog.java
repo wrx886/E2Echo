@@ -104,10 +104,7 @@ public final class LoginDialog extends Dialog<String> {
 
         // 处理取消按钮
         this.setResultConverter(dialogButton -> {
-            if (dialogButton == ButtonType.CLOSE) {
-                return null;
-            }
-            return dialogButton.getText();
+            return null;
         });
     }
 
