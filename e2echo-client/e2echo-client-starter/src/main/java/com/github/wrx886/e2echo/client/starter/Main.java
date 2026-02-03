@@ -2,13 +2,14 @@ package com.github.wrx886.e2echo.client.starter;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.openfeign.EnableFeignClients;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.ComponentScan;
 
 import com.github.wrx886.e2echo.client.common.common.BeanProvider;
 import com.github.wrx886.e2echo.client.common.exception.E2EchoException;
 import com.github.wrx886.e2echo.client.ecc.dialog.LoginDialog;
-
+import com.github.wrx886.e2echo.client.srv.dialog.WebUrlDialog;
 import atlantafx.base.theme.PrimerLight;
 import javafx.application.Application;
 import javafx.scene.control.Alert;
@@ -19,6 +20,7 @@ import lombok.extern.slf4j.Slf4j;
 public final class Main extends Application {
 
     public final ApplicationContext applicationContext = BeanProvider.getApplicationContext();
+    private final WebUrlDialog webUrlDialog = BeanProvider.getBean(WebUrlDialog.class);
 
     @Override
     public void start(Stage stage) throws Exception {
@@ -45,19 +47,26 @@ public final class Main extends Application {
 
         // 登录弹窗
         String publicKeyHex = LoginDialog.dialog();
-        if(publicKeyHex == null) {
+        if (publicKeyHex == null) {
             // 退出程序
-            SpringApplication.exit(applicationContext);
-            System.exit(0);
+            throw new RuntimeException("Exit");
+        }
+
+        // 获取 Web URL
+        if (!webUrlDialog.dialog()) {
+            // 退出程序
+            throw new RuntimeException("Exit");
         }
 
         stage.setTitle("E2Echo");
         stage.setWidth(800);
         stage.setHeight(600);
+        stage.setResizable(false);
         stage.show();
     }
 
     @SpringBootApplication
+    @EnableFeignClients(basePackages = "com.github.wrx886.e2echo.client.srv.feign")
     @ComponentScan("com.github.wrx886.e2echo.client")
     public final static class Starter {
         public static void main(String[] args) {

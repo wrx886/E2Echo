@@ -22,7 +22,12 @@ public enum E2EchoExceptionCodeEnum {
     ECC_KEY_PAIR_GENERATION_FAILED("AA10", "ECC：公钥和私钥生成失败"),
     ECC_DATA_IS_NULL("AA11", "ECC：数据为 null"),
     ECC_SAVE_JSON_FILE_FAILED("AA12", "ECC：保存 JSON 文件失败"),
-    ECC_READ_JSON_FILE_FAILED("AA13", "ECC：读取 JSON 文件失败");
+    ECC_READ_JSON_FILE_FAILED("AA13", "ECC：读取 JSON 文件失败"),
+
+    // SRV 相关
+    SRV_WEB_URL_IS_EMPTY("BA01", "SRV：Web URL 为空"),
+    SRV_WEB_URL_NOT_AVAILABLE("BA02", "SRV：Web URL 不可用"),
+    ;
 
     // 状态码
     private final String code;
