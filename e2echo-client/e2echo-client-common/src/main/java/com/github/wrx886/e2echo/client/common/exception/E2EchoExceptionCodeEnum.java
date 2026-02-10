@@ -28,6 +28,7 @@ public enum E2EchoExceptionCodeEnum {
     SRV_WEB_URL_IS_EMPTY("BA01", "SRV：Web URL 为空"),
     SRV_WEB_URL_NOT_AVAILABLE("BA02", "SRV：Web URL 不可用"),
     SRV_WEBSOCKET_CONNECT_FAIL("BB01", "SRV：WebSocket 连接失败"),
+    SRV_WEBSOCKET_TIMEOUT("BB02", "SRV：WebSocket 超时"),
     ;
 
     // 状态码

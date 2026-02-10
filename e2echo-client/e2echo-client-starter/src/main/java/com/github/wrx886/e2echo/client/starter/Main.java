@@ -10,7 +10,7 @@ import com.github.wrx886.e2echo.client.common.common.BeanProvider;
 import com.github.wrx886.e2echo.client.common.exception.E2EchoException;
 import com.github.wrx886.e2echo.client.ecc.dialog.LoginDialog;
 import com.github.wrx886.e2echo.client.srv.dialog.WebUrlDialog;
-import com.github.wrx886.e2echo.client.srv.store.WebSocketClientStore;
+import com.github.wrx886.e2echo.client.srv.store.MessageWebSocketClientStore;
 
 import atlantafx.base.theme.PrimerLight;
 import javafx.application.Application;
@@ -23,7 +23,7 @@ public final class Main extends Application {
 
     public final ApplicationContext applicationContext = BeanProvider.getApplicationContext();
     private final WebUrlDialog webUrlDialog = BeanProvider.getBean(WebUrlDialog.class);
-    private final WebSocketClientStore webSocketClientStore = BeanProvider.getBean(WebSocketClientStore.class);
+    private final MessageWebSocketClientStore webSocketClientStore = BeanProvider.getBean(MessageWebSocketClientStore.class);
 
     @Override
     public void start(Stage stage) throws Exception {

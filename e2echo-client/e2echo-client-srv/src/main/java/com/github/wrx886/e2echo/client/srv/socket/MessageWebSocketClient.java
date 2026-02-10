@@ -6,7 +6,7 @@ import com.github.wrx886.e2echo.client.common.model.EccMessage;
 import com.github.wrx886.e2echo.client.srv.client.BaseWebSocketClient;
 import com.github.wrx886.e2echo.client.srv.model.socket.WebSocketResult;
 
-public class MessageWebSocketClient extends BaseWebSocketClient {
+public final class MessageWebSocketClient extends BaseWebSocketClient {
 
     public final ObjectMapper objectMapper = BeanProvider.getBean(ObjectMapper.class);
 

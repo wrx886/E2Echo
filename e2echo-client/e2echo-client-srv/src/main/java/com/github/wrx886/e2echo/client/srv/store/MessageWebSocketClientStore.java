@@ -7,13 +7,13 @@ import com.github.wrx886.e2echo.client.common.exception.E2EchoExceptionCodeEnum;
 import com.github.wrx886.e2echo.client.srv.socket.MessageWebSocketClient;
 
 @Component
-public class WebSocketClientStore {
+public class MessageWebSocketClientStore {
 
     private final WebUrlStore webUrlStore;
     private MessageWebSocketClient client;
 
     // 构造函数
-    public WebSocketClientStore(WebUrlStore webUrlStore) {
+    public MessageWebSocketClientStore(WebUrlStore webUrlStore) {
         this.webUrlStore = webUrlStore;
     }
 
