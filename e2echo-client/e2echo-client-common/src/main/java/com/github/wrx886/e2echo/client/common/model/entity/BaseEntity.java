@@ -22,7 +22,7 @@ public class BaseEntity {
 
     @Schema(description = "所属登入用户")
     @TableField(value = "owner_public_key_hex")
-    private Long ownerPublicKeyHex;
+    private String ownerPublicKeyHex;
 
     @Schema(description = "创建时间")
     @TableField(value = "create_time", fill = FieldFill.INSERT, select = false)

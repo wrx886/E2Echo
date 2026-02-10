@@ -4,7 +4,11 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.github.wrx886.e2echo.client.common.model.enum_.MessageType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
 
+@Data
+@EqualsAndHashCode(callSuper = true)
 public class Message extends BaseEntity {
 
     @Schema(description = "UUID")

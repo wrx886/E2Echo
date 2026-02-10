@@ -1,13 +1,19 @@
 package com.github.wrx886.e2echo.client.starter;
 
+import java.io.File;
+
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.ComponentScan;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.wrx886.e2echo.client.common.common.BeanProvider;
+import com.github.wrx886.e2echo.client.common.controller.ecc.EccController;
 import com.github.wrx886.e2echo.client.common.exception.E2EchoException;
+import com.github.wrx886.e2echo.client.common.store.JsonStore;
 import com.github.wrx886.e2echo.client.ecc.dialog.LoginDialog;
 import com.github.wrx886.e2echo.client.srv.dialog.WebUrlDialog;
 import com.github.wrx886.e2echo.client.srv.store.MessageWebSocketClientStore;
@@ -21,9 +27,13 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public final class Main extends Application {
 
-    public final ApplicationContext applicationContext = BeanProvider.getApplicationContext();
+    private final ApplicationContext applicationContext = BeanProvider.getApplicationContext();
     private final WebUrlDialog webUrlDialog = BeanProvider.getBean(WebUrlDialog.class);
-    private final MessageWebSocketClientStore webSocketClientStore = BeanProvider.getBean(MessageWebSocketClientStore.class);
+    private final MessageWebSocketClientStore webSocketClientStore = BeanProvider
+            .getBean(MessageWebSocketClientStore.class);
+    private final JsonStore jsonStore = BeanProvider.getBean(JsonStore.class);
+    private final ObjectMapper objectMapper = BeanProvider.getBean(ObjectMapper.class);
+    private final EccController eccController = BeanProvider.getBean(EccController.class);
 
     @Override
     public void start(Stage stage) throws Exception {
@@ -34,22 +44,35 @@ public final class Main extends Application {
 
         // 全局异常处理器
         Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
-            try {
-                if (throwable instanceof E2EchoException e) {
-                    Alert alert = new Alert(Alert.AlertType.INFORMATION);
-                    alert.setTitle("提示");
-                    alert.setHeaderText(null);
-                    alert.setContentText(e.getMessage());
-                    alert.showAndWait();
-                } else {
-                    log.error("", throwable);
+            if (throwable instanceof E2EchoException e) {
+                Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                alert.setTitle("提示");
+                alert.setHeaderText(null);
+                alert.setContentText(e.getMessage());
+                alert.showAndWait();
+            } else {
+                log.error("", throwable);
+
+                try {
                     webSocketClientStore.close();
-                    SpringApplication.exit(applicationContext);
-                    System.exit(1);
+                } catch (Throwable t) {
                 }
-            } catch (Throwable t) {
-                // 降级处理
-                t.printStackTrace();
+
+                // 保存到 json 文件
+                try {
+                    File dir = new File("./JsonStore");
+                    if (!dir.exists()) {
+                        dir.mkdirs();
+                    }
+
+                    objectMapper.writeValue(new File("./JsonStore/" + eccController.getPublicKey() + ".json"),
+                            jsonStore);
+                } catch (Throwable t) {
+                    t.printStackTrace();
+                }
+
+                SpringApplication.exit(applicationContext);
+                System.exit(1);
             }
         });
 
@@ -61,6 +84,13 @@ public final class Main extends Application {
         if (publicKeyHex == null) {
             // 退出程序
             throw new RuntimeException("Exit");
+        }
+
+        // 读取对应的 json
+        File file = new File("./JsonStore/" + publicKeyHex + ".json");
+        if (file.exists()) {
+            JsonStore jsonStoreRead = objectMapper.readValue(file, JsonStore.class);
+            BeanUtils.copyProperties(jsonStoreRead, jsonStore);
         }
 
         // 获取 Web URL

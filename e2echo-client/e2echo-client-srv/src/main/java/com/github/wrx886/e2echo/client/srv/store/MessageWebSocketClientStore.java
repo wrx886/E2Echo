@@ -11,6 +11,7 @@ public class MessageWebSocketClientStore {
 
     private final WebUrlStore webUrlStore;
     private MessageWebSocketClient client;
+    private boolean closed = false;
 
     // 构造函数
     public MessageWebSocketClientStore(WebUrlStore webUrlStore) {
@@ -23,6 +24,11 @@ public class MessageWebSocketClientStore {
      * @return
      */
     public synchronized MessageWebSocketClient getClient() {
+        // 已经关闭
+        if (closed) {
+            throw new E2EchoException(E2EchoExceptionCodeEnum.SRV_WEBSOCKET_CLIENT_CLOSED);
+        }
+
         // 创建一个新对象
         if (client == null) {
             String url = webUrlStore.getWebUrl();
@@ -55,6 +61,7 @@ public class MessageWebSocketClientStore {
     public synchronized void close() {
         if (client != null) {
             client.close();
+            closed = true;
             client = null;
         }
     }

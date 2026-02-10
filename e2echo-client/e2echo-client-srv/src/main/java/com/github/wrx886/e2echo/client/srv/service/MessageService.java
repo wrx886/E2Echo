@@ -5,6 +5,7 @@ import java.util.List;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.github.wrx886.e2echo.client.common.model.EccMessage;
 import com.github.wrx886.e2echo.client.common.model.entity.Message;
+import com.github.wrx886.e2echo.client.common.model.enum_.MessageType;
 
 public interface MessageService extends IService<Message> {
 
@@ -53,5 +54,32 @@ public interface MessageService extends IService<Message> {
      * @param eccMessage 群聊消息
      */
     void autoReveiveGroup(EccMessage eccMessage);
+
+    /**
+     * 根据会话公钥查询私聊消息
+     * 
+     * @param session 会话ID，也就是与用户对话的人的公钥
+     * @return 私聊消息列表
+     */
+    List<Message> listOneBySession(String session);
+
+    /**
+     * 根据会话公钥查询群聊消息
+     * 
+     * @param session 会话ID，也就是群组ID
+     * @return 群聊消息列表
+     */
+    List<Message> listGroupBySession(String session);
+
+    /**
+     * 发送私聊消息
+     * 
+     * @param toPublicKeyHex 接收者公钥
+     * @param data           消息内容
+     * @param type           消息类型
+     */
+    void sendOne(String toPublicKeyHex, String data, MessageType type);
+
+    void receiveMessage();
 
 }
