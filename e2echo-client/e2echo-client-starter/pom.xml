@@ -49,6 +49,13 @@
             <artifactId>atlantafx-base</artifactId>
         </dependency>
 
+        <!--包含spring-test相关依赖-->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 
 </project>

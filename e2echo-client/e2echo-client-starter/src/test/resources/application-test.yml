@@ -1,0 +1,6 @@
+# 测试环境
+test: true
+
+spring:
+  datasource:
+    url: jdbc:h2:./mydb_test
