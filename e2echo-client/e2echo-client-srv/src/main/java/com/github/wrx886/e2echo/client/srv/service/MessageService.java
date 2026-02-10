@@ -13,7 +13,7 @@ public interface MessageService extends IService<Message> {
      * 
      * @param eccMessage 消息
      */
-    public void sendOne(EccMessage eccMessage);
+    void sendOne(EccMessage eccMessage);
 
     /**
      * 接收单聊消息
@@ -22,14 +22,14 @@ public interface MessageService extends IService<Message> {
      * @param startTimestamp 开始时间戳(int64)
      * @return 私聊消息列表
      */
-    public List<EccMessage> receiveOne(String toPublicKeyHex, String startTimestamp);
+    List<EccMessage> receiveOne(String toPublicKeyHex, String startTimestamp);
 
     /**
      * 发送群聊消息
      * 
      * @param eccMessage 群聊消息
      */
-    public void sendGroup(EccMessage eccMessage);
+    void sendGroup(EccMessage eccMessage);
 
     /**
      * 接收群聊消息
@@ -38,6 +38,20 @@ public interface MessageService extends IService<Message> {
      * @param startTimestamp 开始时间戳(int64)
      * @return
      */
-    public List<EccMessage> receiveGroup(String groupUuid, String startTimestamp);
+    List<EccMessage> receiveGroup(String groupUuid, String startTimestamp);
+
+    /**
+     * 自动接收单聊消息
+     * 
+     * @param eccMessage 群聊消息
+     */
+    void autoReveiveOne(EccMessage eccMessage);
+
+    /**
+     * 自动接收群聊消息
+     * 
+     * @param eccMessage 群聊消息
+     */
+    void autoReveiveGroup(EccMessage eccMessage);
 
 }

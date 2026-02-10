@@ -5,9 +5,11 @@ import com.github.wrx886.e2echo.client.common.common.BeanProvider;
 import com.github.wrx886.e2echo.client.common.model.EccMessage;
 import com.github.wrx886.e2echo.client.srv.client.BaseWebSocketClient;
 import com.github.wrx886.e2echo.client.srv.model.socket.WebSocketResult;
+import com.github.wrx886.e2echo.client.srv.service.MessageService;
 
 public final class MessageWebSocketClient extends BaseWebSocketClient {
 
+    public final MessageService messageService = BeanProvider.getBean(MessageService.class);
     public final ObjectMapper objectMapper = BeanProvider.getBean(ObjectMapper.class);
 
     // 构造函数
@@ -28,6 +30,9 @@ public final class MessageWebSocketClient extends BaseWebSocketClient {
 
         // 类型转变
         EccMessage eccMessage = objectMapper.convertValue(result.getData(), EccMessage.class);
+
+        // 处理
+        messageService.autoReveiveOne(eccMessage);
     }
 
     /**
@@ -43,6 +48,9 @@ public final class MessageWebSocketClient extends BaseWebSocketClient {
 
         // 类型转变
         EccMessage eccMessage = objectMapper.convertValue(result.getData(), EccMessage.class);
+
+        // 处理
+        messageService.autoReveiveGroup(eccMessage);
     }
 
 }

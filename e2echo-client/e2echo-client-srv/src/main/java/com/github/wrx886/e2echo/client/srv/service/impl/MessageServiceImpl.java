@@ -146,4 +146,26 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         }
     }
 
+    /**
+     * 自动接收单聊消息
+     * 
+     * @param eccMessage 群聊消息
+     */
+    @Override
+    public void autoReveiveOne(EccMessage eccMessage) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'autoReveiveOne'");
+    }
+
+    /**
+     * 自动接收群聊消息
+     * 
+     * @param eccMessage 群聊消息
+     */
+    @Override
+    public void autoReveiveGroup(EccMessage eccMessage) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'autoReveiveGroup'");
+    }
+
 }
