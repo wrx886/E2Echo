@@ -34,9 +34,8 @@ public final class WebUrlDialog {
                     webUrlStore.setWebUrl(url);
                     pingFeign.ping();
                 } catch (Exception e) {
-                    throw new E2EchoException(E2EchoExceptionCodeEnum.SRV_WEB_URL_NOT_AVAILABLE);
-                } finally {
                     webUrlStore.setWebUrl(null);
+                    throw new E2EchoException(E2EchoExceptionCodeEnum.SRV_WEB_URL_NOT_AVAILABLE);
                 }
                 // 返回
                 return url;
@@ -45,6 +44,7 @@ public final class WebUrlDialog {
         });
 
         // 显示
+        textInputDialog.showAndWait();
         return webUrlStore.getWebUrl() != null;
     }
 
