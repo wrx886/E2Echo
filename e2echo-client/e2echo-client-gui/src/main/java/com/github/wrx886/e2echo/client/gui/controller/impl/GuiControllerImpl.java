@@ -1,9 +1,12 @@
 package com.github.wrx886.e2echo.client.gui.controller.impl;
 
+import org.springframework.stereotype.Controller;
+
 import com.github.wrx886.e2echo.client.common.controller.gui.GuiController;
 
 import javafx.application.Platform;
 
+@Controller
 public class GuiControllerImpl implements GuiController {
 
     /**
