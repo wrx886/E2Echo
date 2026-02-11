@@ -5,6 +5,8 @@ import org.springframework.stereotype.Service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.github.wrx886.e2echo.client.common.controller.ecc.EccController;
+import com.github.wrx886.e2echo.client.common.exception.E2EchoException;
+import com.github.wrx886.e2echo.client.common.exception.E2EchoExceptionCodeEnum;
 import com.github.wrx886.e2echo.client.common.model.entity.Message;
 import com.github.wrx886.e2echo.client.common.model.entity.Session;
 import com.github.wrx886.e2echo.client.srv.mapper.SessionMapper;
@@ -59,8 +61,18 @@ public class SessionServiceImpl extends ServiceImpl<SessionMapper, Session> impl
      */
     @Override
     public void create(String publicKeyHex, boolean group) {
+        // 获取会话
+        Session session = this.getOne(new LambdaQueryWrapper<Session>()
+                .eq(Session::getOwnerPublicKeyHex, eccController.getPublicKey())
+                .eq(Session::getPublicKeyHex, publicKeyHex)
+                .eq(Session::getGroup, group));
+
+        if (session != null) {
+            throw new E2EchoException(E2EchoExceptionCodeEnum.SRV_SESSION_EXISTS);
+        }
+
         // 创建会话
-        Session session = new Session();
+        session = new Session();
         session.setOwnerPublicKeyHex(eccController.getPublicKey());
         session.setPublicKeyHex(publicKeyHex);
         session.setTimestamp(System.currentTimeMillis());
