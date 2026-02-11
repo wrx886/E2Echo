@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.wrx886.e2echo.client.common.controller.ecc.EccController;
 import com.github.wrx886.e2echo.client.common.controller.gui.GuiController;
@@ -321,7 +322,12 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         }
 
         // 获取数据
-        SendMessageVo sendMessageVo = objectMapper.convertValue(eccMessage.getData(), SendMessageVo.class);
+        SendMessageVo sendMessageVo;
+        try {
+            sendMessageVo = objectMapper.readValue(eccMessage.getData(), SendMessageVo.class);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
 
         // 针对不同的消息类型进行处理
         if (sendMessageVo.getType() == MessageType.TEXT) {
@@ -364,6 +370,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         Long startTimestamp = jsonStore.getStartTimestamp();
         if (startTimestamp == null) {
             startTimestamp = System.currentTimeMillis();
+            jsonStore.setStartTimestamp(startTimestamp);
         }
 
         // 获取消息并对返回值进行处理

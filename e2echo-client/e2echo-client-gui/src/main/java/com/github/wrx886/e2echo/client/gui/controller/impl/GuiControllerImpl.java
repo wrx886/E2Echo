@@ -5,7 +5,9 @@ import org.springframework.stereotype.Controller;
 import com.github.wrx886.e2echo.client.common.controller.gui.GuiController;
 
 import javafx.application.Platform;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Controller
 public class GuiControllerImpl implements GuiController {
 
@@ -14,9 +16,13 @@ public class GuiControllerImpl implements GuiController {
      */
     @Override
     public void flushAsync() {
-        Platform.runLater(() -> {
-            // 执行刷新操作
-        });
+        try {
+            Platform.runLater(() -> {
+                // 执行刷新操作
+            });
+        } catch (Throwable t) {
+            log.error(null, t);
+        }
     }
 
 }
