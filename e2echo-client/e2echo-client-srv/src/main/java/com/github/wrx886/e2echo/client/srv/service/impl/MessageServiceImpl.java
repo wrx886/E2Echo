@@ -2,8 +2,11 @@ package com.github.wrx886.e2echo.client.srv.service.impl;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
+
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -226,9 +229,13 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
                 .eq(Message::getGroup, isGroup));
 
         // 合并
+        HashSet<Message> messageSet = new HashSet<>();
+        messageSet.addAll(messages1);
+        messageSet.addAll(messages2);
+
+        // 合并
         ArrayList<Message> messages = new ArrayList<>();
-        messages.addAll(messages1);
-        messages.addAll(messages2);
+        messages.addAll(messageSet);
         // 根据时间排序（倒序）
         messages.sort(Comparator.comparing(Message::getTimestamp).reversed());
 
@@ -287,7 +294,11 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         message.setGroup(false);
 
         // 插入数据库
-        this.save(message);
+        try {
+            this.save(message);
+        } catch (DuplicateKeyException e) {
+            log.error("", e);
+        }
 
         // 更新会话
         sessionService.updateSession(
@@ -348,7 +359,11 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         message.setGroup(false);
 
         // 插入数据库
-        this.save(message);
+        try {
+            this.save(message);
+        } catch (DuplicateKeyException e) {
+            log.error("", e);
+        }
 
         // 更新会话
         sessionService.updateSession(
