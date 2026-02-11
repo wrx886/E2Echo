@@ -142,15 +142,7 @@ public class EditContent extends GridPane {
                 typeUserRadioButton.setDisable(false);
                 typeGroupRadioButton.setDisable(false);
             } else {
-                String sessionName = aliasController.get(newValue.getPublicKeyHex());
-                if (sessionName == null) {
-                    if (!newValue.getGroup()) {
-                        sessionName = newValue.getPublicKeyHex().substring(0, 5);
-                    } else {
-                        sessionName = newValue.getPublicKeyHex().split(":")[1].substring(0, 5);
-                    }
-                }
-                nameTextField.setText(sessionName);
+                nameTextField.setText(aliasController.get(newValue.getPublicKeyHex()));
                 publicKeyTextField.setText(newValue.getPublicKeyHex());
                 if (!newValue.getGroup()) {
                     typeToggleGroup.selectToggle(typeUserRadioButton);
@@ -171,18 +163,7 @@ public class EditContent extends GridPane {
             EditVo editVo = new EditVo();
             editVo.setPublicKeyHex(guiStore.getCurrentSession().get().getPublicKeyHex());
             editVo.setGroup(guiStore.getCurrentSession().get().getGroup());
-
-            String sessionName = aliasController.get(editVo.getPublicKeyHex());
-            if (sessionName == null) {
-                if (!editVo.getGroup()) {
-                    sessionName = editVo.getPublicKeyHex().substring(0, 5);
-                } else {
-                    sessionName = editVo.getPublicKeyHex().split(":")[1].substring(0, 5);
-                }
-            }
-
-            editVo.setAlias(sessionName);
-
+            editVo.setAlias(aliasController.get(editVo.getPublicKeyHex()));
             guiStore.getEditVo().set(editVo);
         } else {
             guiStore.getEditVo().set(null);

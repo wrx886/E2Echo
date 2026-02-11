@@ -102,21 +102,8 @@ public class SessionPanel extends VBox {
         // 如果不为空，就需要更新聊天窗口的内容
         if (selectedItem != null) {
             guiStore.getCurrentSession().set(selectedItem);
-
-            // 设置会话名称
-            String sessionName = aliasController.get(selectedItem.getPublicKeyHex());
-            if (sessionName == null) {
-                if (!selectedItem.getGroup()) {
-                    sessionName = selectedItem.getPublicKeyHex().substring(0, 5);
-                } else {
-                    sessionName = selectedItem.getPublicKeyHex().split(":")[1].substring(0, 5);
-                }
-            }
-            guiStore.getCurrentSessionName().set(sessionName);
-
             // 更新消息列表
             guiController.flushAsync();
-
             layout.getContentRouter().push(ChatContent.class);
         }
     }

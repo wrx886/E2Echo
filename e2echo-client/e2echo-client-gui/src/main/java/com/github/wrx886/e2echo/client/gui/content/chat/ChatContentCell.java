@@ -77,11 +77,7 @@ public class ChatContentCell extends ListCell<Message> {
             // 单元格不为空
 
             // 发送者
-            String fromName = aliasController.get(item.getFromPublicKeyHex());
-            if (fromName == null) {
-                fromName = item.getFromPublicKeyHex().substring(0, 5);
-            }
-            fromNameLabel.setText(fromName);
+            fromNameLabel.setText(aliasController.get(item.getFromPublicKeyHex()));
 
             // 发送时间
             Date date = new Date(item.getTimestamp());

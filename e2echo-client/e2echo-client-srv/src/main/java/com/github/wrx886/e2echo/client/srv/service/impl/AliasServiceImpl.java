@@ -1,5 +1,6 @@
 package com.github.wrx886.e2echo.client.srv.service.impl;
 
+import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.stereotype.Service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -18,6 +19,7 @@ public class AliasServiceImpl extends ServiceImpl<AliasMapper, Alias> implements
 
     private final EccController eccController;
     private final GuiController guiController;
+    private final ConcurrentHashMap<String, String> aliasMap = new ConcurrentHashMap<>();
 
     /**
      * 添加或修改别名
@@ -45,6 +47,9 @@ public class AliasServiceImpl extends ServiceImpl<AliasMapper, Alias> implements
             this.save(aliasEntity);
         }
 
+        // 放入缓存
+        aliasMap.put(publicKeyHex, alias);
+
         // 刷新主界面
         guiController.flushAsync();
     }
@@ -57,10 +62,22 @@ public class AliasServiceImpl extends ServiceImpl<AliasMapper, Alias> implements
      */
     @Override
     public String get(String publicKeyHex) {
-        Alias alias = this.getOne(new LambdaQueryWrapper<Alias>()
-                .eq(Alias::getPublicKeyHex, publicKeyHex)
-                .eq(Alias::getOwnerPublicKeyHex, eccController.getPublicKey()));
-        return alias == null ? null : alias.getAlias();
+        if (!aliasMap.containsKey(publicKeyHex)) {
+            // 查询数据库
+            Alias alias = this.getOne(new LambdaQueryWrapper<Alias>()
+                    .eq(Alias::getPublicKeyHex, publicKeyHex)
+                    .eq(Alias::getOwnerPublicKeyHex, eccController.getPublicKey()));
+            // 放入缓存
+            if (alias != null) {
+                aliasMap.put(publicKeyHex, alias.getAlias());
+            } else {
+                // 不存在，取最后4位作为默认名称
+                String aliasString = publicKeyHex.substring(publicKeyHex.length() - 5, publicKeyHex.length() - 1);
+                this.put(publicKeyHex, aliasString);
+                aliasMap.put(publicKeyHex, aliasString);
+            }
+        }
+        return aliasMap.containsKey(publicKeyHex) ? aliasMap.get(publicKeyHex) : null;
     }
 
 }

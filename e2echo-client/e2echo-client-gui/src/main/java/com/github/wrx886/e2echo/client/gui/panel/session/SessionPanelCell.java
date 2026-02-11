@@ -77,15 +77,7 @@ public class SessionPanelCell extends ListCell<Session> {
             // 单元格不为空
 
             // 会话名称
-            String sessionName = aliasController.get(item.getPublicKeyHex());
-            if (sessionName == null) {
-                if (!item.getGroup()) {
-                    sessionName = item.getPublicKeyHex().substring(0, 5);
-                } else {
-                    sessionName = item.getPublicKeyHex().split(":")[1].substring(0, 5);
-                }
-            }
-            sessionNameLabel.setText(sessionName);
+            sessionNameLabel.setText(aliasController.get(item.getPublicKeyHex()));
 
             // 更新时间
             if (item.getTimestamp() != null) {
@@ -100,11 +92,8 @@ public class SessionPanelCell extends ListCell<Session> {
                 Message message = messageController.getById(item.getMessageId());
                 if (MessageType.TEXT.equals(message.getType())) {
                     // 文字消息
-                    String fromName = aliasController.get(message.getFromPublicKeyHex());
-                    if (fromName == null) {
-                        fromName = message.getFromPublicKeyHex().substring(0, 5);
-                    }
-                    fromAndmessageLabel.setText(fromName + ": " + message.getData());
+                    fromAndmessageLabel
+                            .setText(aliasController.get(message.getFromPublicKeyHex()) + ": " + message.getData());
                 } else {
                     throw new RuntimeException("不支持的消息类型！");
                 }
