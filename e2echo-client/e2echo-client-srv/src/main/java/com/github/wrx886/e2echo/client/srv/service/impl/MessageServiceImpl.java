@@ -378,7 +378,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         // 订阅单个私聊消息
         try {
             MessageWebSocketClient client = messageWebSocketClientStore.getClient();
-            WebSocketResult<?> result = client.sendMessageAndWait("receiveOne", eccController.getPublicKey());
+            WebSocketResult<?> result = client.sendMessageAndWait("subscribeOne", eccController.getPublicKey());
             if (!ResultCodeEnum.OK.getCode().equals(result.getCode())) {
                 throw new E2EchoException(result.getMessage());
             }
