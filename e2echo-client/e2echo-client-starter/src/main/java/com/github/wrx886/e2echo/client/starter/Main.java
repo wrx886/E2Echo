@@ -102,6 +102,9 @@ public final class Main extends Application {
             throw new RuntimeException("Exit");
         }
 
+        // 启动 WebSocket
+        webSocketClientStore.getClient();
+
         stage.setTitle("E2Echo");
         stage.setWidth(800);
         stage.setHeight(600);
