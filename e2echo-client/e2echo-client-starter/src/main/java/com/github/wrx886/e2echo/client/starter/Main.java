@@ -20,6 +20,7 @@ import com.github.wrx886.e2echo.client.srv.store.MessageWebSocketClientStore;
 
 import atlantafx.base.theme.PrimerLight;
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.scene.control.Alert;
 import javafx.stage.Stage;
 import lombok.extern.slf4j.Slf4j;
@@ -45,11 +46,13 @@ public final class Main extends Application {
         // 全局异常处理器
         Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
             if (throwable instanceof E2EchoException e) {
-                Alert alert = new Alert(Alert.AlertType.INFORMATION);
-                alert.setTitle("提示");
-                alert.setHeaderText(null);
-                alert.setContentText(e.getMessage());
-                alert.showAndWait();
+                Platform.runLater(() -> {
+                    Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                    alert.setTitle("提示");
+                    alert.setHeaderText(null);
+                    alert.setContentText(e.getMessage());
+                    alert.showAndWait();
+                });
             } else {
                 log.error("", throwable);
 

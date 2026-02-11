@@ -23,6 +23,7 @@ import com.github.wrx886.e2echo.client.srv.model.vo.socket.message.ReceiveGroupM
 import com.github.wrx886.e2echo.client.srv.model.vo.socket.message.ReceiveOneMessageSocketVo;
 import com.github.wrx886.e2echo.client.srv.result.ResultCodeEnum;
 import com.github.wrx886.e2echo.client.srv.service.MessageService;
+import com.github.wrx886.e2echo.client.srv.service.SessionService;
 import com.github.wrx886.e2echo.client.srv.socket.MessageWebSocketClient;
 import com.github.wrx886.e2echo.client.srv.store.MessageWebSocketClientStore;
 
@@ -37,6 +38,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
     private final MessageWebSocketClientStore messageWebSocketClientStore;
     private final ObjectMapper objectMapper;
     private final JsonStore jsonStore;
+    private final SessionService sessionService;
 
     /**
      * 发送单聊消息
@@ -278,6 +280,12 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
 
         // 插入数据库
         this.save(message);
+
+        // 更新会话
+        sessionService.updateSession(
+                eccMessage.getFromPublicKeyHex(),
+                message,
+                false);
     }
 
     /**
@@ -322,6 +330,15 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         message.setType(sendMessageVo.getType());
         message.setGroup(false);
 
+        // 插入数据库
+        this.save(message);
+
+        // 更新会话
+        sessionService.updateSession(
+                eccMessage.getFromPublicKeyHex(),
+                message,
+                false);
+
         // 更新 更新时间
         jsonStore.setStartTimestamp(System.currentTimeMillis());
     }
@@ -340,6 +357,27 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         // 获取消息并对返回值进行处理
         for (EccMessage eccMessage : receiveOne(eccController.getPublicKey(), Long.toString(startTimestamp))) {
             receiveOneEccMessage(eccMessage);
+        }
+    }
+
+    /**
+     * 订阅单个私聊消息
+     */
+    @Override
+    public void subscribeOne() {
+        // 订阅单个私聊消息
+        try {
+            MessageWebSocketClient client = messageWebSocketClientStore.getClient();
+            WebSocketResult<?> result = client.sendMessageAndWait("receiveOne", eccController.getPublicKey());
+            if (!ResultCodeEnum.OK.getCode().equals(result.getCode())) {
+                throw new E2EchoException(result.getMessage());
+            }
+        } catch (E2EchoException e) {
+            throw e;
+        } catch (TimeoutException e) {
+            throw new E2EchoException(E2EchoExceptionCodeEnum.SRV_WEBSOCKET_TIMEOUT);
+        } catch (Exception e) {
+            throw new E2EchoException(E2EchoExceptionCodeEnum.FAIL);
         }
     }
 

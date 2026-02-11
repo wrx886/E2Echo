@@ -80,6 +80,14 @@ public interface MessageService extends IService<Message> {
      */
     void sendOne(String toPublicKeyHex, String data, MessageType type);
 
+    /**
+     * 接收消息
+     */
     void receiveMessage();
+
+    /**
+     * 订阅单聊消息
+     */
+    void subscribeOne();
 
 }

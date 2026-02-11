@@ -17,11 +17,15 @@ public class Session extends BaseEntity {
     private String publicKeyHex;
 
     @TableField(value = "message_id")
-    @Schema(description = "最后一条消息ID")
+    @Schema(description = "最后一条消息ID（可以为null）")
     private Long messageId;
 
     @TableField(value = "timestamp_")
     @Schema(description = "时间戳(int64)，表示自1970年1月1日00:00:00 UTC以来的毫秒数")
     private Long timestamp;
+
+    @TableField(value = "group_")
+    @Schema(description = "是否是群聊")
+    private Boolean group;
 
 }

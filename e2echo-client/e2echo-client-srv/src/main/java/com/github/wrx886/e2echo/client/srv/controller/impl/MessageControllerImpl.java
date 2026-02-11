@@ -59,4 +59,15 @@ public class MessageControllerImpl implements MessageController {
         messageService.receiveMessage();
     }
 
+    /**
+     * 根据ID查询消息
+     * 
+     * @param id 消息ID
+     * @return 消息
+     */
+    @Override
+    public Message getById(Long id) {
+        return messageService.getById(id);
+    }
+
 }

@@ -42,8 +42,9 @@ CREATE TABLE IF NOT EXISTS session (
     is_deleted TINYINT NOT NULL COMMENT '是否删除',
     version BIGINT NOT NULL COMMENT '版本号',
     public_key_hex VARCHAR(256) NOT NULL COMMENT '对方公钥或群聊UUID',
-    message_id BIGINT NOT NULL COMMENT '最后一条消息ID',
-    timestamp_ BIGINT NOT NULL COMMENT '最后消息时间戳'
+    message_id BIGINT NULL COMMENT '最后一条消息ID',
+    timestamp_ BIGINT NOT NULL COMMENT '最后消息时间戳',
+    group_ TINYINT NOT NULL COMMENT '是否是群聊'
 );
 -- 创建索引
 CREATE INDEX IF NOT EXISTS public_key_hex_idx ON session (public_key_hex, timestamp_);

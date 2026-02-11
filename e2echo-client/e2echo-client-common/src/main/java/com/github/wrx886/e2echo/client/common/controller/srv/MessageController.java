@@ -38,4 +38,12 @@ public interface MessageController {
      */
     List<Message> listGroupBySession(String session);
 
+    /**
+     * 根据ID查询消息
+     * 
+     * @param id 消息ID
+     * @return 消息
+     */
+    Message getById(Long id);
+
 }
