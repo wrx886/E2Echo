@@ -22,4 +22,12 @@ public interface SessionController {
      */
     void create(String publicKeyHex, boolean group);
 
+    /**
+     * 判断是否包含会话
+     * 
+     * @param publicKeyHex
+     * @return 是否包含会话
+     */
+    boolean contain(String publicKeyHex);
+
 }

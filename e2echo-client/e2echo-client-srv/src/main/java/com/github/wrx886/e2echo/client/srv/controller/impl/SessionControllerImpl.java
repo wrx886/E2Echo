@@ -42,4 +42,11 @@ public class SessionControllerImpl implements SessionController {
         sessionService.create(publicKeyHex, group);
     }
 
+    @Override
+    public boolean contain(String publicKeyHex) {
+        return sessionService.count(new LambdaQueryWrapper<Session>()
+                .eq(Session::getOwnerPublicKeyHex, eccController.getPublicKey())
+                .eq(Session::getPublicKeyHex, publicKeyHex)) > 0;
+    }
+
 }
