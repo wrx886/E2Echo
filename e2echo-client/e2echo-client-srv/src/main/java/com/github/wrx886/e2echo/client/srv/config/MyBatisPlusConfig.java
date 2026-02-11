@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Configuration;
 import com.baomidou.mybatisplus.annotation.DbType;
 import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
 import com.baomidou.mybatisplus.extension.plugins.inner.BlockAttackInnerInterceptor;
+import com.baomidou.mybatisplus.extension.plugins.inner.OptimisticLockerInnerInterceptor;
 import com.baomidou.mybatisplus.extension.plugins.inner.PaginationInnerInterceptor;
 
 @Configuration
@@ -20,6 +21,8 @@ public class MyBatisPlusConfig {
         mybatisPlusInterceptor.addInnerInterceptor(new BlockAttackInnerInterceptor());
         // 加入分页插件
         mybatisPlusInterceptor.addInnerInterceptor(new PaginationInnerInterceptor(DbType.H2));
+        // 加入乐观锁插件
+        mybatisPlusInterceptor.addInnerInterceptor(new OptimisticLockerInnerInterceptor());
         return mybatisPlusInterceptor;
     }
 

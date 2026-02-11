@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
+import com.baomidou.mybatisplus.annotation.Version;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -39,5 +40,10 @@ public class BaseEntity {
     @TableLogic
     @JsonIgnore
     private Byte isDeleted;
+
+    @Version
+    @TableField(value = "version")
+    @Schema(description = "版本号")
+    private Long version;
 
 }

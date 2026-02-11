@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS message (
     create_time TIMESTAMP NOT NULL COMMENT '创建时间',
     update_time TIMESTAMP NOT NULL COMMENT '更新时间',
     is_deleted TINYINT NOT NULL COMMENT '是否删除',
+    version BIGINT NOT NULL COMMENT '版本号',
     uuid VARCHAR(64) NOT NULL UNIQUE COMMENT '消息 uuid',
     timestamp_ BIGINT NOT NULL COMMENT '时间戳',
     from_public_key_hex VARCHAR(256) NOT NULL COMMENT '发送者公钥',
@@ -26,6 +27,7 @@ CREATE TABLE IF NOT EXISTS alias (
     create_time TIMESTAMP NOT NULL COMMENT '创建时间',
     update_time TIMESTAMP NOT NULL COMMENT '更新时间',
     is_deleted TINYINT NOT NULL COMMENT '是否删除',
+    version BIGINT NOT NULL COMMENT '版本号',
     public_key_hex VARCHAR(256) NOT NULL COMMENT '对方公钥或群聊UUID',
     alias VARCHAR(256) NOT NULL COMMENT '别名'
 );
@@ -38,6 +40,7 @@ CREATE TABLE IF NOT EXISTS session (
     create_time TIMESTAMP NOT NULL COMMENT '创建时间',
     update_time TIMESTAMP NOT NULL COMMENT '更新时间',
     is_deleted TINYINT NOT NULL COMMENT '是否删除',
+    version BIGINT NOT NULL COMMENT '版本号',
     public_key_hex VARCHAR(256) NOT NULL COMMENT '对方公钥或群聊UUID',
     message_id BIGINT NOT NULL COMMENT '最后一条消息ID',
     timestamp_ BIGINT NOT NULL COMMENT '最后消息时间戳'
