@@ -10,6 +10,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.wrx886.e2echo.client.common.controller.ecc.EccController;
+import com.github.wrx886.e2echo.client.common.controller.gui.GuiController;
 import com.github.wrx886.e2echo.client.common.exception.E2EchoException;
 import com.github.wrx886.e2echo.client.common.exception.E2EchoExceptionCodeEnum;
 import com.github.wrx886.e2echo.client.common.model.EccMessage;
@@ -39,6 +40,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
     private final ObjectMapper objectMapper;
     private final JsonStore jsonStore;
     private final SessionService sessionService;
+    private final GuiController guiController;
 
     /**
      * 发送单聊消息
@@ -165,6 +167,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
     public void autoReveiveOne(EccMessage eccMessage) {
         try {
             receiveOneEccMessage(eccMessage);
+            guiController.flushAsync();
         } catch (Exception e) {
             log.error("处理收到的单个私聊消息（未解密）异常", e);
         }
@@ -291,6 +294,9 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
                 eccMessage.getFromPublicKeyHex(),
                 message,
                 false);
+
+        // 刷新
+        guiController.flushAsync();
     }
 
     /**
@@ -368,6 +374,9 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
                 log.error("处理收到的单个私聊消息（未解密）异常", e);
             }
         }
+
+        // 刷新
+        guiController.flushAsync();
     }
 
     /**

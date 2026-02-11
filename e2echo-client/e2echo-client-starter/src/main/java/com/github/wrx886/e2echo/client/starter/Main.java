@@ -15,6 +15,7 @@ import com.github.wrx886.e2echo.client.common.controller.ecc.EccController;
 import com.github.wrx886.e2echo.client.common.exception.E2EchoException;
 import com.github.wrx886.e2echo.client.common.store.JsonStore;
 import com.github.wrx886.e2echo.client.ecc.dialog.LoginDialog;
+import com.github.wrx886.e2echo.client.gui.MainScene;
 import com.github.wrx886.e2echo.client.srv.dialog.WebUrlDialog;
 import com.github.wrx886.e2echo.client.srv.store.MessageWebSocketClientStore;
 
@@ -104,6 +105,9 @@ public final class Main extends Application {
 
         // 启动 WebSocket
         webSocketClientStore.getClient();
+
+        // 设置场景
+        stage.setScene(new MainScene());
 
         stage.setTitle("E2Echo");
         stage.setWidth(800);

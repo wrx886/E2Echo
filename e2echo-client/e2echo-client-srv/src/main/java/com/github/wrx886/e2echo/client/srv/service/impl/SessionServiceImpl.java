@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.github.wrx886.e2echo.client.common.controller.ecc.EccController;
+import com.github.wrx886.e2echo.client.common.controller.gui.GuiController;
 import com.github.wrx886.e2echo.client.common.exception.E2EchoException;
 import com.github.wrx886.e2echo.client.common.exception.E2EchoExceptionCodeEnum;
 import com.github.wrx886.e2echo.client.common.model.entity.Message;
@@ -19,6 +20,7 @@ import lombok.AllArgsConstructor;
 public class SessionServiceImpl extends ServiceImpl<SessionMapper, Session> implements SessionService {
 
     private final EccController eccController;
+    private final GuiController guiController;
 
     /**
      * 更新会话
@@ -51,6 +53,9 @@ public class SessionServiceImpl extends ServiceImpl<SessionMapper, Session> impl
             session.setGroup(group);
             this.save(session);
         }
+
+        // 刷新
+        guiController.flushAsync();
     }
 
     /**
@@ -78,6 +83,9 @@ public class SessionServiceImpl extends ServiceImpl<SessionMapper, Session> impl
         session.setTimestamp(System.currentTimeMillis());
         session.setGroup(group);
         this.save(session);
+
+        // 刷新
+        guiController.flushAsync();
     }
 
 }
