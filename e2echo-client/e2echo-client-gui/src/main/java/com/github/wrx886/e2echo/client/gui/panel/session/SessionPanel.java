@@ -2,7 +2,7 @@ package com.github.wrx886.e2echo.client.gui.panel.session;
 
 import com.github.wrx886.e2echo.client.common.common.BeanProvider;
 import com.github.wrx886.e2echo.client.common.controller.gui.GuiController;
-import com.github.wrx886.e2echo.client.common.controller.srv.AliasController;
+import com.github.wrx886.e2echo.client.common.controller.srv.MessageController;
 import com.github.wrx886.e2echo.client.common.model.entity.Session;
 import com.github.wrx886.e2echo.client.gui.content.chat.ChatContent;
 import com.github.wrx886.e2echo.client.gui.content.edit.EditContent;
@@ -22,8 +22,8 @@ import javafx.scene.layout.VBox;
 
 public class SessionPanel extends VBox {
 
+    private final MessageController messageController = BeanProvider.getBean(MessageController.class);
     private final GuiController guiController = BeanProvider.getBean(GuiController.class);
-    private final AliasController aliasController = BeanProvider.getBean(AliasController.class);
     private final GuiStore guiStore = BeanProvider.getBean(GuiStore.class);
 
     // 标题标签
@@ -92,7 +92,7 @@ public class SessionPanel extends VBox {
 
     // 刷新按钮事件
     private void reflushButtonOnAction(Event event) {
-        guiController.flushAsync();
+        messageController.receiveMessage();
     }
 
     // 当选择会话事件

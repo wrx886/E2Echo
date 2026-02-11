@@ -104,7 +104,9 @@ public final class Main extends Application {
         }
 
         // 启动 WebSocket
-        webSocketClientStore.getClient();
+        Platform.runLater(() -> {
+            webSocketClientStore.getClient();
+        });
 
         // 设置场景
         stage.setScene(new MainScene());
