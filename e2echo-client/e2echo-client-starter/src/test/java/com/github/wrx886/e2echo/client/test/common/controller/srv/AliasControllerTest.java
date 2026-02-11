@@ -7,7 +7,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
 import com.github.wrx886.e2echo.client.common.controller.srv.AliasController;
-import com.github.wrx886.e2echo.client.common.controller.srv.SessionController;
 import com.github.wrx886.e2echo.client.ecc.store.EccKeyStore;
 import com.github.wrx886.e2echo.client.srv.store.WebUrlStore;
 import com.github.wrx886.e2echo.client.starter.Main.Starter;

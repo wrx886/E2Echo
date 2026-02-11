@@ -52,20 +52,14 @@ public class MessageWebSocketClientStore {
             } catch (Exception e) {
                 throw new E2EchoException(E2EchoExceptionCodeEnum.SRV_WEBSOCKET_CONNECT_FAIL);
             }
+            // 初始化
+            init();
 
             // 创建一个线程，用于不断检测连接状态
             executorService.submit(() -> {
-                MessageService messageService = BeanProvider.getBean(MessageService.class);
                 while (!closed) {
                     try {
-                        if (!client.isOpen()) {
-                            // 重连
-                            this.getClient();
-                            // 接收消息
-                            messageService.receiveMessage();
-                            // 订阅消息
-                            messageService.subscribeOne();
-                        }
+                        this.getClient();
                     } catch (Exception e) {
                         log.error("", e);
                     }
@@ -83,6 +77,7 @@ public class MessageWebSocketClientStore {
         if (!client.isOpen()) {
             try {
                 client.reconnectBlocking();
+                init();
             } catch (InterruptedException e) {
                 throw new E2EchoException(E2EchoExceptionCodeEnum.SRV_WEBSOCKET_CONNECT_FAIL);
             }
@@ -98,6 +93,16 @@ public class MessageWebSocketClientStore {
             closed = true;
             client = null;
         }
+    }
+
+    // 初始化
+    private synchronized void init() {
+        // 获取服务
+        MessageService messageService = BeanProvider.getBean(MessageService.class);
+        // 接收消息
+        messageService.receiveMessage();
+        // 订阅消息
+        messageService.subscribeOne();
     }
 
 }
