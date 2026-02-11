@@ -11,4 +11,7 @@ public class JsonStore {
     // 接收消息的起始时间
     private Long startTimestamp;
 
+    // WebUrl
+    private String webUrl;
+
 }

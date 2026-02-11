@@ -4,6 +4,7 @@ import org.springframework.stereotype.Component;
 
 import com.github.wrx886.e2echo.client.common.exception.E2EchoException;
 import com.github.wrx886.e2echo.client.common.exception.E2EchoExceptionCodeEnum;
+import com.github.wrx886.e2echo.client.common.store.JsonStore;
 import com.github.wrx886.e2echo.client.srv.feign.PingFeign;
 import com.github.wrx886.e2echo.client.srv.store.WebUrlStore;
 
@@ -17,9 +18,10 @@ public final class WebUrlDialog {
 
     private final WebUrlStore webUrlStore;
     private final PingFeign pingFeign;
+    private final JsonStore jsonStore;
 
     public boolean dialog() {
-        TextInputDialog textInputDialog = new TextInputDialog();
+        TextInputDialog textInputDialog = new TextInputDialog(jsonStore.getWebUrl());
         textInputDialog.setTitle("请输入 Web URL");
         textInputDialog.setHeaderText(null);
         textInputDialog.setContentText("Web URL:");
@@ -45,6 +47,7 @@ public final class WebUrlDialog {
 
         // 显示
         textInputDialog.showAndWait();
+        jsonStore.setWebUrl(webUrlStore.getWebUrl());
         return webUrlStore.getWebUrl() != null;
     }
 
