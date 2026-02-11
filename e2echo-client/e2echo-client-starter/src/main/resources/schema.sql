@@ -19,3 +19,28 @@ CREATE INDEX IF NOT EXISTS public_key_hex_timestamp_idx ON message (
     to_public_key_hex,
     timestamp_
 );
+-- 创建别名
+CREATE TABLE IF NOT EXISTS alias (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '自增主键',
+    owner_public_key_hex VARCHAR(256) NOT NULL COMMENT '所属登入用户',
+    create_time TIMESTAMP NOT NULL COMMENT '创建时间',
+    update_time TIMESTAMP NOT NULL COMMENT '更新时间',
+    is_deleted TINYINT NOT NULL COMMENT '是否删除',
+    public_key_hex VARCHAR(256) NOT NULL COMMENT '对方公钥或群聊UUID',
+    alias VARCHAR(256) NOT NULL COMMENT '别名'
+);
+-- 创建索引
+CREATE INDEX IF NOT EXISTS public_key_hex_idx ON alias (public_key_hex);
+-- 创建会话
+CREATE TABLE IF NOT EXISTS session (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '自增主键',
+    owner_public_key_hex VARCHAR(256) NOT NULL COMMENT '所属登入用户',
+    create_time TIMESTAMP NOT NULL COMMENT '创建时间',
+    update_time TIMESTAMP NOT NULL COMMENT '更新时间',
+    is_deleted TINYINT NOT NULL COMMENT '是否删除',
+    public_key_hex VARCHAR(256) NOT NULL COMMENT '对方公钥或群聊UUID',
+    message_id BIGINT NOT NULL COMMENT '最后一条消息ID',
+    timestamp_ BIGINT NOT NULL COMMENT '最后消息时间戳'
+);
+-- 创建索引
+CREATE INDEX IF NOT EXISTS public_key_hex_idx ON session (public_key_hex, timestamp_);
