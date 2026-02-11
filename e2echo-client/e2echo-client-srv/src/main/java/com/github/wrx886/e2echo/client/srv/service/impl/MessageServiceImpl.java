@@ -163,7 +163,11 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
      */
     @Override
     public void autoReveiveOne(EccMessage eccMessage) {
-        receiveOneEccMessage(eccMessage);
+        try {
+            receiveOneEccMessage(eccMessage);
+        } catch (Exception e) {
+            log.error("处理收到的单个私聊消息（未解密）异常", e);
+        }
     }
 
     /**
@@ -271,6 +275,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         // 封装为数据库消息
         Message message = new Message();
         message.setOwnerPublicKeyHex(eccMessage.getFromPublicKeyHex());
+        message.setUuid(eccMessage.getUuid());
         message.setTimestamp(Long.valueOf(eccMessage.getTimestamp()));
         message.setFromPublicKeyHex(eccMessage.getFromPublicKeyHex());
         message.setToPublicKeyHex(eccMessage.getToPublicKeyHex());
@@ -322,6 +327,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
 
         // 封装为数据库消息
         Message message = new Message();
+        message.setUuid(eccMessage.getUuid());
         message.setOwnerPublicKeyHex(eccMessage.getFromPublicKeyHex());
         message.setTimestamp(Long.valueOf(eccMessage.getTimestamp()));
         message.setFromPublicKeyHex(eccMessage.getFromPublicKeyHex());
@@ -356,7 +362,11 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
 
         // 获取消息并对返回值进行处理
         for (EccMessage eccMessage : receiveOne(eccController.getPublicKey(), Long.toString(startTimestamp))) {
-            receiveOneEccMessage(eccMessage);
+            try {
+                receiveOneEccMessage(eccMessage);
+            } catch (Exception e) {
+                log.error("处理收到的单个私聊消息（未解密）异常", e);
+            }
         }
     }
 
