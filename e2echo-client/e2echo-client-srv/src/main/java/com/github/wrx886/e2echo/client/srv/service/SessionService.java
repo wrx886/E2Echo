@@ -23,4 +23,12 @@ public interface SessionService extends IService<Session> {
      */
     void create(String publicKeyHex, boolean group);
 
+    /**
+     * 更新群密钥
+     * 
+     * @param groupUuid  群聊UUID
+     * @param groupKeyId 群密钥ID
+     */
+    void putGroupKey(String groupUuid, Long groupKeyId);
+
 }

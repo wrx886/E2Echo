@@ -90,4 +90,33 @@ public class SessionServiceImpl extends ServiceImpl<SessionMapper, Session> impl
         guiController.flushAsync();
     }
 
+    /**
+     * 更新群密钥
+     * 
+     * @param groupUuid  群聊UUID
+     * @param groupKeyId 群密钥ID
+     */
+    @Override
+    public void putGroupKey(String groupUuid, Long groupKeyId) {
+        // 获取会话
+        Session session = this.getOne(new LambdaQueryWrapper<Session>()
+                .eq(Session::getOwnerPublicKeyHex, eccController.getPublicKey())
+                .eq(Session::getPublicKeyHex, groupUuid)
+                .eq(Session::getGroup, true));
+
+        // 更新
+        if (session == null) {
+            session = new Session();
+            session.setOwnerPublicKeyHex(eccController.getPublicKey());
+            session.setPublicKeyHex(groupUuid);
+            session.setTimestamp(System.currentTimeMillis());
+            session.setGroup(true);
+            session.setGroupKeyId(groupKeyId);
+            this.save(session);
+        } else {
+            session.setGroupKeyId(groupKeyId);
+            this.updateById(session);
+        }
+    }
+
 }

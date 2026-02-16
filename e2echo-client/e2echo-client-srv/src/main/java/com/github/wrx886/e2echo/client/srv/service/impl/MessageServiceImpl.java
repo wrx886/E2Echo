@@ -22,10 +22,12 @@ import com.github.wrx886.e2echo.client.common.model.enum_.MessageType;
 import com.github.wrx886.e2echo.client.common.store.JsonStore;
 import com.github.wrx886.e2echo.client.srv.mapper.MessageMapper;
 import com.github.wrx886.e2echo.client.srv.model.socket.WebSocketResult;
+import com.github.wrx886.e2echo.client.srv.model.vo.GroupKeyVo;
 import com.github.wrx886.e2echo.client.srv.model.vo.SendMessageVo;
 import com.github.wrx886.e2echo.client.srv.model.vo.socket.message.ReceiveGroupMessageSocketVo;
 import com.github.wrx886.e2echo.client.srv.model.vo.socket.message.ReceiveOneMessageSocketVo;
 import com.github.wrx886.e2echo.client.srv.result.ResultCodeEnum;
+import com.github.wrx886.e2echo.client.srv.service.GroupKeyService;
 import com.github.wrx886.e2echo.client.srv.service.MessageService;
 import com.github.wrx886.e2echo.client.srv.service.SessionService;
 import com.github.wrx886.e2echo.client.srv.socket.MessageWebSocketClient;
@@ -44,6 +46,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
     private final JsonStore jsonStore;
     private final SessionService sessionService;
     private final GuiController guiController;
+    private final GroupKeyService groupKeyService;
 
     /**
      * 发送单聊消息
@@ -342,6 +345,10 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         // 针对不同的消息类型进行处理
         if (sendMessageVo.getType() == MessageType.TEXT) {
             // 不需要处理
+        } else if (sendMessageVo.getType() == MessageType.GROUP_KEY_UPDATE) {
+            // 更新群聊密钥
+            updateGroupKey(eccMessage.getFromPublicKeyHex(), sendMessageVo);
+            return;
         } else {
             // 其他消息类型暂不支持
             throw new RuntimeException(new UnsupportedDataTypeException());
@@ -373,6 +380,43 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
 
         // 更新 更新时间
         jsonStore.setStartTimestamp(System.currentTimeMillis());
+    }
+
+    /**
+     * 更新群聊密钥
+     * 
+     * @param fromPublicKeyHex
+     * @param sendMessageVo
+     */
+    private void updateGroupKey(String fromPublicKeyHex, SendMessageVo sendMessageVo) {
+        // 消息类型必须是群聊密钥更新
+        if (!MessageType.GROUP_KEY_UPDATE.equals(sendMessageVo.getType())) {
+            throw new RuntimeException("消息类型错误");
+        }
+
+        // 验证发送者
+        GroupKeyVo groupKeyVo;
+        try {
+            groupKeyVo = objectMapper.readValue(sendMessageVo.getData(), GroupKeyVo.class);
+        } catch (Exception e) {
+            log.error("", e);
+            return;
+        }
+
+        // 提取群主公钥
+        String groupOwnerPublicKeyHex = groupKeyVo.getGroupUuid().split(":")[0];
+
+        // 群主不匹配
+        if (!eccController.getPublicKey().equals(groupOwnerPublicKeyHex)) {
+            // 忽略
+            return;
+        }
+
+        // 更新密钥
+        groupKeyService.put(
+                groupKeyVo.getGroupUuid(),
+                Long.valueOf(groupKeyVo.getTimestamp()),
+                groupKeyVo.getAesKey());
     }
 
     /**
