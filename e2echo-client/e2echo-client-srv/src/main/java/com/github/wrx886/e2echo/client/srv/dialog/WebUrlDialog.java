@@ -26,7 +26,7 @@ public final class WebUrlDialog {
         textInputDialog.setHeaderText(null);
         textInputDialog.setContentText("Web URL:");
         textInputDialog.setResultConverter(dialogButton -> {
-            if (dialogButton == ButtonType.OK) {
+            if (ButtonType.OK.equals(dialogButton)) {
                 // 对 URL 进行验证并设置到 Store
                 String url = textInputDialog.getEditor().getText();
                 if (url == null || url.isEmpty()) {

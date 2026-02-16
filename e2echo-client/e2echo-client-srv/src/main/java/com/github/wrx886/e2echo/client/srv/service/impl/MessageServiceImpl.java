@@ -257,7 +257,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
     public void sendOne(String toPublicKeyHex, String data, MessageType type) {
 
         // 针对不同的消息类型进行处理
-        if (type == MessageType.TEXT) {
+        if (MessageType.TEXT.equals(type)) {
             // 不需要处理
         } else {
             // 其他消息类型暂不支持
@@ -343,9 +343,9 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         }
 
         // 针对不同的消息类型进行处理
-        if (sendMessageVo.getType() == MessageType.TEXT) {
+        if (MessageType.TEXT.equals(sendMessageVo.getType())) {
             // 不需要处理
-        } else if (sendMessageVo.getType() == MessageType.GROUP_KEY_UPDATE) {
+        } else if (MessageType.GROUP_KEY_UPDATE.equals(sendMessageVo.getType())) {
             // 更新群聊密钥
             updateGroupKey(eccMessage.getFromPublicKeyHex(), sendMessageVo);
             return;
