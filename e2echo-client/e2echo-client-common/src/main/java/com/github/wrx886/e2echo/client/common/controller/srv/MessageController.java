@@ -18,6 +18,15 @@ public interface MessageController {
     void sendOneMessage(String toPublicKeyHex, String data, MessageType type);
 
     /**
+     * 发送群聊消息
+     * 
+     * @param groupUuid 群聊 UUID
+     * @param data      消息内容
+     * @param type      消息类型
+     */
+    void sendGroupMessage(String groupUuid, String data, MessageType type);
+
+    /**
      * 接收消息
      */
     void receiveMessage();

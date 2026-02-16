@@ -70,4 +70,16 @@ public class MessageControllerImpl implements MessageController {
         return messageService.getById(id);
     }
 
+    /**
+     * 发送群聊消息
+     * 
+     * @param groupUuid 群聊 UUID
+     * @param data      消息内容
+     * @param type      消息类型
+     */
+    @Override
+    public void sendGroupMessage(String groupUuid, String data, MessageType type) {
+        messageService.sendGroup(groupUuid, data, type);
+    }
+
 }
