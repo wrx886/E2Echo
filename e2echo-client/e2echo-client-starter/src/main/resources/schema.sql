@@ -45,7 +45,8 @@ CREATE TABLE IF NOT EXISTS session (
     message_id BIGINT NULL COMMENT '最后一条消息ID',
     timestamp_ BIGINT NOT NULL COMMENT '最后消息时间戳',
     group_ TINYINT NOT NULL COMMENT '是否是群聊',
-    group_key_id BIGINT NOT NULL COMMENT '群聊密钥ID'
+    group_key_id BIGINT NOT NULL COMMENT '群聊密钥ID',
+    group_enabled TINYINT NOT NULL COMMENT '群聊是否启用'
 );
 -- 创建索引
 CREATE INDEX IF NOT EXISTS public_key_hex_idx ON session (public_key_hex, timestamp_);

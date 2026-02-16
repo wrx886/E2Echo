@@ -1,5 +1,7 @@
 package com.github.wrx886.e2echo.client.srv.service.impl;
 
+import java.util.List;
+
 import org.springframework.stereotype.Service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -34,11 +36,15 @@ public class SessionServiceImpl extends ServiceImpl<SessionMapper, Session> impl
         // 获取会话
         Session session = this.getOne(new LambdaQueryWrapper<Session>()
                 .eq(Session::getOwnerPublicKeyHex, eccController.getPublicKey())
-                .eq(Session::getPublicKeyHex, publicKeyHex)
-                .eq(Session::getGroup, group));
+                .eq(Session::getPublicKeyHex, publicKeyHex));
 
         // 存在会话
         if (session != null) {
+            // 错误
+            if (group != session.getGroup()) {
+                throw new RuntimeException();
+            }
+
             // 更新会话
             session.setMessageId(message.getId());
             session.setTimestamp(message.getTimestamp());
@@ -52,6 +58,7 @@ public class SessionServiceImpl extends ServiceImpl<SessionMapper, Session> impl
             session.setTimestamp(message.getTimestamp());
             session.setGroup(group);
             session.setGroupKeyId(-1L);
+            session.setGroupEnabled(true);
             this.save(session);
         }
 
@@ -70,8 +77,7 @@ public class SessionServiceImpl extends ServiceImpl<SessionMapper, Session> impl
         // 获取会话
         Session session = this.getOne(new LambdaQueryWrapper<Session>()
                 .eq(Session::getOwnerPublicKeyHex, eccController.getPublicKey())
-                .eq(Session::getPublicKeyHex, publicKeyHex)
-                .eq(Session::getGroup, group));
+                .eq(Session::getPublicKeyHex, publicKeyHex));
 
         if (session != null) {
             throw new E2EchoException(E2EchoExceptionCodeEnum.SRV_SESSION_EXISTS);
@@ -84,6 +90,7 @@ public class SessionServiceImpl extends ServiceImpl<SessionMapper, Session> impl
         session.setTimestamp(System.currentTimeMillis());
         session.setGroup(group);
         session.setGroupKeyId(-1L);
+        session.setGroupEnabled(true);
         this.save(session);
 
         // 刷新
@@ -114,9 +121,59 @@ public class SessionServiceImpl extends ServiceImpl<SessionMapper, Session> impl
             session.setGroupKeyId(groupKeyId);
             this.save(session);
         } else {
+            // 错误
+            if (!session.getGroup()) {
+                throw new RuntimeException();
+            }
             session.setGroupKeyId(groupKeyId);
             this.updateById(session);
         }
+    }
+
+    /**
+     * 会话是否存在
+     * 
+     * @param publicKeyHex
+     * @return true：存在，false：不存在
+     */
+    @Override
+    public boolean contain(String publicKeyHex) {
+        return count(new LambdaQueryWrapper<Session>()
+                .eq(Session::getOwnerPublicKeyHex, eccController.getPublicKey())
+                .eq(Session::getPublicKeyHex, publicKeyHex)) > 0;
+    }
+
+    /**
+     * 获取会话列表
+     * 
+     * @return 会话列表（根据时间戳降序排列）
+     */
+    @Override
+    public List<Session> listSession() {
+        return list(new LambdaQueryWrapper<Session>()
+                .eq(Session::getOwnerPublicKeyHex, eccController.getPublicKey())
+                .orderByDesc(Session::getTimestamp));
+    }
+
+    /**
+     * 修改群聊启用状态
+     * 
+     * @param groupUuid 群聊 UUID
+     * @param enabled   启用状态
+     */
+    @Override
+    public void setGroupEnabled(String groupUuid, boolean enabled) {
+        // 获取会话
+        Session session = this.getOne(new LambdaQueryWrapper<Session>()
+                .eq(Session::getOwnerPublicKeyHex, eccController.getPublicKey())
+                .eq(Session::getPublicKeyHex, groupUuid));
+        if (session == null) {
+            throw new E2EchoException(E2EchoExceptionCodeEnum.SRV_SESSION_NOT_EXIST);
+        }
+
+        // 修改
+        session.setGroupEnabled(enabled);
+        this.updateById(session);
     }
 
 }

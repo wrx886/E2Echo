@@ -4,8 +4,6 @@ import java.util.List;
 
 import org.springframework.stereotype.Controller;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.github.wrx886.e2echo.client.common.controller.ecc.EccController;
 import com.github.wrx886.e2echo.client.common.controller.srv.SessionController;
 import com.github.wrx886.e2echo.client.common.model.entity.Session;
 import com.github.wrx886.e2echo.client.srv.service.SessionService;
@@ -17,7 +15,6 @@ import lombok.AllArgsConstructor;
 public class SessionControllerImpl implements SessionController {
 
     private final SessionService sessionService;
-    private final EccController eccController;
 
     /**
      * 获取会话列表
@@ -26,9 +23,7 @@ public class SessionControllerImpl implements SessionController {
      */
     @Override
     public List<Session> list() {
-        return sessionService.list(new LambdaQueryWrapper<Session>()
-                .eq(Session::getOwnerPublicKeyHex, eccController.getPublicKey())
-                .orderByDesc(Session::getTimestamp));
+        return sessionService.listSession();
     }
 
     /**
@@ -44,9 +39,18 @@ public class SessionControllerImpl implements SessionController {
 
     @Override
     public boolean contain(String publicKeyHex) {
-        return sessionService.count(new LambdaQueryWrapper<Session>()
-                .eq(Session::getOwnerPublicKeyHex, eccController.getPublicKey())
-                .eq(Session::getPublicKeyHex, publicKeyHex)) > 0;
+        return sessionService.contain(publicKeyHex);
+    }
+
+    /**
+     * 修改群聊启用状态
+     * 
+     * @param groupUuid 群聊 UUID
+     * @param enabled   启用状态
+     */
+    @Override
+    public void setGroupEnabled(String groupUuid, boolean enabled) {
+        sessionService.setGroupEnabled(groupUuid, enabled);
     }
 
 }

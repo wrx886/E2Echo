@@ -31,8 +31,10 @@ public enum E2EchoExceptionCodeEnum {
     SRV_WEBSOCKET_TIMEOUT("BB02", "SRV：WebSocket 超时"),
     SRV_WEBSOCKET_CLIENT_CLOSED("BB03", "SRV：WebSocket 客户端已关闭"),
     SRV_SESSION_EXISTS("BC01", "SRV：会话已存在"),
-    SRV_GROUP_MEMBER_EXIST("BC01", "SRV：群成员已存在"),
-    SRV_GROUP_MEMBER_NOT_EXIST("BC02", "SRV：群成员不存在"),
+    SRV_SESSION_GROUP_DISABLED("BC02", "SRV：会话已禁用"),
+    SRV_SESSION_NOT_EXIST("BC03", "SRV：会话不存在"),
+    SRV_GROUP_MEMBER_EXIST("BD01", "SRV：群成员已存在"),
+    SRV_GROUP_MEMBER_NOT_EXIST("BD02", "SRV：群成员不存在"),
 
     ;
 

@@ -1,5 +1,7 @@
 package com.github.wrx886.e2echo.client.srv.service;
 
+import java.util.List;
+
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.github.wrx886.e2echo.client.common.model.entity.Message;
 import com.github.wrx886.e2echo.client.common.model.entity.Session;
@@ -30,5 +32,28 @@ public interface SessionService extends IService<Session> {
      * @param groupKeyId 群密钥ID
      */
     void putGroupKey(String groupUuid, Long groupKeyId);
+
+    /**
+     * 会话是否存在
+     * 
+     * @param publicKeyHex
+     * @return true：存在，false：不存在
+     */
+    boolean contain(String publicKeyHex);
+
+    /**
+     * 获取会话列表
+     * 
+     * @return 会话列表（根据时间戳降序排列）
+     */
+    List<Session> listSession();
+
+    /**
+     * 修改群聊启用状态
+     * 
+     * @param groupUuid 群聊 UUID
+     * @param enabled   启用状态
+     */
+    void setGroupEnabled(String groupUuid, boolean enabled);
 
 }

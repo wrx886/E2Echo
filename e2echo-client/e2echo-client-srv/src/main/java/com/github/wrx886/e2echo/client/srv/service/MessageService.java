@@ -90,4 +90,18 @@ public interface MessageService extends IService<Message> {
      */
     void subscribeOne();
 
+    /**
+     * 订阅群聊消息
+     */
+    void subscribeGroup(String groupUuid);
+
+    /**
+     * 接收群聊消息
+     * 
+     * @param groupUuid 群聊UUID
+     * @param data      消息内容
+     * @param type      消息类型
+     */
+    void sendGroup(String groupUuid, String data, MessageType type);
+
 }

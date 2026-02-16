@@ -32,4 +32,8 @@ public class Session extends BaseEntity {
     @Schema(description = "群密钥ID")
     private Long groupKeyId;
 
+    @TableField(value = "group_enabled")
+    @Schema(description = "群聊是否启用")
+    private Boolean groupEnabled;
+
 }

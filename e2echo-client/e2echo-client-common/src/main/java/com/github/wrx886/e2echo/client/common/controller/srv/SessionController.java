@@ -30,4 +30,12 @@ public interface SessionController {
      */
     boolean contain(String publicKeyHex);
 
+    /**
+     * 修改群聊启用状态
+     * 
+     * @param groupUuid 群聊 UUID
+     * @param enabled   启用状态
+     */
+    void setGroupEnabled(String groupUuid, boolean enabled);
+
 }

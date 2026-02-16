@@ -1,5 +1,6 @@
 package com.github.wrx886.e2echo.client.srv.store;
 
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 
 import org.springframework.stereotype.Component;
@@ -7,7 +8,9 @@ import org.springframework.stereotype.Component;
 import com.github.wrx886.e2echo.client.common.common.BeanProvider;
 import com.github.wrx886.e2echo.client.common.exception.E2EchoException;
 import com.github.wrx886.e2echo.client.common.exception.E2EchoExceptionCodeEnum;
+import com.github.wrx886.e2echo.client.common.model.entity.Session;
 import com.github.wrx886.e2echo.client.srv.service.MessageService;
+import com.github.wrx886.e2echo.client.srv.service.SessionService;
 import com.github.wrx886.e2echo.client.srv.socket.MessageWebSocketClient;
 
 import lombok.extern.slf4j.Slf4j;
@@ -99,10 +102,19 @@ public class MessageWebSocketClientStore {
     private synchronized void init() {
         // 获取服务
         MessageService messageService = BeanProvider.getBean(MessageService.class);
+        SessionService sessionService = BeanProvider.getBean(SessionService.class);
         // 接收消息
         messageService.receiveMessage();
         // 订阅消息
         messageService.subscribeOne();
+        // 获取会话
+        List<Session> sessions = sessionService.listSession();
+        for (Session session : sessions) {
+            if (session.getGroup() && session.getGroupEnabled()) {
+                // 订阅群聊
+                messageService.subscribeGroup(session.getPublicKeyHex());
+            }
+        }
     }
 
 }
