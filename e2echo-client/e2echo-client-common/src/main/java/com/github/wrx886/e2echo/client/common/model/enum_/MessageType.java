@@ -16,7 +16,10 @@ public enum MessageType implements IEnum<Integer> {
     // 视频
     VIDEO(4),
     // 文件
-    FILE(5);
+    FILE(5),
+
+    // 群聊：KEY更新
+    GROUP_KEY_UPDATE(7);
 
     @Getter
     private final Integer value;

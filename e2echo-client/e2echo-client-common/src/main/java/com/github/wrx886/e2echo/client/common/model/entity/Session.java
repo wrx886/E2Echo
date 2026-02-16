@@ -28,4 +28,8 @@ public class Session extends BaseEntity {
     @Schema(description = "是否是群聊")
     private Boolean group;
 
+    @TableField(value = "group_key_id")
+    @Schema(description = "群密钥ID")
+    private Long groupKeyId;
+
 }

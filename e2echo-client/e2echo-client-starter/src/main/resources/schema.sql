@@ -44,7 +44,35 @@ CREATE TABLE IF NOT EXISTS session (
     public_key_hex VARCHAR(256) NOT NULL COMMENT '对方公钥或群聊UUID',
     message_id BIGINT NULL COMMENT '最后一条消息ID',
     timestamp_ BIGINT NOT NULL COMMENT '最后消息时间戳',
-    group_ TINYINT NOT NULL COMMENT '是否是群聊'
+    group_ TINYINT NOT NULL COMMENT '是否是群聊',
+    group_key_id BIGINT NOT NULL COMMENT '群聊密钥ID'
 );
 -- 创建索引
 CREATE INDEX IF NOT EXISTS public_key_hex_idx ON session (public_key_hex, timestamp_);
+-- 创建群聊密钥
+CREATE TABLE IF NOT EXISTS group_key(
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '自增主键',
+    owner_public_key_hex VARCHAR(256) NOT NULL COMMENT '所属登入用户',
+    create_time TIMESTAMP NOT NULL COMMENT '创建时间',
+    update_time TIMESTAMP NOT NULL COMMENT '更新时间',
+    is_deleted TINYINT NOT NULL DEFAULT 0 COMMENT '是否删除',
+    version BIGINT NOT NULL DEFAULT 0 COMMENT '版本号',
+    group_uuid VARCHAR(256) NOT NULL COMMENT '群聊 uuid',
+    timestamp_ BIGINT NOT NULL COMMENT '时间戳',
+    aes_key VARCHAR(256) NOT NULL COMMENT '群聊密钥'
+);
+-- 创建索引
+CREATE INDEX IF NOT EXISTS group_uuid_timestamp_idx ON group_key (group_uuid, timestamp_);
+-- 创建群聊成员
+CREATE TABLE IF NOT EXISTS group_member (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '自增主键',
+    owner_public_key_hex VARCHAR(256) NOT NULL COMMENT '所属登入用户',
+    create_time TIMESTAMP NOT NULL COMMENT '创建时间',
+    update_time TIMESTAMP NOT NULL COMMENT '更新时间',
+    is_deleted TINYINT NOT NULL DEFAULT 0 COMMENT '是否删除',
+    version BIGINT NOT NULL DEFAULT 0 COMMENT '版本号',
+    group_uuid VARCHAR(256) NOT NULL COMMENT '群聊 uuid',
+    public_key_hex VARCHAR(256) NOT NULL COMMENT '群成员公钥'
+);
+-- 创建索引
+CREATE INDEX IF NOT EXISTS group_uuid_idx ON group_member (group_uuid);

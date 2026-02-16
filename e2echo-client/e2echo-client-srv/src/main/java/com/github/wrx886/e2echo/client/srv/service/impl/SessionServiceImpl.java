@@ -51,6 +51,7 @@ public class SessionServiceImpl extends ServiceImpl<SessionMapper, Session> impl
             session.setMessageId(message.getId());
             session.setTimestamp(message.getTimestamp());
             session.setGroup(group);
+            session.setGroupKeyId(-1L);
             this.save(session);
         }
 
@@ -82,6 +83,7 @@ public class SessionServiceImpl extends ServiceImpl<SessionMapper, Session> impl
         session.setPublicKeyHex(publicKeyHex);
         session.setTimestamp(System.currentTimeMillis());
         session.setGroup(group);
+        session.setGroupKeyId(-1L);
         this.save(session);
 
         // 刷新
