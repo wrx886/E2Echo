@@ -15,6 +15,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import javafx.scene.text.Text;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -76,6 +77,9 @@ public class ChatContentCell extends ListCell<Message> {
         } else {
             // 单元格不为空
 
+            // 设置文本高度最小值
+            dataTextLabel.setMinHeight(0);
+
             // 发送者
             fromNameLabel.setText(aliasController.get(item.getFromPublicKeyHex()));
 
@@ -86,11 +90,20 @@ public class ChatContentCell extends ListCell<Message> {
             if (MessageType.TEXT.equals(item.getType())) {
                 // 文字展示
                 dataTextLabel.setText(item.getData());
+                dataTextLabel.setMinHeight(getTextHeight(dataTextLabel.getText()));
             } else {
                 throw new UnsupportedOperationException("数据类型未处理！");
             }
 
             setGraphic(vBox);
         }
+    }
+
+    // 计算文本高度
+    private int getTextHeight(String text) {
+        Text text1 = new Text(text + "\n");
+        text1.setFont(dataTextLabel.getFont());
+        text1.setWrappingWidth(dataTextLabel.getMaxWidth());
+        return (int) text1.getLayoutBounds().getHeight();
     }
 }
