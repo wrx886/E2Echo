@@ -33,7 +33,7 @@ public class WebSocketTestClient extends WebSocketClient implements AutoCloseabl
     public WebSocketTestClient(String url) throws Exception {
         super(new URI(url));
         this.connectBlocking();
-        if (ReadyState.OPEN != this.getReadyState()) {
+        if (!ReadyState.OPEN.equals(this.getReadyState())) {
             throw new Exception("连接失败");
         }
     }
