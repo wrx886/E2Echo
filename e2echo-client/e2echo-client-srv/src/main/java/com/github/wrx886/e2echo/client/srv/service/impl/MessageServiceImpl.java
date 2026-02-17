@@ -232,6 +232,27 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
             throw new RuntimeException(e);
         }
 
+        // 获取 Session
+        Session session = sessionService.getSession(eccMessage.getFromPublicKeyHex());
+        if (session == null) {
+            // 群聊不存在
+            return;
+        }
+
+        // 获取群聊 GroupKey
+        GroupKey groupKey = groupKeyService.getById(session.getGroupKeyId());
+        if (groupKey == null) {
+            // 群聊密钥不存在
+            return;
+        }
+
+        // 判读是否使用过期的密钥
+        if (!groupKey.getTimestamp().equals(Long.valueOf(groupMessageVo.getTimestamp()))
+                && groupKey.getTimestamp() + 1000L * 60 < Long.valueOf(eccMessage.getTimestamp())) {
+            // 使用过时密钥，新密钥已经发布超过一分钟，还在使用原先的密钥，视为无效
+            return;
+        }
+
         // 获取解密的密钥
         String aesKey = groupKeyService.get(eccMessage.getToPublicKeyHex(),
                 Long.valueOf(groupMessageVo.getTimestamp()));

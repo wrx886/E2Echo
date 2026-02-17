@@ -94,7 +94,7 @@ public class GroupContent extends VBox {
         dialog.setHeaderText(null);
         dialog.setContentText("请输入新成员公钥：");
         dialog.setResultConverter(dialogButton -> {
-            if (dialogButton == ButtonType.OK) {
+            if (ButtonType.OK.equals(dialogButton)) {
                 String publicKeyHex = dialog.getEditor().getText();
                 if (publicKeyHex == null || publicKeyHex.isEmpty()) {
                     throw new E2EchoException(E2EchoExceptionCodeEnum.GUI_PUBLIC_KEY_IS_EMPTY);
@@ -113,7 +113,7 @@ public class GroupContent extends VBox {
         alert.setHeaderText(null);
         alert.setContentText("确定要重新生成并分发密钥？");
         Optional<ButtonType> result = alert.showAndWait();
-        if (result.isPresent() && result.get() == ButtonType.OK) {
+        if (result.isPresent() && ButtonType.OK.equals(result.get())) {
             // 刷新密钥
             groupManageController.reflushKey(guiStore.getCurrentGroup().get());
         }
