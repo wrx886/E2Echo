@@ -78,3 +78,19 @@ CREATE TABLE IF NOT EXISTS group_member (
 );
 -- 创建索引
 CREATE INDEX IF NOT EXISTS group_uuid_idx ON group_member (group_uuid);
+-- 创建群聊共享机制
+CREATE TABLE IF NOT EXISTS group_key_shared (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '自增主键',
+    owner_public_key_hex VARCHAR(256) NOT NULL COMMENT '所属登入用户',
+    create_time TIMESTAMP NOT NULL COMMENT '创建时间',
+    update_time TIMESTAMP NOT NULL COMMENT '更新时间',
+    is_deleted TINYINT NOT NULL DEFAULT 0 COMMENT '是否删除',
+    version BIGINT NOT NULL DEFAULT 0 COMMENT '版本号',
+    group_uuid VARCHAR(256) NOT NULL COMMENT '群聊 uuid',
+    from_ VARCHAR(256) NOT NULL COMMENT '发送者公钥',
+    to_ VARCHAR(256) NOT NULL COMMENT '接收者公钥',
+    UNIQUE (owner_public_key_hex, group_uuid, from_, to_)
+);
+-- 创建索引
+CREATE INDEX IF NOT EXISTS group_uuid_from_to_idx ON group_key_shared (group_uuid, from_, to_);
+CREATE INDEX IF NOT EXISTS group_uuid_to_from_idx ON group_key_shared (group_uuid, to_, from_);

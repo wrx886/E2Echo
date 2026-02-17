@@ -19,7 +19,11 @@ public enum MessageType implements IEnum<Integer> {
     FILE(5),
 
     // 群聊：KEY更新
-    GROUP_KEY_UPDATE(7);
+    GROUP_KEY_UPDATE(7),
+
+    // 群聊密钥共享机制
+    GROUP_KEY_SHARED(8),
+    ;
 
     @Getter
     private final Integer value;

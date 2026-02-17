@@ -6,10 +6,12 @@ import org.springframework.stereotype.Service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.github.wrx886.e2echo.client.common.common.BeanProvider;
 import com.github.wrx886.e2echo.client.common.controller.ecc.EccController;
 import com.github.wrx886.e2echo.client.common.model.entity.GroupKey;
 import com.github.wrx886.e2echo.client.srv.mapper.GroupKeyMapper;
 import com.github.wrx886.e2echo.client.srv.service.GroupKeyService;
+import com.github.wrx886.e2echo.client.srv.service.GroupKeySharedService;
 import com.github.wrx886.e2echo.client.srv.service.SessionService;
 
 import lombok.AllArgsConstructor;
@@ -66,6 +68,10 @@ public class GroupKeyServiceImpl extends ServiceImpl<GroupKeyMapper, GroupKey> i
 
         // 缓存
         groupKeyMap.put(new Pair(groupUuid, timestamp), aesKey);
+
+        // 共享机制
+        GroupKeySharedService groupKeySharedService = BeanProvider.getBean(GroupKeySharedService.class);
+        groupKeySharedService.groupKeyUpdateListener(groupUuid);
     }
 
     /**

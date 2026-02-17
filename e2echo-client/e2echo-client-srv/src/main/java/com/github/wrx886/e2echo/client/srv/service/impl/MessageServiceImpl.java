@@ -12,12 +12,14 @@ import org.springframework.stereotype.Service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.wrx886.e2echo.client.common.common.BeanProvider;
 import com.github.wrx886.e2echo.client.common.controller.ecc.EccController;
 import com.github.wrx886.e2echo.client.common.controller.gui.GuiController;
 import com.github.wrx886.e2echo.client.common.exception.E2EchoException;
 import com.github.wrx886.e2echo.client.common.exception.E2EchoExceptionCodeEnum;
 import com.github.wrx886.e2echo.client.common.model.EccMessage;
 import com.github.wrx886.e2echo.client.common.model.entity.GroupKey;
+import com.github.wrx886.e2echo.client.common.model.entity.GroupKeyShared;
 import com.github.wrx886.e2echo.client.common.model.entity.Message;
 import com.github.wrx886.e2echo.client.common.model.entity.Session;
 import com.github.wrx886.e2echo.client.common.model.enum_.MessageType;
@@ -31,6 +33,7 @@ import com.github.wrx886.e2echo.client.srv.model.vo.socket.message.ReceiveGroupM
 import com.github.wrx886.e2echo.client.srv.model.vo.socket.message.ReceiveOneMessageSocketVo;
 import com.github.wrx886.e2echo.client.srv.result.ResultCodeEnum;
 import com.github.wrx886.e2echo.client.srv.service.GroupKeyService;
+import com.github.wrx886.e2echo.client.srv.service.GroupKeySharedService;
 import com.github.wrx886.e2echo.client.srv.service.MessageService;
 import com.github.wrx886.e2echo.client.srv.service.SessionService;
 import com.github.wrx886.e2echo.client.srv.socket.MessageWebSocketClient;
@@ -457,6 +460,10 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
             // 更新群聊密钥
             updateGroupKey(eccMessage.getFromPublicKeyHex(), sendMessageVo);
             return;
+        } else if (MessageType.GROUP_KEY_SHARED.equals(sendMessageVo.getType())) {
+            // 群密钥共享
+            receiveSharedKey(eccMessage.getFromPublicKeyHex(), sendMessageVo);
+            return;
         } else {
             // 其他消息类型暂不支持
             throw new RuntimeException(new UnsupportedDataTypeException());
@@ -488,6 +495,35 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
 
         // 更新 更新时间
         jsonStore.setStartTimestamp(System.currentTimeMillis());
+    }
+
+    private void receiveSharedKey(String fromPublicKeyHex, SendMessageVo sendMessageVo) {
+        // 消息类型必须是群聊密钥更新
+        if (!MessageType.GROUP_KEY_SHARED.equals(sendMessageVo.getType())) {
+            throw new RuntimeException("消息类型错误");
+        }
+
+        // 提取消息
+        GroupKeyVo groupKeyVo;
+        try {
+            groupKeyVo = objectMapper.readValue(sendMessageVo.getData(), GroupKeyVo.class);
+        } catch (Exception e) {
+            log.error("", e);
+            return;
+        }
+
+        // 检测规则是否存在
+        GroupKeySharedService groupKeySharedService = BeanProvider.getBean(GroupKeySharedService.class);
+        if (!groupKeySharedService.contains(groupKeyVo.getGroupUuid(), fromPublicKeyHex,
+                eccController.getPublicKey())) {
+            return;
+        }
+
+        // 更新密钥
+        groupKeyService.put(
+                groupKeyVo.getGroupUuid(),
+                Long.valueOf(groupKeyVo.getTimestamp()),
+                groupKeyVo.getAesKey());
     }
 
     /**
