@@ -63,6 +63,7 @@ public class GroupContent extends VBox {
 
         HBox hBox = new HBox();
         getChildren().add(hBox);
+        hBox.setSpacing(5);
 
         // 添加群成员按钮
         addMemberButton = new Button("添加");

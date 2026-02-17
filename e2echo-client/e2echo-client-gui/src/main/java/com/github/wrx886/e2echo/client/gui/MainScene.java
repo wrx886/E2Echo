@@ -47,6 +47,7 @@ public class MainScene extends Scene {
 
         // 左侧
         VBox sidebarVBox = layout.getSidebarVBox();
+        sidebarVBox.setSpacing(5);
         sidebarVBox.getChildren().add(sessionButton);
         sidebarVBox.getChildren().add(groupButton);
 

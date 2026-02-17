@@ -4,7 +4,6 @@ import com.github.wrx886.e2echo.client.common.common.BeanProvider;
 import com.github.wrx886.e2echo.client.common.controller.gui.GuiController;
 import com.github.wrx886.e2echo.client.common.controller.srv.AliasController;
 import com.github.wrx886.e2echo.client.common.controller.srv.GroupManageController;
-import com.github.wrx886.e2echo.client.common.controller.srv.GroupMemberController;
 import com.github.wrx886.e2echo.client.gui.content.group.GroupContent;
 import com.github.wrx886.e2echo.client.gui.layout.SidebarPanelContentLayout;
 import com.github.wrx886.e2echo.client.gui.store.GuiStore;
@@ -23,7 +22,6 @@ public class GroupPanel extends VBox {
 
     private final GuiController guiController = BeanProvider.getBean(GuiController.class);
     private final GroupManageController groupManageController = BeanProvider.getBean(GroupManageController.class);
-    private final GroupMemberController groupMemberController = BeanProvider.getBean(GroupMemberController.class);
     private final GuiStore guiStore = BeanProvider.getBean(GuiStore.class);
     private final AliasController aliasController = BeanProvider.getBean(AliasController.class);
 
