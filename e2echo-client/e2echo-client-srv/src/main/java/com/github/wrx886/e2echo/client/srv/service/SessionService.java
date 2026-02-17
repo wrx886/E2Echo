@@ -56,4 +56,12 @@ public interface SessionService extends IService<Session> {
      */
     void setGroupEnabled(String groupUuid, boolean enabled);
 
+    /**
+     * 获取会话
+     * 
+     * @param publicKeyHex 公钥或群聊 UUID
+     * @return 会话
+     */
+    Session getSession(String publicKeyHex);
+
 }

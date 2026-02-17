@@ -31,6 +31,7 @@ public class GroupMemberServiceImpl extends ServiceImpl<GroupMemberMapper, Group
      */
     @Override
     public List<String> listMember(String groupUuid) {
+        verifyGroupOwner(groupUuid);
         return list(new LambdaQueryWrapper<GroupMember>()
                 .eq(GroupMember::getOwnerPublicKeyHex, eccController.getPublicKey())
                 .eq(GroupMember::getGroupUuid, groupUuid))
@@ -41,6 +42,7 @@ public class GroupMemberServiceImpl extends ServiceImpl<GroupMemberMapper, Group
 
     @Override
     public void addMember(String groupUuid, String publicKeyHex) {
+        verifyGroupOwner(groupUuid);
         // 查询群成员是否存在
         long count = count(new LambdaQueryWrapper<GroupMember>()
                 .eq(GroupMember::getOwnerPublicKeyHex, eccController.getPublicKey())
@@ -63,6 +65,7 @@ public class GroupMemberServiceImpl extends ServiceImpl<GroupMemberMapper, Group
 
     @Override
     public void removeMember(String groupUuid, String publicKeyHex) {
+        verifyGroupOwner(groupUuid);
         // 查询群成员是否存在
         GroupMember groupMember = getOne(new LambdaQueryWrapper<GroupMember>()
                 .eq(GroupMember::getOwnerPublicKeyHex, eccController.getPublicKey())
@@ -77,6 +80,22 @@ public class GroupMemberServiceImpl extends ServiceImpl<GroupMemberMapper, Group
 
         // 刷新主界面
         guiController.flushAsync();
+    }
+
+    /**
+     * 判断是否是群主
+     * 
+     * @param groupUuid 群聊UUID
+     * @return 是否是群主
+     */
+    private void verifyGroupOwner(String groupUuid) {
+        try {
+            if (!eccController.getPublicKey().equals(groupUuid.split(":")[0])) {
+                throw new E2EchoException(E2EchoExceptionCodeEnum.SRV_GROUP_IS_NOT_GROUP_OWNER);
+            }
+        } catch (Exception e) {
+            throw new E2EchoException(E2EchoExceptionCodeEnum.SRV_GROUP_IS_NOT_GROUP_OWNER);
+        }
     }
 
 }

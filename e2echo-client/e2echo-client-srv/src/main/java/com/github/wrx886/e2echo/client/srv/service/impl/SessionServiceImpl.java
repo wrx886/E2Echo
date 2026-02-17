@@ -176,4 +176,17 @@ public class SessionServiceImpl extends ServiceImpl<SessionMapper, Session> impl
         this.updateById(session);
     }
 
+    /**
+     * 获取会话
+     * 
+     * @param publicKeyHex 公钥或群聊 UUID
+     * @return 会话
+     */
+    @Override
+    public Session getSession(String publicKeyHex) {
+        return this.getOne(new LambdaQueryWrapper<Session>()
+                .eq(Session::getOwnerPublicKeyHex, eccController.getPublicKey())
+                .eq(Session::getPublicKeyHex, publicKeyHex));
+    }
+
 }

@@ -357,14 +357,6 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
     @Override
     public void sendOne(String toPublicKeyHex, String data, MessageType type) {
 
-        // 针对不同的消息类型进行处理
-        if (MessageType.TEXT.equals(type) || MessageType.GROUP_KEY_UPDATE.equals(type)) {
-            // 不需要处理
-        } else {
-            // 其他消息类型暂不支持
-            throw new RuntimeException(new UnsupportedDataTypeException());
-        }
-
         // 封装消息
         SendMessageVo sendMessageVo = new SendMessageVo();
         sendMessageVo.setData(data);
@@ -385,6 +377,12 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
 
         // 发送消息
         sendOne(eccMessage);
+
+        // 不需要存储的类型
+        if (MessageType.GROUP_KEY_UPDATE.equals(type)) {
+            // 提前结束，不需要存储
+            return;
+        }
 
         // 封装为数据库消息
         Message message = new Message();
@@ -590,13 +588,6 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
      */
     @Override
     public void sendGroup(String groupUuid, String data, MessageType type) {
-        // 针对不同的消息类型进行处理
-        if (MessageType.TEXT.equals(type)) {
-            // 不需要处理
-        } else {
-            // 其他消息类型暂不支持
-            throw new RuntimeException(new UnsupportedDataTypeException());
-        }
 
         // 封装消息
         SendMessageVo sendMessageVo = new SendMessageVo();

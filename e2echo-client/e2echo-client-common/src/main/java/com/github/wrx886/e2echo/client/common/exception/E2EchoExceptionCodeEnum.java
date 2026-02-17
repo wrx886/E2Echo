@@ -35,6 +35,7 @@ public enum E2EchoExceptionCodeEnum {
     SRV_SESSION_NOT_EXIST("BC03", "SRV：会话不存在"),
     SRV_GROUP_MEMBER_EXIST("BD01", "SRV：群成员已存在"),
     SRV_GROUP_MEMBER_NOT_EXIST("BD02", "SRV：群成员不存在"),
+    SRV_GROUP_IS_NOT_GROUP_OWNER("BD03", "SRV：不是群主"),
 
     ;
 
