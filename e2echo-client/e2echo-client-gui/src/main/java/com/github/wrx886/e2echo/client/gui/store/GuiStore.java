@@ -2,6 +2,7 @@ package com.github.wrx886.e2echo.client.gui.store;
 
 import org.springframework.stereotype.Component;
 
+import com.github.wrx886.e2echo.client.common.model.entity.GroupKeyShared;
 import com.github.wrx886.e2echo.client.common.model.entity.Message;
 import com.github.wrx886.e2echo.client.common.model.entity.Session;
 import com.github.wrx886.e2echo.client.gui.modol.vo.EditVo;
@@ -42,5 +43,8 @@ public class GuiStore {
 
     // 当前群成员列表
     private final ObservableList<String> currentGroupMembers = FXCollections.observableArrayList();
+
+    // 群聊密钥共享规则列表
+    private final ObservableList<GroupKeyShared> groupKeyShareds = FXCollections.observableArrayList();
 
 }

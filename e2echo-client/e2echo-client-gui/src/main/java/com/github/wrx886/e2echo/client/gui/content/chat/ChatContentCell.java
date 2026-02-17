@@ -36,6 +36,7 @@ public class ChatContentCell extends ListCell<Message> {
 
     // 展示容器
     private final VBox vBox;
+    private final HBox hBox;
 
     // 构造函数
     public ChatContentCell() {
@@ -53,7 +54,7 @@ public class ChatContentCell extends ListCell<Message> {
         HBox.setHgrow(hBox1Region, Priority.ALWAYS);
 
         // 发送者和发送时间容器
-        HBox hBox1 = new HBox(fromNameLabel, hBox1Region, sendTimeLabel);
+        hBox = new HBox(fromNameLabel, hBox1Region, sendTimeLabel);
 
         // 内容-文字
         dataTextLabel = new Label();
@@ -61,8 +62,7 @@ public class ChatContentCell extends ListCell<Message> {
         dataTextLabel.setWrapText(true);
 
         // 容器
-        vBox = new VBox(hBox1, dataTextLabel);
-        vBox.setSpacing(5);
+        vBox = new VBox(hBox, dataTextLabel);
     }
 
     @Override

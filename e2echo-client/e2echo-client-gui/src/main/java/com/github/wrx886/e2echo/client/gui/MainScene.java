@@ -4,6 +4,7 @@ import com.github.wrx886.e2echo.client.gui.common.NodeRouter;
 import com.github.wrx886.e2echo.client.gui.content.chat.ChatContent;
 import com.github.wrx886.e2echo.client.gui.content.edit.EditContent;
 import com.github.wrx886.e2echo.client.gui.content.group.GroupContent;
+import com.github.wrx886.e2echo.client.gui.content.group_key_shared.GroupKeySharedContent;
 import com.github.wrx886.e2echo.client.gui.layout.SidebarPanelContentLayout;
 import com.github.wrx886.e2echo.client.gui.panel.group.GroupPanel;
 import com.github.wrx886.e2echo.client.gui.panel.session.SessionPanel;
@@ -31,6 +32,7 @@ public class MainScene extends Scene {
         contentRouter.register(new ChatContent(layout));
         contentRouter.register(new EditContent(layout));
         contentRouter.register(new GroupContent(layout));
+        contentRouter.register(new GroupKeySharedContent());
         // contentRouter.push(ChatContent.class);
 
         // 会话按钮
@@ -45,11 +47,18 @@ public class MainScene extends Scene {
             panelRouter.push(GroupPanel.class);
         });
 
+        // 群聊密钥共享按钮
+        Button groupKeySharedButton = new Button("共享");
+        groupKeySharedButton.setOnAction(event -> {
+            contentRouter.push(GroupKeySharedContent.class);
+        });
+
         // 左侧
         VBox sidebarVBox = layout.getSidebarVBox();
         sidebarVBox.setSpacing(5);
         sidebarVBox.getChildren().add(sessionButton);
         sidebarVBox.getChildren().add(groupButton);
+        sidebarVBox.getChildren().add(groupKeySharedButton);
 
     }
 

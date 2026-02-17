@@ -8,6 +8,7 @@ import org.springframework.stereotype.Controller;
 import com.github.wrx886.e2echo.client.common.common.BeanProvider;
 import com.github.wrx886.e2echo.client.common.controller.gui.GuiController;
 import com.github.wrx886.e2echo.client.common.controller.srv.AliasController;
+import com.github.wrx886.e2echo.client.common.controller.srv.GroupKeySharedController;
 import com.github.wrx886.e2echo.client.common.controller.srv.GroupManageController;
 import com.github.wrx886.e2echo.client.common.controller.srv.GroupMemberController;
 import com.github.wrx886.e2echo.client.common.controller.srv.MessageController;
@@ -39,6 +40,8 @@ public class GuiControllerImpl implements GuiController {
                 AliasController aliasController = BeanProvider.getBean(AliasController.class);
                 GroupManageController groupManageController = BeanProvider.getBean(GroupManageController.class);
                 GroupMemberController groupMemberController = BeanProvider.getBean(GroupMemberController.class);
+                GroupKeySharedController groupKeySharedController = BeanProvider
+                        .getBean(GroupKeySharedController.class);
 
                 // 刷新所有会话
                 // 获取消息
@@ -73,6 +76,10 @@ public class GuiControllerImpl implements GuiController {
                     guiStore.getCurrentGroupMembers()
                             .addAll(groupMemberController.listMember(guiStore.getCurrentGroup().get()));
                 }
+
+                // 刷新群聊密钥共享规则列表
+                guiStore.getGroupKeyShareds().clear();
+                guiStore.getGroupKeyShareds().addAll(groupKeySharedController.listGroupKeyShared());
 
             });
         } catch (Throwable t) {

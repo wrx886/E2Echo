@@ -19,7 +19,6 @@ import com.github.wrx886.e2echo.client.common.exception.E2EchoException;
 import com.github.wrx886.e2echo.client.common.exception.E2EchoExceptionCodeEnum;
 import com.github.wrx886.e2echo.client.common.model.EccMessage;
 import com.github.wrx886.e2echo.client.common.model.entity.GroupKey;
-import com.github.wrx886.e2echo.client.common.model.entity.GroupKeyShared;
 import com.github.wrx886.e2echo.client.common.model.entity.Message;
 import com.github.wrx886.e2echo.client.common.model.entity.Session;
 import com.github.wrx886.e2echo.client.common.model.enum_.MessageType;
@@ -391,7 +390,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         sendOne(eccMessage);
 
         // 不需要存储的类型
-        if (MessageType.GROUP_KEY_UPDATE.equals(type)) {
+        if (MessageType.GROUP_KEY_UPDATE.equals(type) || MessageType.GROUP_KEY_SHARED.equals(type)) {
             // 提前结束，不需要存储
             return;
         }

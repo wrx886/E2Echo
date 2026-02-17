@@ -10,6 +10,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.wrx886.e2echo.client.common.controller.ecc.EccController;
+import com.github.wrx886.e2echo.client.common.controller.gui.GuiController;
 import com.github.wrx886.e2echo.client.common.model.entity.GroupKey;
 import com.github.wrx886.e2echo.client.common.model.entity.GroupKeyShared;
 import com.github.wrx886.e2echo.client.common.model.enum_.MessageType;
@@ -32,6 +33,7 @@ public class GroupKeySharedServiceImpl extends ServiceImpl<GroupKeySharedMapper,
     private final EccController eccController;
     private final SessionService sessionService;
     private final MessageService messageService;
+    private final GuiController guiController;
 
     /**
      * 添加
@@ -55,8 +57,12 @@ public class GroupKeySharedServiceImpl extends ServiceImpl<GroupKeySharedMapper,
         }
 
         // 执行一次规则
-        sharedTo(groupUuid, to);
+        if (eccController.getPublicKey().equals(from)) {
+            sharedTo(groupUuid, to);
+        }
 
+        // 刷新
+        guiController.flushAsync();
     }
 
     /**
@@ -73,6 +79,7 @@ public class GroupKeySharedServiceImpl extends ServiceImpl<GroupKeySharedMapper,
                 .eq(GroupKeyShared::getGroupUuid, groupUuid)
                 .eq(GroupKeyShared::getFrom, from)
                 .eq(GroupKeyShared::getTo, to));
+        guiController.flushAsync();
     }
 
     /**

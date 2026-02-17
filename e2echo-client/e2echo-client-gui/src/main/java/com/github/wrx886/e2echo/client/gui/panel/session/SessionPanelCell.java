@@ -44,7 +44,7 @@ public class SessionPanelCell extends ListCell<Session> {
         // 会话名称
         sessionNameLabel = new Label();
         sessionNameLabel.setTextOverrun(OverrunStyle.ELLIPSIS);
-        sessionNameLabel.setMaxWidth(130);
+        sessionNameLabel.setMaxWidth(50);
 
         // 更新时间
         lastTimeLabel = new Label();
@@ -52,7 +52,7 @@ public class SessionPanelCell extends ListCell<Session> {
         // 发送者和消息
         fromAndmessageLabel = new Label();
         fromAndmessageLabel.setTextOverrun(OverrunStyle.ELLIPSIS);
-        fromAndmessageLabel.setMaxWidth(250);
+        fromAndmessageLabel.setMaxWidth(190);
 
         // 空白填充
         Region hBox1Region = new Region();

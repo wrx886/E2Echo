@@ -99,7 +99,7 @@ public class ChatContent extends VBox {
 
         // 文本输入框
         textArea = new TextArea();
-        textArea.setMaxWidth(520);
+        textArea.setMaxWidth(500);
         textArea.setWrapText(true);
         root.add(textArea);
 
