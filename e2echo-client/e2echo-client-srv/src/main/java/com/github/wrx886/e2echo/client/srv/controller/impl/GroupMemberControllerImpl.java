@@ -26,11 +26,23 @@ public class GroupMemberControllerImpl implements GroupMemberController {
         return groupMemberService.listMember(groupUuid);
     }
 
+    /**
+     * 添加群成员
+     * 
+     * @param groupUuid    群聊UUID
+     * @param publicKeyHex 群成员的公钥
+     */
     @Override
     public void addMember(String groupUuid, String publicKeyHex) {
         groupMemberService.addMember(groupUuid, publicKeyHex);
     }
 
+    /**
+     * 移除群成员
+     * 
+     * @param groupUuid    群聊UUID
+     * @param publicKeyHex 群成员的公钥
+     */
     @Override
     public void removeMember(String groupUuid, String publicKeyHex) {
         groupMemberService.removeMember(groupUuid, publicKeyHex);

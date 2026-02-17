@@ -4,6 +4,7 @@ import com.github.wrx886.e2echo.client.common.common.BeanProvider;
 import com.github.wrx886.e2echo.client.common.controller.srv.AliasController;
 import com.github.wrx886.e2echo.client.common.controller.srv.MessageController;
 import com.github.wrx886.e2echo.client.common.model.entity.Message;
+import com.github.wrx886.e2echo.client.common.model.entity.Session;
 import com.github.wrx886.e2echo.client.common.model.enum_.MessageType;
 import com.github.wrx886.e2echo.client.gui.content.edit.EditContent;
 import com.github.wrx886.e2echo.client.gui.layout.SidebarPanelContentLayout;
@@ -110,11 +111,20 @@ public class ChatContent extends VBox {
 
     // 发送消息事件
     private void sendButtonOnAction(Event event) {
+        Session session = guiStore.getCurrentSession().get();
         // 发送消息
-        messageController.sendOneMessage(
-                guiStore.getCurrentSession().getValue().getPublicKeyHex(),
-                textArea.getText(),
-                MessageType.TEXT);
+        if (session.getGroup()) {
+            messageController.sendGroupMessage(
+                    session.getPublicKeyHex(),
+                    textArea.getText(),
+                    MessageType.TEXT);
+        } else {
+            messageController.sendOneMessage(
+                    session.getPublicKeyHex(),
+                    textArea.getText(),
+                    MessageType.TEXT);
+        }
+
         // 发送成功后清空信息
         textArea.setText(null);
     }

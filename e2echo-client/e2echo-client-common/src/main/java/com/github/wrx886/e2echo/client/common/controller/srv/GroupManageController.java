@@ -1,5 +1,7 @@
 package com.github.wrx886.e2echo.client.common.controller.srv;
 
+import java.util.List;
+
 public interface GroupManageController {
 
     /**
@@ -8,6 +10,13 @@ public interface GroupManageController {
      * @return 群聊UUID
      */
     void create();
+
+    /**
+     * 列出所有群聊（用户作为群主）
+     * 
+     * @return 群聊UUID列表
+     */
+    List<String> listGroup();
 
     /**
      * 刷新群密钥

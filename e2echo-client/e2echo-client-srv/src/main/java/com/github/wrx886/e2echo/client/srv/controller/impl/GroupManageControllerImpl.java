@@ -1,5 +1,7 @@
 package com.github.wrx886.e2echo.client.srv.controller.impl;
 
+import java.util.List;
+
 import org.springframework.stereotype.Controller;
 
 import com.github.wrx886.e2echo.client.common.controller.srv.GroupManageController;
@@ -41,6 +43,16 @@ public class GroupManageControllerImpl implements GroupManageController {
     @Override
     public void redistributeKey(String groupUuid) {
         groupManageService.redistributeKey(groupUuid);
+    }
+
+    /**
+     * 列出所有群聊（用户作为群主）
+     * 
+     * @return 群聊UUID列表
+     */
+    @Override
+    public List<String> listGroup() {
+        return groupManageService.listGroup();
     }
 
 }

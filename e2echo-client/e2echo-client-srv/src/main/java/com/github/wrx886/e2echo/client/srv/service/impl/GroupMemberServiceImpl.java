@@ -6,12 +6,14 @@ import org.springframework.stereotype.Service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.github.wrx886.e2echo.client.common.common.BeanProvider;
 import com.github.wrx886.e2echo.client.common.controller.ecc.EccController;
 import com.github.wrx886.e2echo.client.common.controller.gui.GuiController;
 import com.github.wrx886.e2echo.client.common.exception.E2EchoException;
 import com.github.wrx886.e2echo.client.common.exception.E2EchoExceptionCodeEnum;
 import com.github.wrx886.e2echo.client.common.model.entity.GroupMember;
 import com.github.wrx886.e2echo.client.srv.mapper.GroupMemberMapper;
+import com.github.wrx886.e2echo.client.srv.service.GroupManageService;
 import com.github.wrx886.e2echo.client.srv.service.GroupMemberService;
 
 import lombok.AllArgsConstructor;
@@ -59,6 +61,10 @@ public class GroupMemberServiceImpl extends ServiceImpl<GroupMemberMapper, Group
         groupMember.setPublicKeyHex(publicKeyHex);
         this.save(groupMember);
 
+        // 定向发送密钥
+        GroupManageService groupManageService = BeanProvider.getBean(GroupManageService.class);
+        groupManageService.sendKey(groupUuid, publicKeyHex);
+
         // 刷新主界面
         guiController.flushAsync();
     }
@@ -75,8 +81,18 @@ public class GroupMemberServiceImpl extends ServiceImpl<GroupMemberMapper, Group
             throw new E2EchoException(E2EchoExceptionCodeEnum.SRV_GROUP_MEMBER_NOT_EXIST);
         }
 
+        // 不能删除群主
+        String groupOwner = groupUuid.split(":")[0];
+        if (groupOwner.equals(publicKeyHex)) {
+            throw new E2EchoException(E2EchoExceptionCodeEnum.SRV_GROUP_MEMBER_DELETE_OWNER_NOT_ALLOWED);
+        }
+
         // 删除群成员
         removeById(groupMember.getId());
+
+        // 刷新密钥
+        GroupManageService groupManageService = BeanProvider.getBean(GroupManageService.class);
+        groupManageService.reflushKey(groupUuid);
 
         // 刷新主界面
         guiController.flushAsync();

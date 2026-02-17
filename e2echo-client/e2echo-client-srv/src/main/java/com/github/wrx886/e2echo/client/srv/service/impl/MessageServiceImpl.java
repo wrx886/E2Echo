@@ -266,7 +266,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         // 封装为数据库消息
         Message message = new Message();
         message.setUuid(eccMessage.getUuid());
-        message.setOwnerPublicKeyHex(eccMessage.getFromPublicKeyHex());
+        message.setOwnerPublicKeyHex(eccController.getPublicKey());
         message.setTimestamp(Long.valueOf(eccMessage.getTimestamp()));
         message.setFromPublicKeyHex(eccMessage.getFromPublicKeyHex());
         message.setToPublicKeyHex(eccMessage.getToPublicKeyHex());
@@ -283,9 +283,16 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
 
         // 更新会话
         sessionService.updateSession(
-                eccMessage.getFromPublicKeyHex(),
+                eccMessage.getToPublicKeyHex(),
                 message,
                 true);
+
+        // 为群员创建会话
+        try {
+            sessionService.create(eccMessage.getFromPublicKeyHex(), false);
+        } catch (E2EchoException e) {
+            // 重复创建的错误不需要处理
+        }
 
         // 更新 更新时间
         jsonStore.setStartTimestamp(System.currentTimeMillis());
@@ -299,7 +306,33 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
      */
     @Override
     public List<Message> listOneBySession(String session) {
-        return listBySession(session, false);
+        // 第一种：作为发送者
+        List<Message> messages1 = this.list(new LambdaQueryWrapper<Message>()
+                .eq(Message::getOwnerPublicKeyHex, eccController.getPublicKey())
+                .eq(Message::getFromPublicKeyHex, eccController.getPublicKey())
+                .eq(Message::getToPublicKeyHex, session)
+                .eq(Message::getGroup, false));
+
+        // 第二种：作为接收者
+        List<Message> messages2 = this.list(new LambdaQueryWrapper<Message>()
+                .eq(Message::getOwnerPublicKeyHex, eccController.getPublicKey())
+                .eq(Message::getFromPublicKeyHex, session)
+                .eq(Message::getToPublicKeyHex, eccController.getPublicKey())
+                .eq(Message::getGroup, false));
+
+        // 合并
+        HashSet<Message> messageSet = new HashSet<>();
+        messageSet.addAll(messages1);
+        messageSet.addAll(messages2);
+
+        // 合并
+        ArrayList<Message> messages = new ArrayList<>();
+        messages.addAll(messageSet);
+        // 根据时间排序（倒序）
+        messages.sort(Comparator.comparing(Message::getTimestamp).reversed());
+
+        // 返回
+        return messages;
     }
 
     /**
@@ -310,36 +343,12 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
      */
     @Override
     public List<Message> listGroupBySession(String session) {
-        return listBySession(session, true);
-    }
-
-    /**
-     * 根据会话公钥或群聊查询私聊消息
-     * 
-     * @param session 会话公钥或群组 UUID
-     * @return 私聊或群聊消息列表
-     */
-    private List<Message> listBySession(String session, boolean isGroup) {
-        // 第一种：作为发送者
-        List<Message> messages1 = this.list(new LambdaQueryWrapper<Message>()
+        // 作为接收者
+        List<Message> messages = this.list(new LambdaQueryWrapper<Message>()
                 .eq(Message::getOwnerPublicKeyHex, eccController.getPublicKey())
                 .eq(Message::getToPublicKeyHex, session)
-                .eq(Message::getGroup, isGroup));
+                .eq(Message::getGroup, true));
 
-        // 第二种：作为接收者
-        List<Message> messages2 = this.list(new LambdaQueryWrapper<Message>()
-                .eq(Message::getOwnerPublicKeyHex, eccController.getPublicKey())
-                .eq(Message::getFromPublicKeyHex, session)
-                .eq(Message::getGroup, isGroup));
-
-        // 合并
-        HashSet<Message> messageSet = new HashSet<>();
-        messageSet.addAll(messages1);
-        messageSet.addAll(messages2);
-
-        // 合并
-        ArrayList<Message> messages = new ArrayList<>();
-        messages.addAll(messageSet);
         // 根据时间排序（倒序）
         messages.sort(Comparator.comparing(Message::getTimestamp).reversed());
 
@@ -404,7 +413,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
 
         // 更新会话
         sessionService.updateSession(
-                eccMessage.getFromPublicKeyHex(),
+                eccMessage.getToPublicKeyHex(),
                 message,
                 false);
 
@@ -456,7 +465,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         // 封装为数据库消息
         Message message = new Message();
         message.setUuid(eccMessage.getUuid());
-        message.setOwnerPublicKeyHex(eccMessage.getFromPublicKeyHex());
+        message.setOwnerPublicKeyHex(eccController.getPublicKey());
         message.setTimestamp(Long.valueOf(eccMessage.getTimestamp()));
         message.setFromPublicKeyHex(eccMessage.getFromPublicKeyHex());
         message.setToPublicKeyHex(eccMessage.getToPublicKeyHex());
@@ -493,7 +502,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
             throw new RuntimeException("消息类型错误");
         }
 
-        // 验证发送者
+        // 提取消息
         GroupKeyVo groupKeyVo;
         try {
             groupKeyVo = objectMapper.readValue(sendMessageVo.getData(), GroupKeyVo.class);
@@ -503,10 +512,16 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         }
 
         // 提取群主公钥
-        String groupOwnerPublicKeyHex = groupKeyVo.getGroupUuid().split(":")[0];
+        String groupOwnerPublicKeyHex;
+        try {
+            groupOwnerPublicKeyHex = groupKeyVo.getGroupUuid().split(":")[0];
+        } catch (Exception e) {
+            log.error("", e);
+            return;
+        }
 
         // 群主不匹配
-        if (!eccController.getPublicKey().equals(groupOwnerPublicKeyHex)) {
+        if (!fromPublicKeyHex.equals(groupOwnerPublicKeyHex)) {
             // 忽略
             return;
         }
@@ -595,7 +610,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         sendMessageVo.setType(type);
 
         // 获取群组会话
-        Session session = sessionService.getById(groupUuid);
+        Session session = sessionService.getSession(groupUuid);
         if (!session.getGroupEnabled()) {
             throw new E2EchoException(E2EchoExceptionCodeEnum.SRV_SESSION_GROUP_DISABLED);
         }

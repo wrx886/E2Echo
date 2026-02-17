@@ -71,8 +71,10 @@ public class AliasServiceImpl extends ServiceImpl<AliasMapper, Alias> implements
             if (alias != null) {
                 aliasMap.put(publicKeyHex, alias.getAlias());
             } else {
-                // 不存在，取最后4位作为默认名称
-                String aliasString = publicKeyHex.substring(publicKeyHex.length() - 5, publicKeyHex.length() - 1);
+                // 不存在，取最后4位作为默认名称，不足4位则直接使用公钥
+                String aliasString = publicKeyHex.length() > 4
+                        ? publicKeyHex.substring(publicKeyHex.length() - 4, publicKeyHex.length())
+                        : publicKeyHex;
                 this.put(publicKeyHex, aliasString);
                 aliasMap.put(publicKeyHex, aliasString);
             }

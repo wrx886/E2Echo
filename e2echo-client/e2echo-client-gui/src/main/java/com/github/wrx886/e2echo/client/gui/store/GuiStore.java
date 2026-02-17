@@ -31,4 +31,16 @@ public class GuiStore {
     // 编辑的用户
     private final SimpleObjectProperty<EditVo> editVo = new SimpleObjectProperty<>();
 
+    // 群聊列表
+    private final ObservableList<String> groups = FXCollections.observableArrayList();
+
+    // 当前群
+    private final SimpleObjectProperty<String> currentGroup = new SimpleObjectProperty<>();
+
+    // 当前群聊名称
+    private final SimpleStringProperty currentGroupName = new SimpleStringProperty();
+
+    // 当前群成员列表
+    private final ObservableList<String> currentGroupMembers = FXCollections.observableArrayList();
+
 }

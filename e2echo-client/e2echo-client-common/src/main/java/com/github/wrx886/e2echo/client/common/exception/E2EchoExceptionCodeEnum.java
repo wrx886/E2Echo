@@ -35,7 +35,11 @@ public enum E2EchoExceptionCodeEnum {
     SRV_SESSION_NOT_EXIST("BC03", "SRV：会话不存在"),
     SRV_GROUP_MEMBER_EXIST("BD01", "SRV：群成员已存在"),
     SRV_GROUP_MEMBER_NOT_EXIST("BD02", "SRV：群成员不存在"),
-    SRV_GROUP_IS_NOT_GROUP_OWNER("BD03", "SRV：不是群主"),
+    SRV_GROUP_MEMBER_DELETE_OWNER_NOT_ALLOWED("BD03", "SRV：不允许删除群主"),
+    SRV_GROUP_IS_NOT_GROUP_OWNER("BE01", "SRV：不是群主"),
+
+    // GUI 相关
+    GUI_PUBLIC_KEY_IS_EMPTY("CA01", "GUI：公钥为空"),
 
     ;
 
