@@ -45,7 +45,7 @@ public class ChatContentCell extends ListCell<Message> {
         // 发送者
         fromNameLabel = new Label();
         fromNameLabel.setTextOverrun(OverrunStyle.ELLIPSIS);
-        fromNameLabel.setMaxWidth(360);
+        fromNameLabel.setMaxWidth(330);
 
         // 发送时间
         sendTimeLabel = new Label();

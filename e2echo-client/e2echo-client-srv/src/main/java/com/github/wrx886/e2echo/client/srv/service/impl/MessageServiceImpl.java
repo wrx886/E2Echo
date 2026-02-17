@@ -233,7 +233,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         }
 
         // 获取 Session
-        Session session = sessionService.getSession(eccMessage.getFromPublicKeyHex());
+        Session session = sessionService.getSession(eccMessage.getToPublicKeyHex());
         if (session == null) {
             // 群聊不存在
             return;
@@ -624,6 +624,9 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
                 }
             }
         }
+
+        // 更新时间
+        jsonStore.setStartTimestamp(System.currentTimeMillis());
 
         // 刷新
         guiController.flushAsync();

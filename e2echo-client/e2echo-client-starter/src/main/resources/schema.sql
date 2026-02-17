@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS message (
     data TEXT NOT NULL COMMENT '消息数据',
     type INT NOT NULL COMMENT '消息类型',
     group_ TINYINT NOT NULL COMMENT '是否是群聊消息',
-    UNIQUE (owner_public_key_hex, uuid)
+    UNIQUE (owner_public_key_hex, uuid, is_deleted)
 );
 -- 创建索引
 CREATE INDEX IF NOT EXISTS public_key_hex_timestamp_idx ON message (
@@ -89,7 +89,13 @@ CREATE TABLE IF NOT EXISTS group_key_shared (
     group_uuid VARCHAR(256) NOT NULL COMMENT '群聊 uuid',
     from_ VARCHAR(256) NOT NULL COMMENT '发送者公钥',
     to_ VARCHAR(256) NOT NULL COMMENT '接收者公钥',
-    UNIQUE (owner_public_key_hex, group_uuid, from_, to_)
+    UNIQUE (
+        owner_public_key_hex,
+        group_uuid,
+        from_,
+        to_,
+        is_deleted
+    )
 );
 -- 创建索引
 CREATE INDEX IF NOT EXISTS group_uuid_from_to_idx ON group_key_shared (group_uuid, from_, to_);
