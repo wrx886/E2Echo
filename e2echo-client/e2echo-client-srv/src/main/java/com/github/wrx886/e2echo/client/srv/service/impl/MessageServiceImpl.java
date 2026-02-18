@@ -239,6 +239,11 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
             return;
         }
 
+        // 群聊未启用
+        if (!session.getGroupEnabled()) {
+            return;
+        }
+
         // 获取群聊 GroupKey
         GroupKey groupKey = groupKeyService.getById(session.getGroupKeyId());
         if (groupKey == null) {
