@@ -3,6 +3,7 @@ package com.github.wrx886.e2echo.client.srv.store;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
+import org.java_websocket.enums.ReadyState;
 import org.springframework.stereotype.Component;
 
 import com.github.wrx886.e2echo.client.common.common.BeanProvider;
@@ -80,6 +81,9 @@ public class MessageWebSocketClientStore {
         if (!client.isOpen()) {
             try {
                 client.reconnectBlocking();
+                if (!ReadyState.OPEN.equals(client.getReadyState())) {
+                    throw new E2EchoException(E2EchoExceptionCodeEnum.SRV_WEBSOCKET_CONNECT_FAIL);
+                }
                 init();
             } catch (InterruptedException e) {
                 throw new E2EchoException(E2EchoExceptionCodeEnum.SRV_WEBSOCKET_CONNECT_FAIL);

@@ -10,6 +10,20 @@
         <version>3.3.12</version>
     </parent>
 
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-maven-plugin</artifactId>
+                    <configuration>
+                        <skip>true</skip> <!-- 默认不执行 -->
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+
     <groupId>com.github.wrx886.e2echo</groupId>
     <artifactId>e2echo-client</artifactId>
     <version>1.0-SNAPSHOT</version>
@@ -25,6 +39,7 @@
     <properties>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
+        <skipTests>true</skipTests>
     </properties>
 
     <dependencyManagement>

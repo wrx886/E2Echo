@@ -5,6 +5,7 @@ import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -13,6 +14,7 @@ import org.java_websocket.enums.ReadyState;
 import org.java_websocket.handshake.ServerHandshake;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.wrx886.e2echo.client.common.common.BeanProvider;
 import com.github.wrx886.e2echo.client.srv.model.socket.WebSocketRequest;
 import com.github.wrx886.e2echo.client.srv.model.socket.WebSocketResult;
 
@@ -21,6 +23,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class BaseWebSocketClient extends WebSocketClient implements AutoCloseable {
 
+    private final ExecutorService executorService = BeanProvider.getBean(ExecutorService.class);
     protected static final ObjectMapper objectMapper = new ObjectMapper();
 
     // 存储请求的特有处理方法
@@ -41,51 +44,54 @@ public class BaseWebSocketClient extends WebSocketClient implements AutoCloseabl
     // 处理接收到的请求
     @Override
     public final void onMessage(String message) {
-        try {
-            // 将 message 转为 WebSocketResult
-            WebSocketResult<?> result = objectMapper.readValue(message, WebSocketResult.class);
+        // 这里提交给线程池，避免阻塞接收线程
+        executorService.submit(() -> {
+            try {
+                // 将 message 转为 WebSocketResult
+                WebSocketResult<?> result = objectMapper.readValue(message, WebSocketResult.class);
 
-            // 表示请求是否被处理
-            boolean[] handle = new boolean[1];
-            handle[0] = false;
+                // 表示请求是否被处理
+                boolean[] handle = new boolean[1];
+                handle[0] = false;
 
-            // 使用请求特有方法处理
-            requestId2Method.compute(result.getId(), (id, method) -> {
-                if (method != null) {
-                    method.handle(result);
-                    handle[0] = true;
+                // 使用请求特有方法处理
+                requestId2Method.compute(result.getId(), (id, method) -> {
+                    if (method != null) {
+                        method.handle(result);
+                        handle[0] = true;
+                    }
+                    // 完成后清空绑定
+                    return null;
+                });
+
+                // 处理完成
+                if (handle[0] == true) {
+                    return;
                 }
-                // 完成后清空绑定
-                return null;
-            });
 
-            // 处理完成
-            if (handle[0] == true) {
-                return;
-            }
+                // 命令特有的方法进行处理
+                command2Method.compute(result.getCommand(), (command, method) -> {
+                    if (method != null) {
+                        method.handle(result);
+                        handle[0] = true;
+                    }
+                    // 完成后保持绑定
+                    return method;
+                });
 
-            // 命令特有的方法进行处理
-            command2Method.compute(result.getCommand(), (command, method) -> {
-                if (method != null) {
-                    method.handle(result);
-                    handle[0] = true;
+                // 处理完成
+                if (handle[0] == true) {
+                    return;
                 }
-                // 完成后保持绑定
-                return method;
-            });
 
-            // 处理完成
-            if (handle[0] == true) {
-                return;
+                // 根据命令调用反射中的通用方法进行处理
+                this.getClass()
+                        .getMethod(result.getCommand(), WebSocketResult.class)
+                        .invoke(this, result);
+            } catch (Throwable t) {
+                log.error("", t);
             }
-
-            // 根据命令调用反射中的通用方法进行处理
-            this.getClass()
-                    .getMethod(result.getCommand(), WebSocketResult.class)
-                    .invoke(this, result);
-        } catch (Throwable t) {
-            throw new RuntimeException(t);
-        }
+        });
     }
 
     // 发送请求
@@ -96,13 +102,13 @@ public class BaseWebSocketClient extends WebSocketClient implements AutoCloseabl
         request.setData(data);
         request.setId(UUID.randomUUID().toString());
 
-        // 发送请求
-        this.send(objectMapper.writeValueAsString(request));
-
         // 绑定处理方法
         if (method != null) {
             requestId2Method.put(request.getId(), method);
         }
+
+        // 发送请求
+        this.send(objectMapper.writeValueAsString(request));
     }
 
     // 发送请求
