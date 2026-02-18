@@ -24,4 +24,12 @@ public interface GroupKeyService extends IService<GroupKey> {
      */
     String get(String groupUuid, Long timestamp);
 
+    /**
+     * 获取群密钥
+     * 
+     * @param id
+     * @return
+     */
+    GroupKey getById(Long id);
+
 }
