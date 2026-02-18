@@ -1,7 +1,8 @@
 package com.github.wrx886.e2echo.server.service.impl;
 
-import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.stereotype.Service;
@@ -24,13 +25,13 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
     private final ConcurrentHashMap<String, String> sessionId2ToPublicKeyHex = new ConcurrentHashMap<>();
 
     // 接收者公钥 -> 会话 ID 列表
-    private final ConcurrentHashMap<String, List<String>> toPublicKeyHex2SessionIds = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Set<String>> toPublicKeyHex2SessionIds = new ConcurrentHashMap<>();
 
     // 会话 ID -> 群聊 UUID 列表
-    private final ConcurrentHashMap<String, List<String>> sessionId2GroupUuids = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Set<String>> sessionId2GroupUuids = new ConcurrentHashMap<>();
 
     // 群聊 UUID -> 会话 ID 列表
-    private final ConcurrentHashMap<String, List<String>> groupUuid2SessionIds = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Set<String>> groupUuid2SessionIds = new ConcurrentHashMap<>();
 
     /**
      * 发送消息
@@ -208,7 +209,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         unsubscribeOne(sessionId); // 先取消订阅
         toPublicKeyHex2SessionIds.compute(toPublicKeyHex, (k, sessionIds) -> {
             sessionId2ToPublicKeyHex.put(sessionId, toPublicKeyHex);
-            sessionIds = sessionIds == null ? new ArrayList<>() : sessionIds;
+            sessionIds = sessionIds == null ? new HashSet<>() : sessionIds;
             sessionIds.add(sessionId);
             return sessionIds;
         });
@@ -241,12 +242,12 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         // 先开 sessionId2GroupUuids 形成锁，再开启 groupUuid2SessionIds，下同
         sessionId2GroupUuids.compute(groupUuid, (k, groupUuids) -> {
             groupUuid2SessionIds.compute(groupUuid, (kk, sessionIds) -> {
-                sessionIds = sessionIds == null ? new ArrayList<>() : sessionIds;
+                sessionIds = sessionIds == null ? new HashSet<>() : sessionIds;
                 sessionIds.add(sessionId);
                 return sessionIds;
             });
 
-            groupUuids = groupUuids == null ? new ArrayList<>() : groupUuids;
+            groupUuids = groupUuids == null ? new HashSet<>() : groupUuids;
             groupUuids.add(sessionId);
             return groupUuids;
         });
