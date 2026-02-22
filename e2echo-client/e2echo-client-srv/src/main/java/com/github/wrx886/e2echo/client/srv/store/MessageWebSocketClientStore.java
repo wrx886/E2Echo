@@ -1,9 +1,8 @@
 package com.github.wrx886.e2echo.client.srv.store;
 
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-
 import org.java_websocket.enums.ReadyState;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import com.github.wrx886.e2echo.client.common.common.BeanProvider;
@@ -20,15 +19,13 @@ import lombok.extern.slf4j.Slf4j;
 @Component
 public class MessageWebSocketClientStore {
 
-    private ExecutorService executorService;
     private final WebUrlStore webUrlStore;
     private MessageWebSocketClient client;
     private boolean closed = false;
 
     // 构造函数
-    public MessageWebSocketClientStore(WebUrlStore webUrlStore, ExecutorService executorService) {
+    public MessageWebSocketClientStore(WebUrlStore webUrlStore) {
         this.webUrlStore = webUrlStore;
-        this.executorService = executorService;
     }
 
     /**
@@ -58,23 +55,6 @@ public class MessageWebSocketClientStore {
             }
             // 初始化
             init();
-
-            // 创建一个线程，用于不断检测连接状态
-            executorService.submit(() -> {
-                while (!closed) {
-                    try {
-                        this.getClient();
-                    } catch (Exception e) {
-                        log.error("", e);
-                    }
-                    // 休眠
-                    try {
-                        Thread.sleep(1000L * 60 * 5); // 5 分钟
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                    }
-                }
-            });
         }
 
         // 连接
@@ -91,6 +71,15 @@ public class MessageWebSocketClientStore {
         }
 
         return client;
+    }
+
+    @Scheduled(fixedDelay = 5 * 60 * 1000) // 5 分钟
+    public void monitorConnection() {
+        try {
+            this.getClient();
+        } catch (Exception e) {
+            log.error("", e);
+        }
     }
 
     // 关闭

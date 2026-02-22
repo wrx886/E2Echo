@@ -1,6 +1,5 @@
 package com.github.wrx886.e2echo.client.srv.socket;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.wrx886.e2echo.client.common.common.BeanProvider;
 import com.github.wrx886.e2echo.client.common.model.EccMessage;
 import com.github.wrx886.e2echo.client.srv.client.BaseWebSocketClient;
@@ -10,7 +9,6 @@ import com.github.wrx886.e2echo.client.srv.service.MessageService;
 public final class MessageWebSocketClient extends BaseWebSocketClient {
 
     public final MessageService messageService = BeanProvider.getBean(MessageService.class);
-    public final ObjectMapper objectMapper = BeanProvider.getBean(ObjectMapper.class);
 
     // 构造函数
     public MessageWebSocketClient(String url) throws Exception {

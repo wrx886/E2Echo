@@ -8,6 +8,8 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.ComponentScan;
+import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.wrx886.e2echo.client.common.common.BeanProvider;
@@ -118,6 +120,8 @@ public final class Main extends Application {
         stage.show();
     }
 
+    @EnableAsync
+    @EnableScheduling
     @SpringBootApplication
     @ComponentScan("com.github.wrx886.e2echo.client")
     public final static class Starter {
