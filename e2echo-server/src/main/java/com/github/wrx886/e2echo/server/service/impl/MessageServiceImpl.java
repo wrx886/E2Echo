@@ -1,37 +1,36 @@
 package com.github.wrx886.e2echo.server.service.impl;
 
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
 
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.github.wrx886.e2echo.server.common.RedisPrefix;
+import com.github.wrx886.e2echo.server.config.RabbitMqConfig;
 import com.github.wrx886.e2echo.server.mapper.MessageMapper;
 import com.github.wrx886.e2echo.server.model.EccMessage;
 import com.github.wrx886.e2echo.server.model.entity.Message;
+import com.github.wrx886.e2echo.server.mq.MessageMq.MqMessage;
 import com.github.wrx886.e2echo.server.result.E2EchoException;
 import com.github.wrx886.e2echo.server.result.ResultCodeEnum;
 import com.github.wrx886.e2echo.server.service.MessageService;
-import com.github.wrx886.e2echo.server.socket.MessageWebSocketHandler;
 import com.github.wrx886.e2echo.server.util.EccMessageUtil;
 
+import lombok.AllArgsConstructor;
+
 @Service
+@AllArgsConstructor
 public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> implements MessageService {
 
-    // 会话 ID -> 接收者公钥
-    private final ConcurrentHashMap<String, String> sessionId2ToPublicKeyHex = new ConcurrentHashMap<>();
-
-    // 接收者公钥 -> 会话 ID 列表
-    private final ConcurrentHashMap<String, Set<String>> toPublicKeyHex2SessionIds = new ConcurrentHashMap<>();
-
-    // 会话 ID -> 群聊 UUID 列表
-    private final ConcurrentHashMap<String, Set<String>> sessionId2GroupUuids = new ConcurrentHashMap<>();
-
-    // 群聊 UUID -> 会话 ID 列表
-    private final ConcurrentHashMap<String, Set<String>> groupUuid2SessionIds = new ConcurrentHashMap<>();
+    private final ExecutorService executorService;
+    private final RabbitTemplate rabbitTemplate;
+    private final StringRedisTemplate stringRedisTemplate;
+    private final RabbitMqConfig rabbitMqConfig;
 
     /**
      * 发送消息
@@ -207,12 +206,18 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
     @Override
     public void subscribeOne(String sessionId, String toPublicKeyHex) {
         unsubscribeOne(sessionId); // 先取消订阅
-        toPublicKeyHex2SessionIds.compute(toPublicKeyHex, (k, sessionIds) -> {
-            sessionId2ToPublicKeyHex.put(sessionId, toPublicKeyHex);
-            sessionIds = sessionIds == null ? new HashSet<>() : sessionIds;
-            sessionIds.add(sessionId);
-            return sessionIds;
-        });
+
+        // 封装 SessionID
+        sessionId = rabbitMqConfig.getUuid() + sessionId;
+
+        // session id -> to public key hex
+        stringRedisTemplate.opsForValue().set(
+                RedisPrefix.SESSION_ID_2_PUBLIC_KEY_HEX + sessionId,
+                toPublicKeyHex);
+        // to public key hex -> session id
+        stringRedisTemplate.opsForSet().add(
+                RedisPrefix.PUBLIC_KEY_HEX_2_SESSION_ID + toPublicKeyHex,
+                sessionId);
     }
 
     /**
@@ -222,13 +227,18 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
      */
     @Override
     public void unsubscribeOne(String sessionId) {
-        sessionId2ToPublicKeyHex.computeIfPresent(sessionId, (k, toPublicKeyHex) -> {
-            toPublicKeyHex2SessionIds.computeIfPresent(toPublicKeyHex, (kk, sessionIds) -> {
-                sessionIds.remove(sessionId);
-                return sessionIds.isEmpty() ? null : sessionIds;
-            });
-            return null; // 删除
-        });
+        // 封装 SessionID
+        sessionId = rabbitMqConfig.getUuid() + sessionId;
+
+        String toPublicKeyHex = stringRedisTemplate.opsForValue().get(
+                RedisPrefix.SESSION_ID_2_PUBLIC_KEY_HEX + sessionId);
+        // 删除 session id -> to public key hex
+        stringRedisTemplate
+                .delete(RedisPrefix.SESSION_ID_2_PUBLIC_KEY_HEX + sessionId);
+        // 删除 to public key hex -> session id
+        stringRedisTemplate.opsForSet().remove(
+                RedisPrefix.PUBLIC_KEY_HEX_2_SESSION_ID + toPublicKeyHex,
+                sessionId);
     }
 
     /**
@@ -239,18 +249,18 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
      */
     @Override
     public void subscribeGroup(String sessionId, String groupUuid) {
-        // 先开 sessionId2GroupUuids 形成锁，再开启 groupUuid2SessionIds，下同
-        sessionId2GroupUuids.compute(groupUuid, (k, groupUuids) -> {
-            groupUuid2SessionIds.compute(groupUuid, (kk, sessionIds) -> {
-                sessionIds = sessionIds == null ? new HashSet<>() : sessionIds;
-                sessionIds.add(sessionId);
-                return sessionIds;
-            });
+        // 封装 SessionID
+        String sessionIdPaackage = rabbitMqConfig.getUuid() + sessionId;
 
-            groupUuids = groupUuids == null ? new HashSet<>() : groupUuids;
-            groupUuids.add(sessionId);
-            return groupUuids;
-        });
+        // session id -> group uuid
+        stringRedisTemplate.opsForSet().add(
+                RedisPrefix.SESSION_ID_2_GROUP_UUID + sessionIdPaackage,
+                groupUuid);
+
+        // group uuid -> session id
+        stringRedisTemplate.opsForSet().add(
+                RedisPrefix.GROUP_UUID_2_SESSION_ID + groupUuid,
+                sessionIdPaackage);
     }
 
     /**
@@ -261,15 +271,18 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
      */
     @Override
     public void unsubscribeGroup(String sessionId, String groupUuid) {
-        sessionId2GroupUuids.computeIfPresent(groupUuid, (k, groupUuids) -> {
-            groupUuid2SessionIds.computeIfPresent(groupUuid, (kk, sessionIds) -> {
-                sessionIds.remove(sessionId);
-                return sessionIds.isEmpty() ? null : sessionIds;
-            });
+        // 封装 SessionID
+        String sessionIdPaackage = rabbitMqConfig.getUuid() + sessionId;
 
-            groupUuids.remove(sessionId);
-            return groupUuids.isEmpty() ? null : groupUuids;
-        });
+        // 删除 session id -> group uuid
+        stringRedisTemplate.opsForSet().remove(
+                RedisPrefix.SESSION_ID_2_GROUP_UUID + sessionIdPaackage,
+                groupUuid);
+
+        // 删除 group uuid -> session id
+        stringRedisTemplate.opsForSet().remove(
+                RedisPrefix.GROUP_UUID_2_SESSION_ID + groupUuid,
+                sessionIdPaackage);
     }
 
     /**
@@ -281,16 +294,13 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
     public void unsubscribeAll(String sessionId) {
         // 取消私聊订阅
         unsubscribeOne(sessionId);
-        // 取消群聊订阅
-        sessionId2GroupUuids.computeIfPresent(sessionId, (k, groupUuids) -> {
-            for (String groupUuid : groupUuids) {
-                groupUuid2SessionIds.computeIfPresent(groupUuid, (kk, sessionIds) -> {
-                    sessionIds.remove(sessionId);
-                    return sessionIds.isEmpty() ? null : sessionIds;
-                });
-            }
-            return null; // 删除 Session
-        });
+        // 获取订阅的群聊 UUID 列表
+        Set<String> groupUuids = stringRedisTemplate.opsForSet().members(
+                RedisPrefix.SESSION_ID_2_GROUP_UUID + sessionId);
+        // 取消订阅
+        for (String groupUuid : groupUuids) {
+            unsubscribeGroup(sessionId, groupUuid);
+        }
     }
 
     /**
@@ -299,15 +309,21 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
      * @param eccMessage 私聊消息
      */
     private void sendOneSocket(EccMessage eccMessage) {
-        toPublicKeyHex2SessionIds.computeIfPresent(eccMessage.getToPublicKeyHex(), (k, sessionIds) -> {
-            for (String sessionId : sessionIds) {
-                try {
-                    MessageWebSocketHandler.sendMessage(sessionId, "autoReveiveOne", eccMessage);
-                } catch (Exception e) {
-                    log.error("", e);
-                }
+        executorService.submit(() -> {
+            // 获取 SessionID 列表
+            Set<String> members = stringRedisTemplate.opsForSet()
+                    .members(RedisPrefix.PUBLIC_KEY_HEX_2_SESSION_ID + eccMessage.getToPublicKeyHex());
+
+            // 发送消息
+            for (String sessionId : members) {
+                // 提取路由键
+                String routingKey = sessionId.substring(0, rabbitMqConfig.getUuid().length());
+                MqMessage mqMessage = new MqMessage();
+                mqMessage.setSessionId(sessionId);
+                mqMessage.setEccMessage(eccMessage);
+                mqMessage.setIsGroup(false);
+                rabbitTemplate.convertAndSend("message.direct", routingKey, mqMessage);
             }
-            return sessionIds;
         });
     }
 
@@ -317,15 +333,20 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
      * @param eccMessage 群聊消息
      */
     private void sendGroupSocket(EccMessage eccMessage) {
-        groupUuid2SessionIds.computeIfPresent(eccMessage.getToPublicKeyHex(), (k, sessionIds) -> {
+        executorService.submit(() -> {
+            // 获取 SessionID 列表
+            Set<String> sessionIds = stringRedisTemplate.opsForSet().members(
+                    RedisPrefix.GROUP_UUID_2_SESSION_ID + eccMessage.getToPublicKeyHex());
+            // 转发
             for (String sessionId : sessionIds) {
-                try {
-                    MessageWebSocketHandler.sendMessage(sessionId, "autoReveiveGroup", eccMessage);
-                } catch (Exception e) {
-                    log.error("", e);
-                }
+                // 提取路由键
+                String routingKey = sessionId.substring(0, rabbitMqConfig.getUuid().length());
+                MqMessage mqMessage = new MqMessage();
+                mqMessage.setSessionId(sessionId);
+                mqMessage.setEccMessage(eccMessage);
+                mqMessage.setIsGroup(true);
+                rabbitTemplate.convertAndSend("message.direct", routingKey, mqMessage);
             }
-            return sessionIds;
         });
     }
 

@@ -26,6 +26,20 @@ spring:
       minimum-idle: 10
       # 连接池名称
       pool-name: SPHHikariPool
+  rabbitmq:
+    # 主机名
+    host: localhost
+    # 端口
+    port: 5672
+    # 虚拟主机
+    virtual-host: e2echo
+    # 登入用户名
+    username: guest
+    # 登入密码
+    password: guest
+  redis:
+    host: localhost # Redis 主机地址
+    port: 6379 # Redis 端口
 
 #用于打印框架生成的sql语句，便于调试
 mybatis-plus:
