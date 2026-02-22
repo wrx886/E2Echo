@@ -2,10 +2,9 @@ package com.github.wrx886.e2echo.server.service.impl;
 
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
-
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -27,7 +26,6 @@ import lombok.AllArgsConstructor;
 @AllArgsConstructor
 public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> implements MessageService {
 
-    private final ExecutorService executorService;
     private final RabbitTemplate rabbitTemplate;
     private final StringRedisTemplate stringRedisTemplate;
     private final RabbitMqConfig rabbitMqConfig;
@@ -308,23 +306,22 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
      * 
      * @param eccMessage 私聊消息
      */
+    @Async
     private void sendOneSocket(EccMessage eccMessage) {
-        executorService.submit(() -> {
-            // 获取 SessionID 列表
-            Set<String> members = stringRedisTemplate.opsForSet()
-                    .members(RedisPrefix.PUBLIC_KEY_HEX_2_SESSION_ID + eccMessage.getToPublicKeyHex());
+        // 获取 SessionID 列表
+        Set<String> members = stringRedisTemplate.opsForSet()
+                .members(RedisPrefix.PUBLIC_KEY_HEX_2_SESSION_ID + eccMessage.getToPublicKeyHex());
 
-            // 发送消息
-            for (String sessionId : members) {
-                // 提取路由键
-                String routingKey = sessionId.substring(0, rabbitMqConfig.getUuid().length());
-                MqMessage mqMessage = new MqMessage();
-                mqMessage.setSessionId(sessionId);
-                mqMessage.setEccMessage(eccMessage);
-                mqMessage.setIsGroup(false);
-                rabbitTemplate.convertAndSend("message.direct", routingKey, mqMessage);
-            }
-        });
+        // 发送消息
+        for (String sessionId : members) {
+            // 提取路由键
+            String routingKey = sessionId.substring(0, rabbitMqConfig.getUuid().length());
+            MqMessage mqMessage = new MqMessage();
+            mqMessage.setSessionId(sessionId);
+            mqMessage.setEccMessage(eccMessage);
+            mqMessage.setIsGroup(false);
+            rabbitTemplate.convertAndSend("message.direct", routingKey, mqMessage);
+        }
     }
 
     /**
@@ -332,22 +329,21 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
      * 
      * @param eccMessage 群聊消息
      */
+    @Async
     private void sendGroupSocket(EccMessage eccMessage) {
-        executorService.submit(() -> {
-            // 获取 SessionID 列表
-            Set<String> sessionIds = stringRedisTemplate.opsForSet().members(
-                    RedisPrefix.GROUP_UUID_2_SESSION_ID + eccMessage.getToPublicKeyHex());
-            // 转发
-            for (String sessionId : sessionIds) {
-                // 提取路由键
-                String routingKey = sessionId.substring(0, rabbitMqConfig.getUuid().length());
-                MqMessage mqMessage = new MqMessage();
-                mqMessage.setSessionId(sessionId);
-                mqMessage.setEccMessage(eccMessage);
-                mqMessage.setIsGroup(true);
-                rabbitTemplate.convertAndSend("message.direct", routingKey, mqMessage);
-            }
-        });
+        // 获取 SessionID 列表
+        Set<String> sessionIds = stringRedisTemplate.opsForSet().members(
+                RedisPrefix.GROUP_UUID_2_SESSION_ID + eccMessage.getToPublicKeyHex());
+        // 转发
+        for (String sessionId : sessionIds) {
+            // 提取路由键
+            String routingKey = sessionId.substring(0, rabbitMqConfig.getUuid().length());
+            MqMessage mqMessage = new MqMessage();
+            mqMessage.setSessionId(sessionId);
+            mqMessage.setEccMessage(eccMessage);
+            mqMessage.setIsGroup(true);
+            rabbitTemplate.convertAndSend("message.direct", routingKey, mqMessage);
+        }
     }
 
 }
