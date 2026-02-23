@@ -1,8 +1,9 @@
 package com.github.wrx886.e2echo.server.controller;
 
-import org.springframework.core.io.InputStreamResource;
+import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
@@ -31,8 +32,8 @@ public class FileController {
     }
 
     @Operation(summary = "下载文件")
-    @GetMapping("/download")
-    public ResponseEntity<InputStreamResource> download(String fileId) {
+    @GetMapping("/download/{fileId}")
+    public ResponseEntity<Resource> download(@PathVariable String fileId) {
         return fileService.download(fileId);
     }
 

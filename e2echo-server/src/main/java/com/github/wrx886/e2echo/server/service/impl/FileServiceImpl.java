@@ -3,6 +3,7 @@ package com.github.wrx886.e2echo.server.service.impl;
 import java.util.UUID;
 
 import org.springframework.core.io.InputStreamResource;
+import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -78,7 +79,7 @@ public class FileServiceImpl implements FileService {
      * @return 文件
      */
     @Override
-    public ResponseEntity<InputStreamResource> download(String fileId) {
+    public ResponseEntity<Resource> download(String fileId) {
         try {
             // 获取文件输入流
             GetObjectResponse stream = minioClient.getObject(GetObjectArgs.builder()
