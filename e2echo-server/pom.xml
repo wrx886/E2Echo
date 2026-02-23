@@ -126,6 +126,12 @@
             <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>io.minio</groupId>
+            <artifactId>minio</artifactId>
+            <version>8.6.0</version>
+        </dependency>
+
         <!--包含spring-test相关依赖-->
         <dependency>
             <groupId>org.springframework.boot</groupId>

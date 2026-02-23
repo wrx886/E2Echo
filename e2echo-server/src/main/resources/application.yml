@@ -45,6 +45,10 @@ spring:
   redis:
     host: localhost # Redis 主机地址
     port: 6379 # Redis 端口
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
 
 #用于打印框架生成的sql语句，便于调试
 mybatis-plus:
@@ -54,3 +58,9 @@ mybatis-plus:
 springdoc:
   # 默认是false，需要设置为true
   default-flat-param-object: true
+
+minio:
+  endpoint: http://127.0.0.1:9000 # MinIO服务地址
+  bucketName: e2echo # 存储桶名称
+  accessKey: minioadmin # 访问密钥
+  secretKey: minioadmin # 秘密密钥

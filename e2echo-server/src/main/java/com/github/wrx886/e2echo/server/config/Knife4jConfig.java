@@ -33,4 +33,12 @@ public class Knife4jConfig {
                 .build();
     }
 
+    @Bean
+    public GroupedOpenApi fileAPI() {
+        return GroupedOpenApi.builder()
+                .group("文件管理")
+                .pathsToMatch("/server/file/**")
+                .build();
+    }
+
 }
