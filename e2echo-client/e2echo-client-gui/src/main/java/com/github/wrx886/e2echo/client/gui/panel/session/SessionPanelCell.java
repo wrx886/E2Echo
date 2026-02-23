@@ -3,12 +3,14 @@ package com.github.wrx886.e2echo.client.gui.panel.session;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.wrx886.e2echo.client.common.common.BeanProvider;
 import com.github.wrx886.e2echo.client.common.controller.srv.AliasController;
 import com.github.wrx886.e2echo.client.common.controller.srv.MessageController;
 import com.github.wrx886.e2echo.client.common.model.entity.Message;
 import com.github.wrx886.e2echo.client.common.model.entity.Session;
 import com.github.wrx886.e2echo.client.common.model.enum_.MessageType;
+import com.github.wrx886.e2echo.client.common.model.vo.FileVo;
 
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
@@ -20,6 +22,7 @@ import javafx.scene.layout.VBox;
 
 public class SessionPanelCell extends ListCell<Session> {
 
+    private final ObjectMapper objectMapper = BeanProvider.getBean(ObjectMapper.class);
     private final AliasController aliasController = BeanProvider.getBean(AliasController.class);
     private final MessageController messageController = BeanProvider.getBean(MessageController.class);
 
@@ -94,6 +97,19 @@ public class SessionPanelCell extends ListCell<Session> {
                     // 文字消息
                     fromAndmessageLabel
                             .setText(aliasController.get(message.getFromPublicKeyHex()) + ": " + message.getData());
+                } else if (MessageType.FILE.equals(message.getType())
+                        || MessageType.PICTURE.equals(message.getType())) {
+                    // 文件展示
+                    FileVo fileVo;
+                    try {
+                        fileVo = objectMapper.readValue(message.getData(), FileVo.class);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e.getMessage());
+                    }
+                    String label = MessageType.FILE.equals(message.getType()) ? "[文件] " : "[图片] ";
+                    fromAndmessageLabel
+                            .setText(aliasController.get(message.getFromPublicKeyHex()) + ": " + label
+                                    + fileVo.getFileName());
                 } else {
                     fromAndmessageLabel
                             .setText(aliasController.get(message.getFromPublicKeyHex()) + ": " + "不支持的消息类型！");

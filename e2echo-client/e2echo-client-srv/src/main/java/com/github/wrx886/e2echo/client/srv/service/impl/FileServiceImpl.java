@@ -69,7 +69,7 @@ public class FileServiceImpl implements FileService {
 
             // 发送消息
             String fileVoString = objectMapper.writeValueAsString(fileVo);
-            messageService.sendOne(groupUuid, fileVoString, type);
+            messageService.sendGroup(groupUuid, fileVoString, type);
         } catch (E2EchoException e) {
             throw e;
         } catch (Exception e) {

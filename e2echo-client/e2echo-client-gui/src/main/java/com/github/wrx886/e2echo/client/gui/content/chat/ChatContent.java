@@ -1,7 +1,10 @@
 package com.github.wrx886.e2echo.client.gui.content.chat;
 
+import java.io.File;
+
 import com.github.wrx886.e2echo.client.common.common.BeanProvider;
 import com.github.wrx886.e2echo.client.common.controller.srv.AliasController;
+import com.github.wrx886.e2echo.client.common.controller.srv.FileController;
 import com.github.wrx886.e2echo.client.common.controller.srv.MessageController;
 import com.github.wrx886.e2echo.client.common.model.entity.Message;
 import com.github.wrx886.e2echo.client.common.model.entity.Session;
@@ -23,12 +26,14 @@ import javafx.scene.control.TextArea;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
+import javafx.stage.FileChooser;
 
 public class ChatContent extends VBox {
 
-    private AliasController aliasController = BeanProvider.getBean(AliasController.class);
-    private MessageController messageController = BeanProvider.getBean(MessageController.class);
-    private GuiStore guiStore = BeanProvider.getBean(GuiStore.class);
+    private final FileController fileController = BeanProvider.getBean(FileController.class);
+    private final AliasController aliasController = BeanProvider.getBean(AliasController.class);
+    private final MessageController messageController = BeanProvider.getBean(MessageController.class);
+    private final GuiStore guiStore = BeanProvider.getBean(GuiStore.class);
 
     // 当前会话名称
     private final Label sessionNameLabel;
@@ -47,6 +52,12 @@ public class ChatContent extends VBox {
 
     // 主界面路由
     private final SidebarPanelContentLayout layout;
+
+    // 发送文件按钮
+    private final Button sendFileButton;
+
+    // 图片发送按钮
+    private final Button sendImageButton;
 
     // 构造函数
     public ChatContent(SidebarPanelContentLayout layout) {
@@ -97,6 +108,16 @@ public class ChatContent extends VBox {
         sendLineHBox.setAlignment(Pos.CENTER_LEFT);
         root.add(sendLineHBox);
 
+        // 发送文件按钮
+        sendFileButton = new Button("文件");
+        sendFileButton.setOnAction(this::sendFileButtonOnAction);
+        sendLineHBox.getChildren().add(sendFileButton);
+
+        // 图片发送按钮
+        sendImageButton = new Button("图片");
+        sendImageButton.setOnAction(this::sendImageButtonOnAction);
+        sendLineHBox.getChildren().add(sendImageButton);
+
         // 文本输入框
         textArea = new TextArea();
         textArea.setMaxWidth(500);
@@ -137,6 +158,58 @@ public class ChatContent extends VBox {
         editVo.setAlias(aliasController.get(editVo.getPublicKeyHex()));
         guiStore.getEditVo().set(editVo);
         layout.getContentRouter().push(EditContent.class);
+    }
+
+    // 文件发送
+    private void sendFileButtonOnAction(Event event) {
+        Session session = guiStore.getCurrentSession().get();
+        // 弹出文件选择框
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("选择密钥对 Json 文件");
+        fileChooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter("File (*)", "*"));
+        File file = fileChooser.showOpenDialog(null);
+        if (file == null) {
+            return;
+        }
+        // 发送消息
+        if (session.getGroup()) {
+            fileController.sendGroupFile(
+                    session.getPublicKeyHex(),
+                    file.getAbsolutePath(),
+                    MessageType.FILE);
+        } else {
+            fileController.sendOneFile(
+                    session.getPublicKeyHex(),
+                    file.getAbsolutePath(),
+                    MessageType.FILE);
+        }
+    }
+
+    // 图片发送
+    private void sendImageButtonOnAction(Event event) {
+        Session session = guiStore.getCurrentSession().get();
+        // 弹出文件选择框
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("选择图片文件");
+        fileChooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter("Image (*)", "*.png", "*.jpg", "*.jpeg"));
+        File file = fileChooser.showOpenDialog(null);
+        if (file == null) {
+            return;
+        }
+        // 发送消息
+        if (session.getGroup()) {
+            fileController.sendGroupFile(
+                    session.getPublicKeyHex(),
+                    file.getAbsolutePath(),
+                    MessageType.PICTURE);
+        } else {
+            fileController.sendOneFile(
+                    session.getPublicKeyHex(),
+                    file.getAbsolutePath(),
+                    MessageType.PICTURE);
+        }
     }
 
 }
