@@ -54,80 +54,6 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
     private final GroupKeyService groupKeyService;
 
     /**
-     * 接收单聊消息
-     * 
-     * @param toPublicKeyHex 接收方公钥
-     * @param startTimestamp 开始时间戳(int64)
-     * @return 私聊消息列表
-     */
-    public List<EccMessage> receiveOne(String toPublicKeyHex, String startTimestamp) {
-        try {
-            // 获取私聊消息
-            MessageWebSocketClient client = messageWebSocketClientStore.getClient();
-            ReceiveOneMessageSocketVo vo = new ReceiveOneMessageSocketVo();
-            vo.setToPublicKeyHex(toPublicKeyHex);
-            vo.setStartTimestamp(startTimestamp);
-            WebSocketResult<?> result = client.sendMessageAndWait("receiveOne", vo);
-            if (!ResultCodeEnum.OK.getCode().equals(result.getCode())) {
-                throw new E2EchoException(result.getMessage());
-            }
-
-            // 类型转变
-            ArrayList<EccMessage> eccMessages = new ArrayList<>();
-            for (Object message : objectMapper.convertValue(result.getData(), List.class)) {
-                EccMessage eccMessage = objectMapper.convertValue(message, EccMessage.class);
-                eccMessages.add(eccMessage);
-            }
-
-            // 返回
-            return eccMessages;
-        } catch (E2EchoException e) {
-            throw e;
-        } catch (TimeoutException e) {
-            throw new E2EchoException(E2EchoExceptionCodeEnum.SRV_WEBSOCKET_TIMEOUT);
-        } catch (Exception e) {
-            throw new E2EchoException(E2EchoExceptionCodeEnum.FAIL);
-        }
-    }
-
-    /**
-     * 接收群聊消息
-     * 
-     * @param groupUuid      群组 UUID
-     * @param startTimestamp 开始时间戳(int64)
-     * @return
-     */
-    public List<EccMessage> receiveGroup(String groupUuid, String startTimestamp) {
-        try {
-            // 获取群聊消息
-            MessageWebSocketClient client = messageWebSocketClientStore.getClient();
-            ReceiveGroupMessageSocketVo vo = new ReceiveGroupMessageSocketVo();
-            vo.setGroupUuid(groupUuid);
-            vo.setStartTimestamp(startTimestamp);
-            WebSocketResult<?> result = client.sendMessageAndWait("receiveGroup", vo);
-            if (!ResultCodeEnum.OK.getCode().equals(result.getCode())) {
-                throw new E2EchoException(result.getMessage());
-            }
-
-            // 类型转变
-            ArrayList<EccMessage> eccMessages = new ArrayList<>();
-            for (Object message : objectMapper.convertValue(result.getData(), List.class)) {
-                EccMessage eccMessage = objectMapper.convertValue(message, EccMessage.class);
-                eccMessages.add(eccMessage);
-            }
-
-            // 返回
-            return eccMessages;
-        } catch (E2EchoException e) {
-            throw e;
-        } catch (TimeoutException e) {
-            throw new E2EchoException(E2EchoExceptionCodeEnum.SRV_WEBSOCKET_TIMEOUT);
-        } catch (Exception e) {
-            throw new E2EchoException(E2EchoExceptionCodeEnum.FAIL);
-        }
-    }
-
-    /**
      * 自动接收单聊消息
      * 
      * @param eccMessage 群聊消息
@@ -720,6 +646,80 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
             if (!ResultCodeEnum.OK.getCode().equals(result.getCode())) {
                 throw new E2EchoException(result.getMessage());
             }
+        } catch (E2EchoException e) {
+            throw e;
+        } catch (TimeoutException e) {
+            throw new E2EchoException(E2EchoExceptionCodeEnum.SRV_WEBSOCKET_TIMEOUT);
+        } catch (Exception e) {
+            throw new E2EchoException(E2EchoExceptionCodeEnum.FAIL);
+        }
+    }
+
+    /**
+     * 接收单聊消息
+     * 
+     * @param toPublicKeyHex 接收方公钥
+     * @param startTimestamp 开始时间戳(int64)
+     * @return 私聊消息列表
+     */
+    private List<EccMessage> receiveOne(String toPublicKeyHex, String startTimestamp) {
+        try {
+            // 获取私聊消息
+            MessageWebSocketClient client = messageWebSocketClientStore.getClient();
+            ReceiveOneMessageSocketVo vo = new ReceiveOneMessageSocketVo();
+            vo.setToPublicKeyHex(toPublicKeyHex);
+            vo.setStartTimestamp(startTimestamp);
+            WebSocketResult<?> result = client.sendMessageAndWait("receiveOne", vo);
+            if (!ResultCodeEnum.OK.getCode().equals(result.getCode())) {
+                throw new E2EchoException(result.getMessage());
+            }
+
+            // 类型转变
+            ArrayList<EccMessage> eccMessages = new ArrayList<>();
+            for (Object message : objectMapper.convertValue(result.getData(), List.class)) {
+                EccMessage eccMessage = objectMapper.convertValue(message, EccMessage.class);
+                eccMessages.add(eccMessage);
+            }
+
+            // 返回
+            return eccMessages;
+        } catch (E2EchoException e) {
+            throw e;
+        } catch (TimeoutException e) {
+            throw new E2EchoException(E2EchoExceptionCodeEnum.SRV_WEBSOCKET_TIMEOUT);
+        } catch (Exception e) {
+            throw new E2EchoException(E2EchoExceptionCodeEnum.FAIL);
+        }
+    }
+
+    /**
+     * 接收群聊消息
+     * 
+     * @param groupUuid      群组 UUID
+     * @param startTimestamp 开始时间戳(int64)
+     * @return
+     */
+    private List<EccMessage> receiveGroup(String groupUuid, String startTimestamp) {
+        try {
+            // 获取群聊消息
+            MessageWebSocketClient client = messageWebSocketClientStore.getClient();
+            ReceiveGroupMessageSocketVo vo = new ReceiveGroupMessageSocketVo();
+            vo.setGroupUuid(groupUuid);
+            vo.setStartTimestamp(startTimestamp);
+            WebSocketResult<?> result = client.sendMessageAndWait("receiveGroup", vo);
+            if (!ResultCodeEnum.OK.getCode().equals(result.getCode())) {
+                throw new E2EchoException(result.getMessage());
+            }
+
+            // 类型转变
+            ArrayList<EccMessage> eccMessages = new ArrayList<>();
+            for (Object message : objectMapper.convertValue(result.getData(), List.class)) {
+                EccMessage eccMessage = objectMapper.convertValue(message, EccMessage.class);
+                eccMessages.add(eccMessage);
+            }
+
+            // 返回
+            return eccMessages;
         } catch (E2EchoException e) {
             throw e;
         } catch (TimeoutException e) {

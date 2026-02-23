@@ -10,24 +10,6 @@ import com.github.wrx886.e2echo.client.common.model.enum_.MessageType;
 public interface MessageService extends IService<Message> {
 
     /**
-     * 接收单聊消息
-     * 
-     * @param toPublicKeyHex 接收方公钥
-     * @param startTimestamp 开始时间戳(int64)
-     * @return 私聊消息列表
-     */
-    List<EccMessage> receiveOne(String toPublicKeyHex, String startTimestamp);
-
-    /**
-     * 接收群聊消息
-     * 
-     * @param groupUuid      群组 UUID
-     * @param startTimestamp 开始时间戳(int64)
-     * @return
-     */
-    List<EccMessage> receiveGroup(String groupUuid, String startTimestamp);
-
-    /**
      * 自动接收单聊消息
      * 
      * @param eccMessage 群聊消息
@@ -67,6 +49,15 @@ public interface MessageService extends IService<Message> {
     void sendOne(String toPublicKeyHex, String data, MessageType type);
 
     /**
+     * 接收群聊消息
+     * 
+     * @param groupUuid 群聊UUID
+     * @param data      消息内容
+     * @param type      消息类型
+     */
+    void sendGroup(String groupUuid, String data, MessageType type);
+
+    /**
      * 接收消息
      */
     void receiveMessage();
@@ -80,14 +71,5 @@ public interface MessageService extends IService<Message> {
      * 订阅群聊消息
      */
     void subscribeGroup(String groupUuid);
-
-    /**
-     * 接收群聊消息
-     * 
-     * @param groupUuid 群聊UUID
-     * @param data      消息内容
-     * @param type      消息类型
-     */
-    void sendGroup(String groupUuid, String data, MessageType type);
 
 }
