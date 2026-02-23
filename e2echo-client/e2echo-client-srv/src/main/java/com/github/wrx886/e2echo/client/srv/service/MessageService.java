@@ -10,13 +10,6 @@ import com.github.wrx886.e2echo.client.common.model.enum_.MessageType;
 public interface MessageService extends IService<Message> {
 
     /**
-     * 发送单聊消息
-     * 
-     * @param eccMessage 消息
-     */
-    void sendOne(EccMessage eccMessage);
-
-    /**
      * 接收单聊消息
      * 
      * @param toPublicKeyHex 接收方公钥
@@ -24,13 +17,6 @@ public interface MessageService extends IService<Message> {
      * @return 私聊消息列表
      */
     List<EccMessage> receiveOne(String toPublicKeyHex, String startTimestamp);
-
-    /**
-     * 发送群聊消息
-     * 
-     * @param eccMessage 群聊消息
-     */
-    void sendGroup(EccMessage eccMessage);
 
     /**
      * 接收群聊消息

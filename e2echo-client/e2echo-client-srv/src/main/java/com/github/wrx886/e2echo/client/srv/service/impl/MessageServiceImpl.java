@@ -54,27 +54,6 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
     private final GroupKeyService groupKeyService;
 
     /**
-     * 发送单聊消息
-     * 
-     * @param eccMessage 消息
-     */
-    public void sendOne(EccMessage eccMessage) {
-        try {
-            MessageWebSocketClient client = messageWebSocketClientStore.getClient();
-            WebSocketResult<?> result = client.sendMessageAndWait("sendOne", eccMessage);
-            if (!ResultCodeEnum.OK.getCode().equals(result.getCode())) {
-                throw new E2EchoException(result.getMessage());
-            }
-        } catch (E2EchoException e) {
-            throw e;
-        } catch (TimeoutException e) {
-            throw new E2EchoException(E2EchoExceptionCodeEnum.SRV_WEBSOCKET_TIMEOUT);
-        } catch (Exception e) {
-            throw new E2EchoException(E2EchoExceptionCodeEnum.FAIL);
-        }
-    }
-
-    /**
      * 接收单聊消息
      * 
      * @param toPublicKeyHex 接收方公钥
@@ -102,27 +81,6 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
 
             // 返回
             return eccMessages;
-        } catch (E2EchoException e) {
-            throw e;
-        } catch (TimeoutException e) {
-            throw new E2EchoException(E2EchoExceptionCodeEnum.SRV_WEBSOCKET_TIMEOUT);
-        } catch (Exception e) {
-            throw new E2EchoException(E2EchoExceptionCodeEnum.FAIL);
-        }
-    }
-
-    /**
-     * 发送群聊消息
-     * 
-     * @param eccMessage 群聊消息
-     */
-    public void sendGroup(EccMessage eccMessage) {
-        try {
-            MessageWebSocketClient client = messageWebSocketClientStore.getClient();
-            WebSocketResult<?> result = client.sendMessageAndWait("sendGroup", eccMessage);
-            if (!ResultCodeEnum.OK.getCode().equals(result.getCode())) {
-                throw new E2EchoException(result.getMessage());
-            }
         } catch (E2EchoException e) {
             throw e;
         } catch (TimeoutException e) {
@@ -717,6 +675,48 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         try {
             MessageWebSocketClient client = messageWebSocketClientStore.getClient();
             WebSocketResult<?> result = client.sendMessageAndWait("subscribeGroup", groupUuid);
+            if (!ResultCodeEnum.OK.getCode().equals(result.getCode())) {
+                throw new E2EchoException(result.getMessage());
+            }
+        } catch (E2EchoException e) {
+            throw e;
+        } catch (TimeoutException e) {
+            throw new E2EchoException(E2EchoExceptionCodeEnum.SRV_WEBSOCKET_TIMEOUT);
+        } catch (Exception e) {
+            throw new E2EchoException(E2EchoExceptionCodeEnum.FAIL);
+        }
+    }
+
+    /**
+     * 发送单聊消息
+     * 
+     * @param eccMessage 消息
+     */
+    private void sendOne(EccMessage eccMessage) {
+        try {
+            MessageWebSocketClient client = messageWebSocketClientStore.getClient();
+            WebSocketResult<?> result = client.sendMessageAndWait("sendOne", eccMessage);
+            if (!ResultCodeEnum.OK.getCode().equals(result.getCode())) {
+                throw new E2EchoException(result.getMessage());
+            }
+        } catch (E2EchoException e) {
+            throw e;
+        } catch (TimeoutException e) {
+            throw new E2EchoException(E2EchoExceptionCodeEnum.SRV_WEBSOCKET_TIMEOUT);
+        } catch (Exception e) {
+            throw new E2EchoException(E2EchoExceptionCodeEnum.FAIL);
+        }
+    }
+
+    /**
+     * 发送群聊消息
+     * 
+     * @param eccMessage 群聊消息
+     */
+    private void sendGroup(EccMessage eccMessage) {
+        try {
+            MessageWebSocketClient client = messageWebSocketClientStore.getClient();
+            WebSocketResult<?> result = client.sendMessageAndWait("sendGroup", eccMessage);
             if (!ResultCodeEnum.OK.getCode().equals(result.getCode())) {
                 throw new E2EchoException(result.getMessage());
             }
