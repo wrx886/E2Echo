@@ -92,7 +92,8 @@ public class ChatContentCell extends ListCell<Message> {
                 dataTextLabel.setText(item.getData());
                 dataTextLabel.setMinHeight(getTextHeight(dataTextLabel.getText()));
             } else {
-                throw new UnsupportedOperationException("数据类型未处理！");
+                dataTextLabel.setText("不支持的消息类型");
+                dataTextLabel.setMinHeight(getTextHeight(dataTextLabel.getText()));
             }
 
             setGraphic(vBox);

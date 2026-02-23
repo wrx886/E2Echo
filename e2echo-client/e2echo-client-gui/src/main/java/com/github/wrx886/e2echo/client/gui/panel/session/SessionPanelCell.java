@@ -95,7 +95,8 @@ public class SessionPanelCell extends ListCell<Session> {
                     fromAndmessageLabel
                             .setText(aliasController.get(message.getFromPublicKeyHex()) + ": " + message.getData());
                 } else {
-                    throw new RuntimeException("不支持的消息类型！");
+                    fromAndmessageLabel
+                            .setText(aliasController.get(message.getFromPublicKeyHex()) + ": " + "不支持的消息类型！");
                 }
             } else {
                 fromAndmessageLabel.setText(null);

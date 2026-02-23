@@ -39,7 +39,6 @@ import com.github.wrx886.e2echo.client.srv.socket.MessageWebSocketClient;
 import com.github.wrx886.e2echo.client.srv.store.MessageWebSocketClientStore;
 import com.github.wrx886.e2echo.client.srv.util.AesUtil;
 
-import jakarta.activation.UnsupportedDataTypeException;
 import lombok.AllArgsConstructor;
 
 @Service
@@ -287,8 +286,8 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         if (MessageType.TEXT.equals(sendMessageVo.getType())) {
             // 不需要处理
         } else {
-            // 其他消息类型暂不支持
-            throw new RuntimeException(new UnsupportedDataTypeException());
+            sendMessageVo.setType(MessageType.UNSUPPORTED);
+            sendMessageVo.setData("不支持的消息类型");
         }
 
         // 封装为数据库消息
@@ -490,8 +489,8 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
             receiveSharedKey(eccMessage.getFromPublicKeyHex(), sendMessageVo);
             return;
         } else {
-            // 其他消息类型暂不支持
-            throw new RuntimeException(new UnsupportedDataTypeException());
+            sendMessageVo.setType(MessageType.UNSUPPORTED);
+            sendMessageVo.setData("不支持的消息类型");
         }
 
         // 封装为数据库消息

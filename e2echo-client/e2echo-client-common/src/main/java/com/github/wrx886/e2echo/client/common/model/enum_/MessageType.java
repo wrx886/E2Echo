@@ -17,6 +17,8 @@ public enum MessageType implements IEnum<Integer> {
     VIDEO(4),
     // 文件
     FILE(5),
+    // 不支持的数据类型
+    UNSUPPORTED(6),
 
     // 群聊：KEY更新
     GROUP_KEY_UPDATE(7),
