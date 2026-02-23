@@ -93,7 +93,8 @@ public class FileServiceImpl implements FileService {
                     .contentType(MediaType.APPLICATION_OCTET_STREAM)
                     .body(new InputStreamResource(stream));
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            log.error("", e);
+            return ResponseEntity.notFound().build();
         }
     }
 
