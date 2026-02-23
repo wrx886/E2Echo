@@ -13,4 +13,7 @@ public class FileVo {
     @Schema(description = "文件名")
     private String fileName;
 
+    @Schema(description = "AES 密钥")
+    private String aesKey;
+
 }

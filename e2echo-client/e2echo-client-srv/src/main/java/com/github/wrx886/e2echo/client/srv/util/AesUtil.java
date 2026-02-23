@@ -1,5 +1,7 @@
 package com.github.wrx886.e2echo.client.srv.util;
 
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import javax.crypto.Cipher;
@@ -17,6 +19,9 @@ public class AesUtil {
     // 新增：GCM 模式参数
     private static final int GCM_IV_LENGTH = 12; // 推荐使用 12 字节 IV
     private static final int GCM_TAG_LENGTH = 128; // 认证标签长度 (位)
+
+    // 缓冲区大小
+    private static final int BUFFER_SIZE = 8192;
 
     /**
      * 生成随机密钥并返回其HEX表示
@@ -91,6 +96,75 @@ public class AesUtil {
             // 解密
             byte[] decryptedBytes = cipher.doFinal(encryptedBytes);
             return new String(decryptedBytes, StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static void encryptFile(String inputFile, String outputFile, String hexKey) {
+        try {
+            SecretKey secretKey = loadKeyFromHex(hexKey);
+            Cipher cipher = Cipher.getInstance(CIPHER_TRANSFORMATION);
+
+            // 生成随机 IV
+            byte[] iv = new byte[GCM_IV_LENGTH];
+            SecureRandom random = new SecureRandom();
+            random.nextBytes(iv);
+
+            // 使用 GCMParameterSpec 初始化
+            GCMParameterSpec spec = new GCMParameterSpec(GCM_TAG_LENGTH, iv);
+            cipher.init(Cipher.ENCRYPT_MODE, secretKey, spec);
+
+            try (FileInputStream inputStream = new FileInputStream(inputFile);
+                    FileOutputStream outputStream = new FileOutputStream(outputFile);) {
+                // 写入 iv
+                outputStream.write(iv);
+
+                // 开始加密数据
+                byte[] buffer = new byte[BUFFER_SIZE];
+                int bytesRead;
+                while ((bytesRead = inputStream.read(buffer)) != -1) {
+                    outputStream.write(cipher.update(buffer, 0, bytesRead));
+                }
+
+                // 最终加密
+                byte[] finalBytes = cipher.doFinal();
+                outputStream.write(finalBytes);
+            }
+
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static void decryptFile(String inputFile, String outputFile, String hexKey) {
+        try {
+            SecretKey secretKey = loadKeyFromHex(hexKey);
+            Cipher cipher = Cipher.getInstance(CIPHER_TRANSFORMATION);
+
+            // 读取 iv
+            try (FileInputStream inputStream = new FileInputStream(inputFile);
+                    FileOutputStream outputStream = new FileOutputStream(outputFile);) {
+                // 提取 IV
+                byte[] iv = new byte[GCM_IV_LENGTH];
+                inputStream.read(iv);
+
+                // 使用提取的 IV 初始化解密器
+                GCMParameterSpec spec = new GCMParameterSpec(GCM_TAG_LENGTH, iv);
+                cipher.init(Cipher.DECRYPT_MODE, secretKey, spec);
+
+                // 开始解密数据
+                byte[] buffer = new byte[BUFFER_SIZE];
+                int bytesRead;
+                while ((bytesRead = inputStream.read(buffer)) != -1) {
+                    outputStream.write(cipher.update(buffer, 0, bytesRead));
+                }
+
+                // 最终解密
+                byte[] finalBytes = cipher.doFinal();
+                outputStream.write(finalBytes);
+            }
+
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

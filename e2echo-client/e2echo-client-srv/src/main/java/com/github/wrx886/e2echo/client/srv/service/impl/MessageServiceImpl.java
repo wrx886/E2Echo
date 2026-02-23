@@ -1,12 +1,16 @@
 package com.github.wrx886.e2echo.client.srv.service.impl;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 
+import org.springframework.core.io.Resource;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -22,7 +26,9 @@ import com.github.wrx886.e2echo.client.common.model.entity.GroupKey;
 import com.github.wrx886.e2echo.client.common.model.entity.Message;
 import com.github.wrx886.e2echo.client.common.model.entity.Session;
 import com.github.wrx886.e2echo.client.common.model.enum_.MessageType;
+import com.github.wrx886.e2echo.client.common.model.vo.FileVo;
 import com.github.wrx886.e2echo.client.common.store.JsonStore;
+import com.github.wrx886.e2echo.client.srv.feign.FileFeign;
 import com.github.wrx886.e2echo.client.srv.mapper.MessageMapper;
 import com.github.wrx886.e2echo.client.srv.model.socket.WebSocketResult;
 import com.github.wrx886.e2echo.client.srv.model.vo.GroupKeyVo;
@@ -52,6 +58,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
     private final SessionService sessionService;
     private final GuiController guiController;
     private final GroupKeyService groupKeyService;
+    private final FileFeign fileFeign;
 
     /**
      * 自动接收单聊消息
@@ -169,6 +176,11 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         // 针对不同的消息类型进行处理
         if (MessageType.TEXT.equals(sendMessageVo.getType())) {
             // 不需要处理
+        } else if (MessageType.AUDIO.equals(sendMessageVo.getType())
+                || MessageType.PICTURE.equals(sendMessageVo.getType())
+                || MessageType.FILE.equals(sendMessageVo.getType())
+                || MessageType.VIDEO.equals(sendMessageVo.getType())) {
+            receiveFile(sendMessageVo);
         } else {
             sendMessageVo.setType(MessageType.UNSUPPORTED);
             sendMessageVo.setData("不支持的消息类型");
@@ -372,6 +384,11 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
             // 群密钥共享
             receiveSharedKey(eccMessage.getFromPublicKeyHex(), sendMessageVo);
             return;
+        } else if (MessageType.AUDIO.equals(sendMessageVo.getType())
+                || MessageType.PICTURE.equals(sendMessageVo.getType())
+                || MessageType.FILE.equals(sendMessageVo.getType())
+                || MessageType.VIDEO.equals(sendMessageVo.getType())) {
+            receiveFile(sendMessageVo);
         } else {
             sendMessageVo.setType(MessageType.UNSUPPORTED);
             sendMessageVo.setData("不支持的消息类型");
@@ -403,6 +420,59 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
 
         // 更新 更新时间
         jsonStore.setStartTimestamp(System.currentTimeMillis());
+    }
+
+    /**
+     * 处理结束到的文件消息
+     * 
+     * @param sendMessageVo
+     */
+    private void receiveFile(SendMessageVo sendMessageVo) {
+        try {
+            // 消息类型必须是文件
+            if (!(MessageType.AUDIO.equals(sendMessageVo.getType())
+                    || MessageType.PICTURE.equals(sendMessageVo.getType())
+                    || MessageType.FILE.equals(sendMessageVo.getType())
+                    || MessageType.VIDEO.equals(sendMessageVo.getType()))) {
+                throw new RuntimeException("消息类型错误");
+            }
+
+            // 转换数据
+            FileVo fileVo = objectMapper.readValue(sendMessageVo.getData(), FileVo.class);
+
+            // 判断文件是否存在
+            String decryptedFilePath = "./download/" + fileVo.getFileId() + ".decrypted";
+            if (new File(decryptedFilePath).exists()) {
+                // 文件存在，不需要处理
+                return;
+            }
+
+            // 创建文件夹
+            File dir = new File("./download");
+            if (!dir.exists()) {
+                dir.mkdirs();
+            }
+
+            dir = new File("./temp");
+            if (!dir.exists()) {
+                dir.mkdirs();
+            }
+
+            // 下载文件
+            String outputPath = "./temp/" + fileVo.getFileId();
+            ResponseEntity<Resource> resource = fileFeign.download(fileVo.getFileId());
+            try (FileOutputStream outputStream = new FileOutputStream(outputPath)) {
+                resource.getBody().getInputStream().transferTo(outputStream);
+            }
+
+            // 解密文件
+            AesUtil.decryptFile(outputPath, decryptedFilePath, fileVo.getAesKey());
+
+            // 删除临时文件
+            new File(outputPath).delete();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private void receiveSharedKey(String fromPublicKeyHex, SendMessageVo sendMessageVo) {
