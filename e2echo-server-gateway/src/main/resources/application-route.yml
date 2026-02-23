@@ -1,0 +1,8 @@
+spring:
+  cloud:
+    gateway:
+      routes: # 路由配置
+        - id: e2echo-server # 路由 id
+          uri: lb://e2echo-server # 路由地址
+          predicates: # 路由断言
+            - Path=/server/** # 路径匹配规则
