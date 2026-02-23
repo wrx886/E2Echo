@@ -15,16 +15,16 @@ import com.github.wrx886.e2echo.client.common.model.enum_.MessageType;
 import com.github.wrx886.e2echo.client.common.model.vo.FileVo;
 
 import javafx.event.Event;
-import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.OverrunStyle;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
-import javafx.scene.layout.GridPane;
+import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -264,8 +264,9 @@ public class ChatContentCell extends ListCell<Message> {
         }
         // 读取图片
         ImageView imageView = new ImageView();
+        Image image;
         try (FileInputStream fis = new FileInputStream(filePath)) {
-            Image image = new Image(fis);
+            image = new Image(fis);
             imageView.setImage(image);
             double radioHeight = 700 / image.getHeight();
             double radioWidth = 1250 / image.getWidth();
@@ -278,15 +279,44 @@ public class ChatContentCell extends ListCell<Message> {
         }
 
         // 创建 Pane
-        GridPane gridPane = new GridPane();
-        gridPane.add(imageView, 0, 0);
-        gridPane.setAlignment(Pos.CENTER);
-        gridPane.setPrefWidth(1280);
-        gridPane.setPrefHeight(768);
+        ScrollPane scrollPane = new ScrollPane();
+        scrollPane.setContent(imageView);
+
+        // 关键设置：启用拖拽平移（滑动）
+        scrollPane.setPannable(true); // 允许鼠标拖拽移动图片
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED); // 按需显示水平滚动条
+        scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED); // 按需显示垂直滚动条
+
+        // 滚动放缩监听器
+        double[] zoomFactor = new double[] { 1 }; // 缩放系数
+        scrollPane.addEventFilter(ScrollEvent.SCROLL, event -> {
+            double deltaY = event.getDeltaY();
+
+            if (deltaY < 0) {
+                zoomFactor[0] -= 0.05; // 向下滚动缩小
+            } else {
+                zoomFactor[0] += 0.05; // 向上滚动放大
+            }
+            if (zoomFactor[0] < 0.1) {
+                zoomFactor[0] = 0.1; // 最小缩放系数
+            } else if (zoomFactor[0] > 5) {
+                zoomFactor[0] = 5; // 最大缩放系数
+            }
+
+            // 计算新的尺寸
+            double newWidth = image.getWidth() * zoomFactor[0];
+            double newHeight = image.getHeight() * zoomFactor[0];
+
+            // 设置新的尺寸（保持比例）
+            imageView.setFitWidth(newWidth);
+            imageView.setFitHeight(newHeight);
+
+            event.consume(); // 阻止事件继续传播
+        });
 
         // 创建舞台
         Stage stage = new Stage();
-        stage.setScene(new Scene(gridPane));
+        stage.setScene(new Scene(scrollPane));
         stage.setTitle("图片");
         stage.setWidth(1280);
         stage.setHeight(768);
