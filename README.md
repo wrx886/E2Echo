@@ -93,11 +93,11 @@ mvn clean package
 ### 网关
 
 ```bash
-cd e2echo-gateway
+cd e2echo-server-gateway
 mvn clean package
 ```
 
-构建结果为 `e2echo-gateway/target` 下的 jar 文件
+构建结果为 `e2echo-server-gateway/target` 下的 jar 文件
 
 ## 贡献指南
 
