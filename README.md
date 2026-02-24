@@ -41,7 +41,7 @@ E2Echo 诞生于对隐私保护日益增长的需求背景下，旨在为个人�
 
 - **初始化**：
   - 从 releases 下载 e2echo-server ，解压
-  - 修改解压后文件夹中的 application.yml 配置，需要配置 MySQL、Redis、RabbitMQ、Nacos 服务的地址
+  - 修改解压后文件夹中的 application.yml 配置，需要配置 MySQL、Redis、RabbitMQ、Nacos、MinIO 服务的地址
 - **运行**：在jar文件所在目录中运行：`java -jar e2echo-server.jar` 即可
 
 ### 网关
@@ -79,7 +79,7 @@ cd e2echo-client
 mvn clean package
 ```
 
-构建结果为 `e2echo-client-starter/target` 下的 jar 文件
+构建结果为 `e2echo-client-starter/target` 下的 jar 文件，然后可以使用 jpackage 打包，例如：`jpackage --type app-image --input ./input --name e2Echo-client --main-jar e2echo-client.jar` 这里要创建一个单独的文件夹 input，然后将构建好的 jar 文件复制进去
 
 ### 服务端
 
