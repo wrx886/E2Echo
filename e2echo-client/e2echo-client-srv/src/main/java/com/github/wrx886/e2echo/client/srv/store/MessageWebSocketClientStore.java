@@ -2,7 +2,6 @@ package com.github.wrx886.e2echo.client.srv.store;
 
 import java.util.List;
 import org.java_websocket.enums.ReadyState;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import com.github.wrx886.e2echo.client.common.common.BeanProvider;
@@ -22,6 +21,7 @@ public class MessageWebSocketClientStore {
     private final WebUrlStore webUrlStore;
     private MessageWebSocketClient client;
     private boolean closed = false;
+    private Thread monitorThread;
 
     // 构造函数
     public MessageWebSocketClientStore(WebUrlStore webUrlStore) {
@@ -55,6 +55,20 @@ public class MessageWebSocketClientStore {
             }
             // 初始化
             init();
+            // 创建监控线程
+            monitorThread = new Thread(() -> {
+                while (!closed) {
+                    try {
+                        getClient();
+                    } catch (Exception e) {
+                    }
+                    try {
+                        Thread.sleep(1000L * 5 * 60);
+                    } catch (Exception e) {
+                    }
+                }
+            });
+            monitorThread.start();
         }
 
         // 连接
@@ -71,15 +85,6 @@ public class MessageWebSocketClientStore {
         }
 
         return client;
-    }
-
-    @Scheduled(fixedDelay = 5 * 60 * 1000) // 5 分钟
-    public void monitorConnection() {
-        try {
-            this.getClient();
-        } catch (Exception e) {
-            log.error("", e);
-        }
     }
 
     // 关闭

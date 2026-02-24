@@ -11,7 +11,6 @@ import java.util.concurrent.TimeoutException;
 import org.springframework.core.io.Resource;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.ResponseEntity;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -428,7 +427,6 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
      * 
      * @param sendMessageVo
      */
-    @Async
     private void receiveFile(SendMessageVo sendMessageVo) {
         try {
             // 消息类型必须是文件
