@@ -41,8 +41,14 @@ E2Echo 诞生于对隐私保护日益增长的需求背景下，旨在为个人�
 
 - **初始化**：
   - 从 releases 下载 e2echo-server ，解压
-  - 修改解压后文件夹中的 application.yml 配置，配置MySQL数据库
-  - 在 MySQL 中运行 `init.sql` 文件，初始化数据库
+  - 修改解压后文件夹中的 application.yml 配置，需要配置 MySQL、Redis、RabbitMQ、Nacos 服务的地址
+- **运行**：在jar文件所在目录中运行：`java -jar e2echo-server.jar` 即可
+
+### 网关
+
+- **初始化**：
+  - 从 releases 下载 e2echo-gateway ，解压
+  - 修改解压后文件夹中的 application.yml 配置，需要配置 Nacos 服务地址
 - **运行**：在jar文件所在目录中运行：`java -jar e2echo-server.jar` 即可
 
 ## 构建
