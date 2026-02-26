@@ -70,36 +70,15 @@ E2Echo 诞生于对隐私保护日益增长的需求背景下，旨在为个人�
 # 克隆项目
 git clone https://github.com/wrx886/E2Echo.git
 cd e2echo
-```
-
-### 客户端
-
-```bash
-cd e2echo-client
+# 构建项目
 mvn clean package
 ```
 
-构建结果为 `e2echo-client-starter/target` 下的 jar 文件，然后可以使用 jpackage 打包，例如：`jpackage --type app-image --input ./input --name e2Echo-client --main-jar e2echo-client.jar` 这里要创建一个单独的文件夹 input，然后将构建好的 jar 文件复制进去
+- **客户端**：构建结果为 `e2echo-client/e2echo-client-starter/target` 下的 jar 文件，然后可以使用 jpackage 打包，例如：`jpackage --type app-image --input ./input --name e2Echo-client --main-jar e2echo-client.jar` 这里要创建一个单独的文件夹 input，然后将构建好的 jar 文件复制进去
+- **服务端**：构建结果为 `e2echo-server/target` 下的 jar 文件
+- **网关**：构建结果为 `e2echo-server-gateway/target` 下的 jar 文件
 
-### 服务端
-
-```bash
-cd e2echo-server
-mvn clean package
-```
-
-构建结果为 `e2echo-server/target` 下的 jar 文件
-
-### 网关
-
-```bash
-cd e2echo-server-gateway
-mvn clean package
-```
-
-构建结果为 `e2echo-server-gateway/target` 下的 jar 文件
-
-## 贡献指南
+### 贡献指南
 
 欢迎任何形式的贡献！请遵循以下步骤：
 
