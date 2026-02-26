@@ -5,24 +5,10 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.3.12</version>
+        <groupId>com.github.wrx886</groupId>
+        <artifactId>e2echo-parent</artifactId>
+        <version>1.0-SNAPSHOT</version>
     </parent>
-
-    <build>
-        <pluginManagement>
-            <plugins>
-                <plugin>
-                    <groupId>org.springframework.boot</groupId>
-                    <artifactId>spring-boot-maven-plugin</artifactId>
-                    <configuration>
-                        <skip>true</skip> <!-- 默认不执行 -->
-                    </configuration>
-                </plugin>
-            </plugins>
-        </pluginManagement>
-    </build>
 
     <groupId>com.github.wrx886.e2echo</groupId>
     <artifactId>e2echo-client</artifactId>
@@ -39,70 +25,6 @@
     <properties>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
-        <skipTests>true</skipTests>
     </properties>
-
-    <dependencyManagement>
-        <dependencies>
-
-            <dependency>
-                <groupId>org.springframework.cloud</groupId>
-                <artifactId>spring-cloud-dependencies</artifactId>
-                <version>2023.0.6</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-
-            <!-- Source: https://mvnrepository.com/artifact/org.bouncycastle/bcprov-jdk18on -->
-            <dependency>
-                <groupId>org.bouncycastle</groupId>
-                <artifactId>bcprov-jdk18on</artifactId>
-                <version>1.78.1</version>
-            </dependency>
-
-            <!-- Source: https://mvnrepository.com/artifact/org.openjfx/javafx-controls -->
-            <dependency>
-                <groupId>org.openjfx</groupId>
-                <artifactId>javafx-controls</artifactId>
-                <version>17.0.17</version>
-            </dependency>
-
-            <!-- Source: https://mvnrepository.com/artifact/io.github.mkpaz/atlantafx-base -->
-            <dependency>
-                <groupId>io.github.mkpaz</groupId>
-                <artifactId>atlantafx-base</artifactId>
-                <version>2.0.1</version>
-            </dependency>
-
-            <!-- Source:
-        https://mvnrepository.com/artifact/com.github.xiaoymin/knife4j-openapi3-jakarta-spring-boot-starter -->
-            <dependency>
-                <groupId>com.github.xiaoymin</groupId>
-                <artifactId>knife4j-openapi3-jakarta-spring-boot-starter</artifactId>
-                <version>4.5.0</version>
-            </dependency>
-
-            <!-- Java-WebSocket -->
-            <dependency>
-                <groupId>org.java-websocket</groupId>
-                <artifactId>Java-WebSocket</artifactId>
-                <version>1.6.0</version>
-            </dependency>
-
-            <!--mybatis-plus-->
-            <dependency>
-                <groupId>com.baomidou</groupId>
-                <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
-                <version>3.5.15</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.baomidou</groupId>
-                <artifactId>mybatis-plus-jsqlparser</artifactId>
-                <version>3.5.15</version>
-            </dependency>
-
-        </dependencies>
-    </dependencyManagement>
 
 </project>
