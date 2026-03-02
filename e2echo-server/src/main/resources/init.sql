@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS `message` (
   `create_time` TIMESTAMP NOT NULL COMMENT '创建时间',
   `update_time` TIMESTAMP NOT NULL COMMENT '更新时间',
   `is_deleted` TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除（0：未删除；1：已删除）',
+  `version` BIGINT NOT NULL DEFAULT 0 COMMENT '版本号',
   `uuid` VARCHAR(64) NOT NULL COMMENT '消息ID',
   `timestamp_` BIGINT NOT NULL COMMENT '时间戳',
   `from_public_key_hex` VARCHAR(256) NOT NULL COMMENT '发送方公钥',
