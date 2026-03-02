@@ -44,6 +44,7 @@ public class BaseEntity {
     @Version
     @TableField(value = "version")
     @Schema(description = "版本号")
+    @JsonIgnore
     private Long version;
 
 }
