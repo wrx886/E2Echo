@@ -20,4 +20,7 @@ public final class RedisPrefix {
     // 群聊 UUID -> 会话 ID 列表
     public static final String GROUP_UUID_2_SESSION_ID = "e2echo:groupUuid2SessionId:";
 
+    // MQ UUID（幂等性）
+    public static final String MQ_UUID = "e2echo:mq:uuid:";
+
 }

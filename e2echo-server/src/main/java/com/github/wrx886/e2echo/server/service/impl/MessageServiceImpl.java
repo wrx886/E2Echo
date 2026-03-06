@@ -2,8 +2,7 @@ package com.github.wrx886.e2echo.server.service.impl;
 
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.Executor;
-import java.util.concurrent.RejectedExecutionException;
+import java.util.UUID;
 
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -16,7 +15,7 @@ import com.github.wrx886.e2echo.server.config.RabbitMqConfig;
 import com.github.wrx886.e2echo.server.mapper.MessageMapper;
 import com.github.wrx886.e2echo.server.model.EccMessage;
 import com.github.wrx886.e2echo.server.model.entity.Message;
-import com.github.wrx886.e2echo.server.mq.MessageMq.MqMessage;
+import com.github.wrx886.e2echo.server.mq.MessageMq.MqForward;
 import com.github.wrx886.e2echo.server.result.E2EchoException;
 import com.github.wrx886.e2echo.server.result.ResultCodeEnum;
 import com.github.wrx886.e2echo.server.service.MessageService;
@@ -28,7 +27,6 @@ import lombok.AllArgsConstructor;
 @AllArgsConstructor
 public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> implements MessageService {
 
-    private final Executor executor;
     private final RabbitTemplate rabbitTemplate;
     private final StringRedisTemplate stringRedisTemplate;
     private final RabbitMqConfig rabbitMqConfig;
@@ -57,7 +55,11 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         this.save(message);
 
         // 发送消息到 WebSocket 通道
-        sendOneSocket(eccMessage);
+        MqForward mqForward = new MqForward();
+        mqForward.setUuid(UUID.randomUUID().toString());
+        mqForward.setEccMessage(eccMessage);
+        mqForward.setIsGroup(false);
+        rabbitTemplate.convertAndSend(RabbitMqConfig.MESSAGE_PUBLISH_EXCHANGE, null, mqForward);
     }
 
     /**
@@ -112,7 +114,11 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         this.save(message);
 
         // 发送消息到 WebSocket 通道
-        sendGroupSocket(eccMessage);
+        MqForward mqForward = new MqForward();
+        mqForward.setUuid(UUID.randomUUID().toString());
+        mqForward.setEccMessage(eccMessage);
+        mqForward.setIsGroup(true);
+        rabbitTemplate.convertAndSend(RabbitMqConfig.MESSAGE_PUBLISH_EXCHANGE, null, mqForward);
     }
 
     /**
@@ -301,61 +307,6 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         // 取消订阅
         for (String groupUuid : groupUuids) {
             unsubscribeGroup(sessionId, groupUuid);
-        }
-    }
-
-    /**
-     * 发送私聊消息到 WebSocket 通道，命令为：autoReveiveOne
-     * 
-     * @param eccMessage 私聊消息
-     */
-    private void sendOneSocket(EccMessage eccMessage) {
-        try {
-            executor.execute(() -> {
-                // 获取 SessionID 列表
-                Set<String> members = stringRedisTemplate.opsForSet()
-                        .members(RedisPrefix.PUBLIC_KEY_HEX_2_SESSION_ID + eccMessage.getToPublicKeyHex());
-
-                // 发送消息
-                for (String sessionId : members) {
-                    // 提取路由键
-                    String routingKey = sessionId.substring(0, rabbitMqConfig.getUuid().length());
-                    MqMessage mqMessage = new MqMessage();
-                    mqMessage.setSessionId(sessionId);
-                    mqMessage.setEccMessage(eccMessage);
-                    mqMessage.setIsGroup(false);
-                    rabbitTemplate.convertAndSend("message.direct", routingKey, mqMessage);
-                }
-            });
-        } catch (RejectedExecutionException e) {
-            log.error("", e);
-        }
-    }
-
-    /**
-     * 发送群聊消息到 WebSocket 通道，命令为：autoReveiveGroup
-     * 
-     * @param eccMessage 群聊消息
-     */
-    private void sendGroupSocket(EccMessage eccMessage) {
-        try {
-            executor.execute(() -> {
-                // 获取 SessionID 列表
-                Set<String> sessionIds = stringRedisTemplate.opsForSet().members(
-                        RedisPrefix.GROUP_UUID_2_SESSION_ID + eccMessage.getToPublicKeyHex());
-                // 转发
-                for (String sessionId : sessionIds) {
-                    // 提取路由键
-                    String routingKey = sessionId.substring(0, rabbitMqConfig.getUuid().length());
-                    MqMessage mqMessage = new MqMessage();
-                    mqMessage.setSessionId(sessionId);
-                    mqMessage.setEccMessage(eccMessage);
-                    mqMessage.setIsGroup(true);
-                    rabbitTemplate.convertAndSend("message.direct", routingKey, mqMessage);
-                }
-            });
-        } catch (RejectedExecutionException e) {
-            log.error("", e);
         }
     }
 
