@@ -302,8 +302,9 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         // 取消私聊订阅
         unsubscribeOne(sessionId);
         // 获取订阅的群聊 UUID 列表
+        String sessionIdPaackage = rabbitMqConfig.getUuid() + sessionId;
         Set<String> groupUuids = stringRedisTemplate.opsForSet().members(
-                RedisPrefix.SESSION_ID_2_GROUP_UUID + sessionId);
+                RedisPrefix.SESSION_ID_2_GROUP_UUID + sessionIdPaackage);
         // 取消订阅
         for (String groupUuid : groupUuids) {
             unsubscribeGroup(sessionId, groupUuid);
