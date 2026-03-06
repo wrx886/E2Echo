@@ -24,6 +24,10 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <mainClass>com.github.wrx886.e2echo.server.Main</mainClass>
+                    <skip>false</skip> <!-- 启用打包 -->
+                </configuration>
             </plugin>
         </plugins>
     </build>
