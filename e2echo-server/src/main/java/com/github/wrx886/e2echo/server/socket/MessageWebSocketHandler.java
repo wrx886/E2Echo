@@ -1,7 +1,13 @@
 package com.github.wrx886.e2echo.server.socket;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 
+import org.springframework.context.event.ContextClosedEvent;
+import org.springframework.context.event.EventListener;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketSession;
 
@@ -11,12 +17,15 @@ import com.github.wrx886.e2echo.server.model.vo.socket.message.ReceiveOneMessage
 import com.github.wrx886.e2echo.server.service.MessageService;
 
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Component
 @AllArgsConstructor
 public class MessageWebSocketHandler extends BaseWebSocketHandler {
 
     private final MessageService messageService;
+    private final ConcurrentHashMap<String, WebSocketSession> sessionMap = new ConcurrentHashMap<>();
 
     /**
      * 发送私聊消息
@@ -105,9 +114,41 @@ public class MessageWebSocketHandler extends BaseWebSocketHandler {
     }
 
     @Override
+    protected void afterEstablished(WebSocketSession session) {
+        sessionMap.put(session.getId(), session);
+    }
+
+    @Override
     protected void afterClose(WebSocketSession session) {
         // 取消所有订阅
-        messageService.unsubscribeAll(session.getId());
+        try {
+            messageService.unsubscribeAll(session.getId());
+        } finally {
+            sessionMap.remove(session.getId());
+        }
+    }
+
+    @EventListener(ContextClosedEvent.class)
+    @Order(Ordered.HIGHEST_PRECEDENCE)
+    public void handleClose() {
+        // 断开所有连接
+        Collection<WebSocketSession> sessions = sessionMap.values();
+        for (WebSocketSession session : sessions) {
+            try {
+                session.close();
+            } catch (Exception e) {
+                log.error(null, e);
+            }
+        }
+        // 等待
+        while (sessions.size() > 0) {
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                log.error(null, e);
+                break;
+            }
+        }
     }
 
 }
