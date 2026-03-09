@@ -85,7 +85,7 @@ public class MessageMqImpl implements MessageMq {
      * @param mqMessage
      */
     @RabbitListener(bindings = @QueueBinding(value = @Queue(name = RabbitMqConfig.MESSAGE_DISTRIBUTE_QUEUE, durable = "false", autoDelete = "true"), exchange = @Exchange(name = RabbitMqConfig.MESSAGE_DISTRIBUTE_EXCHANGE, type = ExchangeTypes.DIRECT, durable = "false", autoDelete = "true"), key = {
-            "#{rabbitMqConfig.getUuid()}" }))
+            "#{idConfig.getID()}" }))
     public void messageDistributeListener(MqMessage mqMessage) {
         try {
             // 幂等性
