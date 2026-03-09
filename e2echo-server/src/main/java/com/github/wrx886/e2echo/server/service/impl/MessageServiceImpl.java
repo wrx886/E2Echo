@@ -2,20 +2,17 @@ package com.github.wrx886.e2echo.server.service.impl;
 
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
-
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.github.wrx886.e2echo.server.common.RedisPrefix;
-import com.github.wrx886.e2echo.server.config.RabbitMqConfig;
+import com.github.wrx886.e2echo.server.config.IdConfig;
 import com.github.wrx886.e2echo.server.mapper.MessageMapper;
 import com.github.wrx886.e2echo.server.model.EccMessage;
 import com.github.wrx886.e2echo.server.model.entity.Message;
-import com.github.wrx886.e2echo.server.mq.MessageMq.MqForward;
+import com.github.wrx886.e2echo.server.mq.MessageMq;
 import com.github.wrx886.e2echo.server.result.E2EchoException;
 import com.github.wrx886.e2echo.server.result.ResultCodeEnum;
 import com.github.wrx886.e2echo.server.service.MessageService;
@@ -27,9 +24,8 @@ import lombok.AllArgsConstructor;
 @AllArgsConstructor
 public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> implements MessageService {
 
-    private final RabbitTemplate rabbitTemplate;
+    private final MessageMq messageMq;
     private final StringRedisTemplate stringRedisTemplate;
-    private final RabbitMqConfig rabbitMqConfig;
 
     /**
      * 发送消息
@@ -55,11 +51,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         this.save(message);
 
         // 发送消息到 WebSocket 通道
-        MqForward mqForward = new MqForward();
-        mqForward.setUuid(UUID.randomUUID().toString());
-        mqForward.setEccMessage(eccMessage);
-        mqForward.setIsGroup(false);
-        rabbitTemplate.convertAndSend(RabbitMqConfig.MESSAGE_PUBLISH_EXCHANGE, null, mqForward);
+        messageMq.messagePublish(eccMessage, false);
     }
 
     /**
@@ -114,11 +106,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         this.save(message);
 
         // 发送消息到 WebSocket 通道
-        MqForward mqForward = new MqForward();
-        mqForward.setUuid(UUID.randomUUID().toString());
-        mqForward.setEccMessage(eccMessage);
-        mqForward.setIsGroup(true);
-        rabbitTemplate.convertAndSend(RabbitMqConfig.MESSAGE_PUBLISH_EXCHANGE, null, mqForward);
+        messageMq.messagePublish(eccMessage, true);
     }
 
     /**
@@ -215,7 +203,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         unsubscribeOne(sessionId); // 先取消订阅
 
         // 封装 SessionID
-        sessionId = rabbitMqConfig.getUuid() + sessionId;
+        sessionId = IdConfig.ID + sessionId;
 
         // session id -> to public key hex
         stringRedisTemplate.opsForValue().set(
@@ -235,7 +223,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
     @Override
     public void unsubscribeOne(String sessionId) {
         // 封装 SessionID
-        sessionId = rabbitMqConfig.getUuid() + sessionId;
+        sessionId = IdConfig.ID + sessionId;
 
         String toPublicKeyHex = stringRedisTemplate.opsForValue().get(
                 RedisPrefix.SESSION_ID_2_PUBLIC_KEY_HEX + sessionId);
@@ -257,7 +245,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
     @Override
     public void subscribeGroup(String sessionId, String groupUuid) {
         // 封装 SessionID
-        String sessionIdPaackage = rabbitMqConfig.getUuid() + sessionId;
+        String sessionIdPaackage = IdConfig.ID + sessionId;
 
         // session id -> group uuid
         stringRedisTemplate.opsForSet().add(
@@ -279,7 +267,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
     @Override
     public void unsubscribeGroup(String sessionId, String groupUuid) {
         // 封装 SessionID
-        String sessionIdPaackage = rabbitMqConfig.getUuid() + sessionId;
+        String sessionIdPaackage = IdConfig.ID + sessionId;
 
         // 删除 session id -> group uuid
         stringRedisTemplate.opsForSet().remove(
@@ -302,7 +290,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         // 取消私聊订阅
         unsubscribeOne(sessionId);
         // 获取订阅的群聊 UUID 列表
-        String sessionIdPaackage = rabbitMqConfig.getUuid() + sessionId;
+        String sessionIdPaackage = IdConfig.ID + sessionId;
         Set<String> groupUuids = stringRedisTemplate.opsForSet().members(
                 RedisPrefix.SESSION_ID_2_GROUP_UUID + sessionIdPaackage);
         // 取消订阅
