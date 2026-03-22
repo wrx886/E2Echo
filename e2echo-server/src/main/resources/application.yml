@@ -5,9 +5,6 @@ server:
 spring:
   application:
     name: e2echo-server
-  cloud:
-    nacos:
-      server-addr: localhost:8848
   jackson:
     time-zone: GMT+8
   datasource:
