@@ -104,6 +104,18 @@ public class MessageWebSocketHandler extends BaseWebSocketHandler {
     }
 
     /**
+     * 批量订阅群聊消息
+     * 
+     * @param session    会话
+     * @param groupUuids 群聊 UUID列表
+     */
+    public void subscribeGroups(WebSocketSession session, List<String> groupUuids) {
+        for (String groupUuid : groupUuids) {
+            messageService.subscribeGroup(session.getId(), groupUuid);
+        }
+    }
+
+    /**
      * 取消订阅群聊消息
      * 
      * @param session   会话
