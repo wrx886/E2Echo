@@ -799,4 +799,27 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         }
     }
 
+    /**
+     * 批量订阅群聊消息
+     * 
+     * @param groupUuids 群聊UUID列表
+     */
+    @Override
+    public void subscribeGroups(List<String> groupUuids) {
+        // 批量订阅私聊消息
+        try {
+            MessageWebSocketClient client = messageWebSocketClientStore.getClient();
+            WebSocketResult<?> result = client.sendMessageAndWait("subscribeGroups", groupUuids);
+            if (!ResultCodeEnum.OK.getCode().equals(result.getCode())) {
+                throw new E2EchoException(result.getMessage());
+            }
+        } catch (E2EchoException e) {
+            throw e;
+        } catch (TimeoutException e) {
+            throw new E2EchoException(E2EchoExceptionCodeEnum.SRV_WEBSOCKET_TIMEOUT);
+        } catch (Exception e) {
+            throw new E2EchoException(E2EchoExceptionCodeEnum.FAIL);
+        }
+    }
+
 }

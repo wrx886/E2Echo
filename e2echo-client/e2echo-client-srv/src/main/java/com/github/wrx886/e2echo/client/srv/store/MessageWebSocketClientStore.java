@@ -1,5 +1,6 @@
 package com.github.wrx886.e2echo.client.srv.store;
 
+import java.util.ArrayList;
 import java.util.List;
 import org.java_websocket.enums.ReadyState;
 import org.springframework.stereotype.Component;
@@ -20,7 +21,7 @@ public class MessageWebSocketClientStore {
 
     private final WebUrlStore webUrlStore;
     private MessageWebSocketClient client;
-    private boolean closed = false;
+    private volatile boolean closed = false;
     private Thread monitorThread;
 
     // 构造函数
@@ -107,12 +108,15 @@ public class MessageWebSocketClientStore {
         messageService.subscribeOne();
         // 获取会话
         List<Session> sessions = sessionService.listSession();
+        ArrayList<String> groupUuids = new ArrayList<>();
         for (Session session : sessions) {
             if (session.getGroup() && session.getGroupEnabled()) {
-                // 订阅群聊
-                messageService.subscribeGroup(session.getPublicKeyHex());
+                // 获取要订阅的群聊消息
+                groupUuids.add(session.getPublicKeyHex());
             }
         }
+        // 订阅群聊
+        messageService.subscribeGroups(groupUuids);
     }
 
 }
