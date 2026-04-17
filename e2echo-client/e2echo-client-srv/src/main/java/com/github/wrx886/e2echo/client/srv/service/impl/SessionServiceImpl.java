@@ -6,7 +6,6 @@ import org.springframework.stereotype.Service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.github.wrx886.e2echo.client.common.common.BeanProvider;
 import com.github.wrx886.e2echo.client.common.controller.ecc.EccController;
 import com.github.wrx886.e2echo.client.common.controller.gui.GuiController;
 import com.github.wrx886.e2echo.client.common.exception.E2EchoException;
@@ -14,8 +13,8 @@ import com.github.wrx886.e2echo.client.common.exception.E2EchoExceptionCodeEnum;
 import com.github.wrx886.e2echo.client.common.model.entity.Message;
 import com.github.wrx886.e2echo.client.common.model.entity.Session;
 import com.github.wrx886.e2echo.client.srv.mapper.SessionMapper;
-import com.github.wrx886.e2echo.client.srv.service.MessageService;
 import com.github.wrx886.e2echo.client.srv.service.SessionService;
+import com.github.wrx886.e2echo.client.srv.store.MessageWebSocketClientStore;
 
 import lombok.AllArgsConstructor;
 
@@ -25,6 +24,7 @@ public class SessionServiceImpl extends ServiceImpl<SessionMapper, Session> impl
 
     private final EccController eccController;
     private final GuiController guiController;
+    private final MessageWebSocketClientStore clientStore;
 
     /**
      * 更新会话
@@ -123,8 +123,7 @@ public class SessionServiceImpl extends ServiceImpl<SessionMapper, Session> impl
             session.setGroupKeyId(groupKeyId);
             session.setGroupEnabled(true);
             this.save(session);
-            MessageService messageService = BeanProvider.getBean(MessageService.class);
-            messageService.subscribeGroup(groupUuid); // 订阅群聊
+            clientStore.getClient().subscribeGroup(groupUuid); // 订阅群聊
             guiController.flushAsync();
         } else {
             // 错误

@@ -1,16 +1,10 @@
 package com.github.wrx886.e2echo.client.srv.service.impl;
 
-import java.io.File;
-import java.io.FileOutputStream;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
-import java.util.concurrent.TimeoutException;
-
-import org.springframework.core.io.Resource;
 import org.springframework.dao.DuplicateKeyException;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -26,22 +20,14 @@ import com.github.wrx886.e2echo.client.common.model.entity.GroupKey;
 import com.github.wrx886.e2echo.client.common.model.entity.Message;
 import com.github.wrx886.e2echo.client.common.model.entity.Session;
 import com.github.wrx886.e2echo.client.common.model.enum_.MessageType;
-import com.github.wrx886.e2echo.client.common.model.vo.FileVo;
 import com.github.wrx886.e2echo.client.common.store.JsonStore;
-import com.github.wrx886.e2echo.client.srv.feign.FileFeign;
 import com.github.wrx886.e2echo.client.srv.mapper.MessageMapper;
-import com.github.wrx886.e2echo.client.srv.model.socket.WebSocketResult;
-import com.github.wrx886.e2echo.client.srv.model.vo.GroupKeyVo;
 import com.github.wrx886.e2echo.client.srv.model.vo.GroupMessageVo;
 import com.github.wrx886.e2echo.client.srv.model.vo.SendMessageVo;
-import com.github.wrx886.e2echo.client.srv.model.vo.socket.message.ReceiveGroupMessageSocketVo;
-import com.github.wrx886.e2echo.client.srv.model.vo.socket.message.ReceiveOneMessageSocketVo;
-import com.github.wrx886.e2echo.client.srv.result.ResultCodeEnum;
+import com.github.wrx886.e2echo.client.srv.msg.BaseMessageHandler;
 import com.github.wrx886.e2echo.client.srv.service.GroupKeyService;
-import com.github.wrx886.e2echo.client.srv.service.GroupKeySharedService;
 import com.github.wrx886.e2echo.client.srv.service.MessageService;
 import com.github.wrx886.e2echo.client.srv.service.SessionService;
-import com.github.wrx886.e2echo.client.srv.socket.MessageWebSocketClient;
 import com.github.wrx886.e2echo.client.srv.store.MessageWebSocketClientStore;
 import com.github.wrx886.e2echo.client.srv.util.AesUtil;
 
@@ -52,174 +38,12 @@ import lombok.AllArgsConstructor;
 public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> implements MessageService {
 
     private final EccController eccController;
-    private final MessageWebSocketClientStore messageWebSocketClientStore;
+    private final MessageWebSocketClientStore clientStore;
     private final ObjectMapper objectMapper;
     private final JsonStore jsonStore;
     private final SessionService sessionService;
     private final GuiController guiController;
     private final GroupKeyService groupKeyService;
-    private final FileFeign fileFeign;
-
-    /**
-     * 自动接收单聊消息
-     * 
-     * @param eccMessage 群聊消息
-     */
-    @Override
-    public void autoReveiveOne(EccMessage eccMessage) {
-        try {
-            receiveOneEccMessage(eccMessage);
-            guiController.flushAsync();
-        } catch (Exception e) {
-            log.error("处理收到的单个私聊消息（未解密）异常", e);
-        }
-    }
-
-    /**
-     * 自动接收群聊消息
-     * 
-     * @param eccMessage 群聊消息
-     */
-    @Override
-    public void autoReveiveGroup(EccMessage eccMessage) {
-        try {
-            receiveGroupEccMessage(eccMessage);
-            guiController.flushAsync();
-        } catch (Exception e) {
-            log.error("处理收到的群聊消息异常", e);
-        }
-    }
-
-    /**
-     * 接收群聊消息
-     * 
-     * @param eccMessage 群聊消息
-     */
-    private void receiveGroupEccMessage(EccMessage eccMessage) {
-
-        // 验证消息
-        if (!eccController.verify(eccMessage)) {
-            // 验证失败
-            return;
-        }
-
-        // 过期验证
-        Long startTimestamp = jsonStore.getStartTimestamp();
-        if (startTimestamp == null) {
-            startTimestamp = System.currentTimeMillis() - (1000L * 60); // 提前 1 分钟
-        }
-
-        // 消息是否过期
-        if (Long.valueOf(eccMessage.getTimestamp()) <= 0 || Long.valueOf(eccMessage.getTimestamp()) < startTimestamp) {
-            return;
-        }
-
-        // 获取群聊消息
-        GroupMessageVo groupMessageVo;
-        try {
-            groupMessageVo = objectMapper.readValue(eccMessage.getData(), GroupMessageVo.class);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-
-        // 获取 Session
-        Session session = sessionService.getSession(eccMessage.getToPublicKeyHex());
-        if (session == null) {
-            // 群聊不存在
-            return;
-        }
-
-        // 群聊未启用
-        if (!session.getGroupEnabled()) {
-            return;
-        }
-
-        // 获取群聊 GroupKey
-        GroupKey groupKey = groupKeyService.getById(session.getGroupKeyId());
-        if (groupKey == null) {
-            // 群聊密钥不存在
-            return;
-        }
-
-        // 判读是否使用过期的密钥
-        if (!groupKey.getTimestamp().equals(Long.valueOf(groupMessageVo.getTimestamp()))
-                && groupKey.getTimestamp() + 1000L * 60 < Long.valueOf(eccMessage.getTimestamp())) {
-            // 使用过时密钥，新密钥已经发布超过一分钟，还在使用原先的密钥，视为无效
-            return;
-        }
-
-        // 获取解密的密钥
-        String aesKey = groupKeyService.get(eccMessage.getToPublicKeyHex(),
-                Long.valueOf(groupMessageVo.getTimestamp()));
-        if (aesKey == null) {
-            // 密钥不存在
-            return;
-        }
-
-        // 解密消息
-        String data;
-        try {
-            data = AesUtil.decrypt(groupMessageVo.getData(), aesKey);
-        } catch (Exception e) {
-            log.error(null, e);
-            return;
-        }
-
-        // 获取数据
-        SendMessageVo sendMessageVo;
-        try {
-            sendMessageVo = objectMapper.readValue(data, SendMessageVo.class);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-
-        // 针对不同的消息类型进行处理
-        if (MessageType.TEXT.equals(sendMessageVo.getType())) {
-            // 不需要处理
-        } else if (MessageType.AUDIO.equals(sendMessageVo.getType())
-                || MessageType.PICTURE.equals(sendMessageVo.getType())
-                || MessageType.FILE.equals(sendMessageVo.getType())
-                || MessageType.VIDEO.equals(sendMessageVo.getType())) {
-            receiveFile(sendMessageVo);
-        } else {
-            sendMessageVo.setType(MessageType.UNSUPPORTED);
-            sendMessageVo.setData("不支持的消息类型");
-        }
-
-        // 封装为数据库消息
-        Message message = new Message();
-        message.setUuid(eccMessage.getUuid());
-        message.setOwnerPublicKeyHex(eccController.getPublicKey());
-        message.setTimestamp(Long.valueOf(eccMessage.getTimestamp()));
-        message.setFromPublicKeyHex(eccMessage.getFromPublicKeyHex());
-        message.setToPublicKeyHex(eccMessage.getToPublicKeyHex());
-        message.setData(sendMessageVo.getData());
-        message.setType(sendMessageVo.getType());
-        message.setGroup(true);
-
-        // 插入数据库
-        try {
-            this.save(message);
-        } catch (DuplicateKeyException e) {
-            log.error("", e);
-        }
-
-        // 更新会话
-        sessionService.updateSession(
-                eccMessage.getToPublicKeyHex(),
-                message,
-                true);
-
-        // 为群员创建会话
-        try {
-            sessionService.create(eccMessage.getFromPublicKeyHex(), false);
-        } catch (E2EchoException e) {
-            // 重复创建的错误不需要处理
-        }
-
-        // 更新 更新时间
-        jsonStore.setStartTimestamp(System.currentTimeMillis());
-    }
 
     /**
      * 根据会话公钥查询私聊消息
@@ -308,13 +132,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         eccMessage = eccController.encrypt(eccMessage);
 
         // 发送消息
-        sendOne(eccMessage);
-
-        // 不需要存储的类型
-        if (MessageType.GROUP_KEY_UPDATE.equals(type) || MessageType.GROUP_KEY_SHARED.equals(type)) {
-            // 提前结束，不需要存储
-            return;
-        }
+        clientStore.getClient().sendOne(eccMessage);
 
         // 封装为数据库消息
         Message message = new Message();
@@ -342,273 +160,6 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
 
         // 刷新
         guiController.flushAsync();
-    }
-
-    /**
-     * 处理结束到的单个私聊消息（未解密）
-     * 
-     * @param eccMessage
-     */
-    private void receiveOneEccMessage(EccMessage eccMessage) {
-
-        // 解密消息
-        eccMessage = eccController.decrypt(eccMessage);
-
-        // 时间处理，必须先解密，解密时会验证消息的签名
-        Long startTimestamp = jsonStore.getStartTimestamp();
-        if (startTimestamp == null) {
-            startTimestamp = System.currentTimeMillis() - (1000L * 60); // 提前 1 分钟
-        }
-
-        // 消息是否过期
-        if (Long.valueOf(eccMessage.getTimestamp()) <= 0 || Long.valueOf(eccMessage.getTimestamp()) < startTimestamp) {
-            return;
-        }
-
-        // 获取数据
-        SendMessageVo sendMessageVo;
-        try {
-            sendMessageVo = objectMapper.readValue(eccMessage.getData(), SendMessageVo.class);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-
-        // 针对不同的消息类型进行处理
-        if (MessageType.TEXT.equals(sendMessageVo.getType())) {
-            // 不需要处理
-        } else if (MessageType.GROUP_KEY_UPDATE.equals(sendMessageVo.getType())) {
-            // 更新群聊密钥
-            updateGroupKey(eccMessage.getFromPublicKeyHex(), sendMessageVo);
-            return;
-        } else if (MessageType.GROUP_KEY_SHARED.equals(sendMessageVo.getType())) {
-            // 群密钥共享
-            receiveSharedKey(eccMessage.getFromPublicKeyHex(), sendMessageVo);
-            return;
-        } else if (MessageType.AUDIO.equals(sendMessageVo.getType())
-                || MessageType.PICTURE.equals(sendMessageVo.getType())
-                || MessageType.FILE.equals(sendMessageVo.getType())
-                || MessageType.VIDEO.equals(sendMessageVo.getType())) {
-            receiveFile(sendMessageVo);
-        } else {
-            sendMessageVo.setType(MessageType.UNSUPPORTED);
-            sendMessageVo.setData("不支持的消息类型");
-        }
-
-        // 封装为数据库消息
-        Message message = new Message();
-        message.setUuid(eccMessage.getUuid());
-        message.setOwnerPublicKeyHex(eccController.getPublicKey());
-        message.setTimestamp(Long.valueOf(eccMessage.getTimestamp()));
-        message.setFromPublicKeyHex(eccMessage.getFromPublicKeyHex());
-        message.setToPublicKeyHex(eccMessage.getToPublicKeyHex());
-        message.setData(sendMessageVo.getData());
-        message.setType(sendMessageVo.getType());
-        message.setGroup(false);
-
-        // 插入数据库
-        try {
-            this.save(message);
-        } catch (DuplicateKeyException e) {
-            log.error("", e);
-        }
-
-        // 更新会话
-        sessionService.updateSession(
-                eccMessage.getFromPublicKeyHex(),
-                message,
-                false);
-
-        // 更新 更新时间
-        jsonStore.setStartTimestamp(System.currentTimeMillis());
-    }
-
-    /**
-     * 处理结束到的文件消息
-     * 
-     * @param sendMessageVo
-     */
-    private void receiveFile(SendMessageVo sendMessageVo) {
-        try {
-            // 消息类型必须是文件
-            if (!(MessageType.AUDIO.equals(sendMessageVo.getType())
-                    || MessageType.PICTURE.equals(sendMessageVo.getType())
-                    || MessageType.FILE.equals(sendMessageVo.getType())
-                    || MessageType.VIDEO.equals(sendMessageVo.getType()))) {
-                throw new RuntimeException("消息类型错误");
-            }
-
-            // 转换数据
-            FileVo fileVo = objectMapper.readValue(sendMessageVo.getData(), FileVo.class);
-
-            // 判断文件是否存在
-            String decryptedFilePath = "./download/" + fileVo.getFileId() + ".decrypted";
-            if (new File(decryptedFilePath).exists()) {
-                // 文件存在，不需要处理
-                return;
-            }
-
-            // 创建文件夹
-            File dir = new File("./download");
-            if (!dir.exists()) {
-                dir.mkdirs();
-            }
-
-            dir = new File("./temp");
-            if (!dir.exists()) {
-                dir.mkdirs();
-            }
-
-            // 下载文件
-            String outputPath = "./temp/" + fileVo.getFileId();
-            ResponseEntity<Resource> resource = fileFeign.download(fileVo.getFileId());
-            try (FileOutputStream outputStream = new FileOutputStream(outputPath)) {
-                resource.getBody().getInputStream().transferTo(outputStream);
-            }
-
-            // 解密文件
-            AesUtil.decryptFile(outputPath, decryptedFilePath, fileVo.getAesKey());
-
-            // 删除临时文件
-            new File(outputPath).delete();
-        } catch (Exception e) {
-            log.error("", e);
-        }
-    }
-
-    private void receiveSharedKey(String fromPublicKeyHex, SendMessageVo sendMessageVo) {
-        // 消息类型必须是群聊密钥更新
-        if (!MessageType.GROUP_KEY_SHARED.equals(sendMessageVo.getType())) {
-            throw new RuntimeException("消息类型错误");
-        }
-
-        // 提取消息
-        GroupKeyVo groupKeyVo;
-        try {
-            groupKeyVo = objectMapper.readValue(sendMessageVo.getData(), GroupKeyVo.class);
-        } catch (Exception e) {
-            log.error("", e);
-            return;
-        }
-
-        // 检测规则是否存在
-        GroupKeySharedService groupKeySharedService = BeanProvider.getBean(GroupKeySharedService.class);
-        if (!groupKeySharedService.contains(groupKeyVo.getGroupUuid(), fromPublicKeyHex,
-                eccController.getPublicKey())) {
-            return;
-        }
-
-        // 更新密钥
-        groupKeyService.put(
-                groupKeyVo.getGroupUuid(),
-                Long.valueOf(groupKeyVo.getTimestamp()),
-                groupKeyVo.getAesKey());
-    }
-
-    /**
-     * 更新群聊密钥
-     * 
-     * @param fromPublicKeyHex
-     * @param sendMessageVo
-     */
-    private void updateGroupKey(String fromPublicKeyHex, SendMessageVo sendMessageVo) {
-        // 消息类型必须是群聊密钥更新
-        if (!MessageType.GROUP_KEY_UPDATE.equals(sendMessageVo.getType())) {
-            throw new RuntimeException("消息类型错误");
-        }
-
-        // 提取消息
-        GroupKeyVo groupKeyVo;
-        try {
-            groupKeyVo = objectMapper.readValue(sendMessageVo.getData(), GroupKeyVo.class);
-        } catch (Exception e) {
-            log.error("", e);
-            return;
-        }
-
-        // 提取群主公钥
-        String groupOwnerPublicKeyHex;
-        try {
-            groupOwnerPublicKeyHex = groupKeyVo.getGroupUuid().split(":")[0];
-        } catch (Exception e) {
-            log.error("", e);
-            return;
-        }
-
-        // 群主不匹配
-        if (!fromPublicKeyHex.equals(groupOwnerPublicKeyHex)) {
-            // 忽略
-            return;
-        }
-
-        // 更新密钥
-        groupKeyService.put(
-                groupKeyVo.getGroupUuid(),
-                Long.valueOf(groupKeyVo.getTimestamp()),
-                groupKeyVo.getAesKey());
-    }
-
-    /**
-     * 接受消息
-     */
-    @Override
-    public void receiveMessage() {
-        // 起始时间
-        Long startTimestamp = jsonStore.getStartTimestamp();
-        if (startTimestamp == null) {
-            startTimestamp = System.currentTimeMillis();
-            jsonStore.setStartTimestamp(startTimestamp);
-        }
-
-        // 获取消息并对返回值进行处理
-        for (EccMessage eccMessage : receiveOne(eccController.getPublicKey(), Long.toString(startTimestamp))) {
-            try {
-                receiveOneEccMessage(eccMessage);
-            } catch (Exception e) {
-                log.error("处理收到的单个私聊消息（未解密）异常", e);
-            }
-        }
-
-        // 获取群聊列表
-        List<Session> sessions = sessionService.listSession();
-        for (Session session : sessions) {
-            if (session.getGroup() && session.getGroupEnabled()) {
-                // 获取消息并对返回值进行处理
-                for (EccMessage eccMessage : receiveGroup(session.getPublicKeyHex(), Long.toString(startTimestamp))) {
-                    try {
-                        receiveGroupEccMessage(eccMessage);
-                    } catch (Exception e) {
-                        log.error("处理收到的群聊消息（未解密）异常", e);
-                    }
-                }
-            }
-        }
-
-        // 更新时间
-        jsonStore.setStartTimestamp(System.currentTimeMillis());
-
-        // 刷新
-        guiController.flushAsync();
-    }
-
-    /**
-     * 订阅单个私聊消息
-     */
-    @Override
-    public void subscribeOne() {
-        // 订阅单个私聊消息
-        try {
-            MessageWebSocketClient client = messageWebSocketClientStore.getClient();
-            WebSocketResult<?> result = client.sendMessageAndWait("subscribeOne", eccController.getPublicKey());
-            if (!ResultCodeEnum.OK.getCode().equals(result.getCode())) {
-                throw new E2EchoException(result.getMessage());
-            }
-        } catch (E2EchoException e) {
-            throw e;
-        } catch (TimeoutException e) {
-            throw new E2EchoException(E2EchoExceptionCodeEnum.SRV_WEBSOCKET_TIMEOUT);
-        } catch (Exception e) {
-            throw new E2EchoException(E2EchoExceptionCodeEnum.FAIL);
-        }
     }
 
     /**
@@ -659,167 +210,279 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         eccMessage = eccController.sign(eccMessage);
 
         // 发送消息
-        sendGroup(eccMessage);
+        clientStore.getClient().sendGroup(eccMessage);
     }
 
     /**
-     * 订阅群聊消息
+     * 接受消息
      */
     @Override
-    public void subscribeGroup(String groupUuid) {
-        // 订阅单个私聊消息
-        try {
-            MessageWebSocketClient client = messageWebSocketClientStore.getClient();
-            WebSocketResult<?> result = client.sendMessageAndWait("subscribeGroup", groupUuid);
-            if (!ResultCodeEnum.OK.getCode().equals(result.getCode())) {
-                throw new E2EchoException(result.getMessage());
-            }
-        } catch (E2EchoException e) {
-            throw e;
-        } catch (TimeoutException e) {
-            throw new E2EchoException(E2EchoExceptionCodeEnum.SRV_WEBSOCKET_TIMEOUT);
-        } catch (Exception e) {
-            throw new E2EchoException(E2EchoExceptionCodeEnum.FAIL);
+    public void receiveMessage() {
+        // 起始时间
+        Long startTimestamp = jsonStore.getStartTimestamp();
+        if (startTimestamp == null) {
+            startTimestamp = System.currentTimeMillis();
+            jsonStore.setStartTimestamp(startTimestamp);
         }
+
+        // 获取消息并对返回值进行处理
+        for (EccMessage eccMessage : clientStore.getClient().receiveOne(eccController.getPublicKey(),
+                Long.toString(startTimestamp))) {
+            try {
+                receiveOneEccMessage(eccMessage);
+            } catch (Exception e) {
+                log.error("处理收到的单个私聊消息（未解密）异常", e);
+            }
+        }
+
+        // 获取群聊列表
+        List<Session> sessions = sessionService.listSession();
+        for (Session session : sessions) {
+            if (session.getGroup() && session.getGroupEnabled()) {
+                // 获取消息并对返回值进行处理
+                for (EccMessage eccMessage : clientStore.getClient().receiveGroup(session.getPublicKeyHex(),
+                        Long.toString(startTimestamp))) {
+                    try {
+                        receiveGroupEccMessage(eccMessage);
+                    } catch (Exception e) {
+                        log.error("处理收到的群聊消息（未解密）异常", e);
+                    }
+                }
+            }
+        }
+
+        // 更新时间
+        jsonStore.setStartTimestamp(System.currentTimeMillis());
+
+        // 刷新
+        guiController.flushAsync();
     }
 
     /**
-     * 发送单聊消息
-     * 
-     * @param eccMessage 消息
-     */
-    private void sendOne(EccMessage eccMessage) {
-        try {
-            MessageWebSocketClient client = messageWebSocketClientStore.getClient();
-            WebSocketResult<?> result = client.sendMessageAndWait("sendOne", eccMessage);
-            if (!ResultCodeEnum.OK.getCode().equals(result.getCode())) {
-                throw new E2EchoException(result.getMessage());
-            }
-        } catch (E2EchoException e) {
-            throw e;
-        } catch (TimeoutException e) {
-            throw new E2EchoException(E2EchoExceptionCodeEnum.SRV_WEBSOCKET_TIMEOUT);
-        } catch (Exception e) {
-            throw new E2EchoException(E2EchoExceptionCodeEnum.FAIL);
-        }
-    }
-
-    /**
-     * 发送群聊消息
+     * 自动接收单聊消息
      * 
      * @param eccMessage 群聊消息
      */
-    private void sendGroup(EccMessage eccMessage) {
+    @Override
+    public void autoReveiveOne(EccMessage eccMessage) {
         try {
-            MessageWebSocketClient client = messageWebSocketClientStore.getClient();
-            WebSocketResult<?> result = client.sendMessageAndWait("sendGroup", eccMessage);
-            if (!ResultCodeEnum.OK.getCode().equals(result.getCode())) {
-                throw new E2EchoException(result.getMessage());
-            }
-        } catch (E2EchoException e) {
-            throw e;
-        } catch (TimeoutException e) {
-            throw new E2EchoException(E2EchoExceptionCodeEnum.SRV_WEBSOCKET_TIMEOUT);
+            receiveOneEccMessage(eccMessage);
+            guiController.flushAsync();
         } catch (Exception e) {
-            throw new E2EchoException(E2EchoExceptionCodeEnum.FAIL);
+            log.error("处理收到的单个私聊消息（未解密）异常", e);
         }
     }
 
     /**
-     * 接收单聊消息
+     * 自动接收群聊消息
      * 
-     * @param toPublicKeyHex 接收方公钥
-     * @param startTimestamp 开始时间戳(int64)
-     * @return 私聊消息列表
+     * @param eccMessage 群聊消息
      */
-    private List<EccMessage> receiveOne(String toPublicKeyHex, String startTimestamp) {
+    @Override
+    public void autoReveiveGroup(EccMessage eccMessage) {
         try {
-            // 获取私聊消息
-            MessageWebSocketClient client = messageWebSocketClientStore.getClient();
-            ReceiveOneMessageSocketVo vo = new ReceiveOneMessageSocketVo();
-            vo.setToPublicKeyHex(toPublicKeyHex);
-            vo.setStartTimestamp(startTimestamp);
-            WebSocketResult<?> result = client.sendMessageAndWait("receiveOne", vo);
-            if (!ResultCodeEnum.OK.getCode().equals(result.getCode())) {
-                throw new E2EchoException(result.getMessage());
-            }
-
-            // 类型转变
-            ArrayList<EccMessage> eccMessages = new ArrayList<>();
-            for (Object message : objectMapper.convertValue(result.getData(), List.class)) {
-                EccMessage eccMessage = objectMapper.convertValue(message, EccMessage.class);
-                eccMessages.add(eccMessage);
-            }
-
-            // 返回
-            return eccMessages;
-        } catch (E2EchoException e) {
-            throw e;
-        } catch (TimeoutException e) {
-            throw new E2EchoException(E2EchoExceptionCodeEnum.SRV_WEBSOCKET_TIMEOUT);
+            receiveGroupEccMessage(eccMessage);
+            guiController.flushAsync();
         } catch (Exception e) {
-            throw new E2EchoException(E2EchoExceptionCodeEnum.FAIL);
+            log.error("处理收到的群聊消息异常", e);
         }
+    }
+
+    /**
+     * 处理结束到的单个私聊消息（未解密）
+     * 
+     * @param eccMessage
+     */
+    private void receiveOneEccMessage(EccMessage eccMessage) {
+
+        // 解密消息
+        eccMessage = eccController.decrypt(eccMessage);
+
+        // 时间处理，必须先解密，解密时会验证消息的签名
+        Long startTimestamp = jsonStore.getStartTimestamp();
+        if (startTimestamp == null) {
+            startTimestamp = System.currentTimeMillis() - (1000L * 60); // 提前 1 分钟
+        }
+
+        // 消息是否过期
+        if (Long.valueOf(eccMessage.getTimestamp()) <= 0 || Long.valueOf(eccMessage.getTimestamp()) < startTimestamp) {
+            return;
+        }
+
+        // 获取数据
+        SendMessageVo sendMessageVo;
+        try {
+            sendMessageVo = objectMapper.readValue(eccMessage.getData(), SendMessageVo.class);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+        // 针对不同的消息类型进行处理
+        Class<? extends BaseMessageHandler<?>> messageHadnlerClass = BaseMessageHandler
+                .getHandler(sendMessageVo.getType(), false);
+        if (messageHadnlerClass == null) {
+            sendMessageVo.setType(MessageType.UNSUPPORTED);
+            sendMessageVo.setData("不支持的消息类型");
+        } else {
+            // 处理消息
+            BeanProvider.getBean(messageHadnlerClass).receiveHandler(eccMessage, sendMessageVo);
+        }
+
+        // 封装为数据库消息
+        Message message = new Message();
+        message.setUuid(eccMessage.getUuid());
+        message.setOwnerPublicKeyHex(eccController.getPublicKey());
+        message.setTimestamp(Long.valueOf(eccMessage.getTimestamp()));
+        message.setFromPublicKeyHex(eccMessage.getFromPublicKeyHex());
+        message.setToPublicKeyHex(eccMessage.getToPublicKeyHex());
+        message.setData(sendMessageVo.getData());
+        message.setType(sendMessageVo.getType());
+        message.setGroup(false);
+
+        // 插入数据库
+        try {
+            this.save(message);
+        } catch (DuplicateKeyException e) {
+            log.error("", e);
+        }
+
+        // 更新会话
+        sessionService.updateSession(
+                eccMessage.getFromPublicKeyHex(),
+                message,
+                false);
+
+        // 更新 更新时间
+        jsonStore.setStartTimestamp(System.currentTimeMillis());
     }
 
     /**
      * 接收群聊消息
      * 
-     * @param groupUuid      群组 UUID
-     * @param startTimestamp 开始时间戳(int64)
-     * @return
+     * @param eccMessage 群聊消息
      */
-    private List<EccMessage> receiveGroup(String groupUuid, String startTimestamp) {
-        try {
-            // 获取群聊消息
-            MessageWebSocketClient client = messageWebSocketClientStore.getClient();
-            ReceiveGroupMessageSocketVo vo = new ReceiveGroupMessageSocketVo();
-            vo.setGroupUuid(groupUuid);
-            vo.setStartTimestamp(startTimestamp);
-            WebSocketResult<?> result = client.sendMessageAndWait("receiveGroup", vo);
-            if (!ResultCodeEnum.OK.getCode().equals(result.getCode())) {
-                throw new E2EchoException(result.getMessage());
-            }
+    private void receiveGroupEccMessage(EccMessage eccMessage) {
 
-            // 类型转变
-            ArrayList<EccMessage> eccMessages = new ArrayList<>();
-            for (Object message : objectMapper.convertValue(result.getData(), List.class)) {
-                EccMessage eccMessage = objectMapper.convertValue(message, EccMessage.class);
-                eccMessages.add(eccMessage);
-            }
-
-            // 返回
-            return eccMessages;
-        } catch (E2EchoException e) {
-            throw e;
-        } catch (TimeoutException e) {
-            throw new E2EchoException(E2EchoExceptionCodeEnum.SRV_WEBSOCKET_TIMEOUT);
-        } catch (Exception e) {
-            throw new E2EchoException(E2EchoExceptionCodeEnum.FAIL);
+        // 验证消息
+        if (!eccController.verify(eccMessage)) {
+            // 验证失败
+            return;
         }
-    }
 
-    /**
-     * 批量订阅群聊消息
-     * 
-     * @param groupUuids 群聊UUID列表
-     */
-    @Override
-    public void subscribeGroups(List<String> groupUuids) {
-        // 批量订阅私聊消息
-        try {
-            MessageWebSocketClient client = messageWebSocketClientStore.getClient();
-            WebSocketResult<?> result = client.sendMessageAndWait("subscribeGroups", groupUuids);
-            if (!ResultCodeEnum.OK.getCode().equals(result.getCode())) {
-                throw new E2EchoException(result.getMessage());
-            }
-        } catch (E2EchoException e) {
-            throw e;
-        } catch (TimeoutException e) {
-            throw new E2EchoException(E2EchoExceptionCodeEnum.SRV_WEBSOCKET_TIMEOUT);
-        } catch (Exception e) {
-            throw new E2EchoException(E2EchoExceptionCodeEnum.FAIL);
+        // 过期验证
+        Long startTimestamp = jsonStore.getStartTimestamp();
+        if (startTimestamp == null) {
+            startTimestamp = System.currentTimeMillis() - (1000L * 60); // 提前 1 分钟
         }
+
+        // 消息是否过期
+        if (Long.valueOf(eccMessage.getTimestamp()) <= 0 || Long.valueOf(eccMessage.getTimestamp()) < startTimestamp) {
+            return;
+        }
+
+        // 获取群聊消息
+        GroupMessageVo groupMessageVo;
+        try {
+            groupMessageVo = objectMapper.readValue(eccMessage.getData(), GroupMessageVo.class);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+        // 获取 Session
+        Session session = sessionService.getSession(eccMessage.getToPublicKeyHex());
+        if (session == null) {
+            // 群聊不存在
+            return;
+        }
+
+        // 群聊未启用
+        if (!session.getGroupEnabled()) {
+            return;
+        }
+
+        // 获取群聊 GroupKey
+        GroupKey groupKey = groupKeyService.getById(session.getGroupKeyId());
+        if (groupKey == null) {
+            // 群聊密钥不存在
+            return;
+        }
+
+        // 判读是否使用过期的密钥
+        if (!groupKey.getTimestamp().equals(Long.valueOf(groupMessageVo.getTimestamp()))
+                && groupKey.getTimestamp() + 1000L * 60 < Long.valueOf(eccMessage.getTimestamp())) {
+            // 使用过时密钥，新密钥已经发布超过一分钟，还在使用原先的密钥，视为无效
+            return;
+        }
+
+        // 获取解密的密钥
+        String aesKey = groupKeyService.get(eccMessage.getToPublicKeyHex(),
+                Long.valueOf(groupMessageVo.getTimestamp()));
+        if (aesKey == null) {
+            // 密钥不存在
+            return;
+        }
+
+        // 解密消息
+        String data;
+        try {
+            data = AesUtil.decrypt(groupMessageVo.getData(), aesKey);
+        } catch (Exception e) {
+            log.error(null, e);
+            return;
+        }
+
+        // 获取数据
+        SendMessageVo sendMessageVo;
+        try {
+            sendMessageVo = objectMapper.readValue(data, SendMessageVo.class);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+        // 针对不同的消息类型进行处理
+        Class<? extends BaseMessageHandler<?>> messageHadnlerClass = BaseMessageHandler
+                .getHandler(sendMessageVo.getType(), true);
+        if (messageHadnlerClass == null) {
+            sendMessageVo.setType(MessageType.UNSUPPORTED);
+            sendMessageVo.setData("不支持的消息类型");
+        } else {
+            // 处理消息
+            BeanProvider.getBean(messageHadnlerClass).receiveHandler(eccMessage, sendMessageVo);
+        }
+
+        // 封装为数据库消息
+        Message message = new Message();
+        message.setUuid(eccMessage.getUuid());
+        message.setOwnerPublicKeyHex(eccController.getPublicKey());
+        message.setTimestamp(Long.valueOf(eccMessage.getTimestamp()));
+        message.setFromPublicKeyHex(eccMessage.getFromPublicKeyHex());
+        message.setToPublicKeyHex(eccMessage.getToPublicKeyHex());
+        message.setData(sendMessageVo.getData());
+        message.setType(sendMessageVo.getType());
+        message.setGroup(true);
+
+        // 插入数据库
+        try {
+            this.save(message);
+        } catch (DuplicateKeyException e) {
+            log.error("", e);
+        }
+
+        // 更新会话
+        sessionService.updateSession(
+                eccMessage.getToPublicKeyHex(),
+                message,
+                true);
+
+        // 为群员创建会话
+        try {
+            sessionService.create(eccMessage.getFromPublicKeyHex(), false);
+        } catch (E2EchoException e) {
+            // 重复创建的错误不需要处理
+        }
+
+        // 更新 更新时间
+        jsonStore.setStartTimestamp(System.currentTimeMillis());
     }
 
 }

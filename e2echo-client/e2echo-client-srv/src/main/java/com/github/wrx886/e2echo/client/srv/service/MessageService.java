@@ -62,21 +62,4 @@ public interface MessageService extends IService<Message> {
      */
     void receiveMessage();
 
-    /**
-     * 订阅单聊消息
-     */
-    void subscribeOne();
-
-    /**
-     * 订阅群聊消息
-     */
-    void subscribeGroup(String groupUuid);
-
-    /**
-     * 批量订阅群聊消息
-     * 
-     * @param groupUuids 群聊UUID列表
-     */
-    void subscribeGroups(List<String> groupUuids);
-
 }

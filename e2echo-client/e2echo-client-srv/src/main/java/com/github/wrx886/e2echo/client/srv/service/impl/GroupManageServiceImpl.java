@@ -20,6 +20,7 @@ import com.github.wrx886.e2echo.client.srv.service.GroupManageService;
 import com.github.wrx886.e2echo.client.srv.service.GroupMemberService;
 import com.github.wrx886.e2echo.client.srv.service.MessageService;
 import com.github.wrx886.e2echo.client.srv.service.SessionService;
+import com.github.wrx886.e2echo.client.srv.store.MessageWebSocketClientStore;
 import com.github.wrx886.e2echo.client.srv.util.AesUtil;
 
 import lombok.AllArgsConstructor;
@@ -35,6 +36,7 @@ public class GroupManageServiceImpl implements GroupManageService {
     private final GroupMemberService groupMemberService;
     private final GroupKeyService groupKeyService;
     private final GuiController guiController;
+    private final MessageWebSocketClientStore clientStore;
 
     /**
      * 创建群聊
@@ -47,7 +49,7 @@ public class GroupManageServiceImpl implements GroupManageService {
         sessionService.create(groupUuid, true);
         reflushKey(groupUuid); // 刷新群密钥
         groupMemberService.addMember(groupUuid, eccController.getPublicKey());
-        messageService.subscribeGroup(groupUuid); // 订阅群聊
+        clientStore.getClient().subscribeGroup(groupUuid); // 订阅群聊
         guiController.flushAsync();
     }
 

@@ -105,7 +105,7 @@ public class MessageWebSocketClientStore {
         // 接收消息
         messageService.receiveMessage();
         // 订阅消息
-        messageService.subscribeOne();
+        client.subscribeOne();
         // 获取会话
         List<Session> sessions = sessionService.listSession();
         ArrayList<String> groupUuids = new ArrayList<>();
@@ -116,7 +116,7 @@ public class MessageWebSocketClientStore {
             }
         }
         // 订阅群聊
-        messageService.subscribeGroups(groupUuids);
+        client.subscribeGroups(groupUuids);
     }
 
 }
