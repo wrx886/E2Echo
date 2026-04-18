@@ -9,6 +9,7 @@ import java.util.Date;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.wrx886.e2echo.client.common.common.BeanProvider;
 import com.github.wrx886.e2echo.client.common.controller.srv.AliasController;
+import com.github.wrx886.e2echo.client.common.controller.srv.FileController;
 import com.github.wrx886.e2echo.client.common.exception.E2EchoException;
 import com.github.wrx886.e2echo.client.common.model.entity.Message;
 import com.github.wrx886.e2echo.client.common.model.enum_.MessageType;
@@ -18,6 +19,7 @@ import javafx.event.Event;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.OverrunStyle;
@@ -39,6 +41,7 @@ public class ChatContentCell extends ListCell<Message> {
 
     private final ObjectMapper objectMapper = BeanProvider.getBean(ObjectMapper.class);
     private final AliasController aliasController = BeanProvider.getBean(AliasController.class);
+    private final FileController fileController = BeanProvider.getBean(FileController.class);
 
     // 日期格式化工具
     private final SimpleDateFormat simpleDateFormat = BeanProvider.getBean(SimpleDateFormat.class);
@@ -216,7 +219,7 @@ public class ChatContentCell extends ListCell<Message> {
         // 保存文件
         String filePath = "./download/" + fileVo.getFileId() + ".decrypted";
         if (!new File(filePath).exists()) {
-            throw new E2EchoException("文件不存在");
+            downloadFile(fileVo);
         }
         String savePath = dir.getAbsolutePath() + "/" + fileVo.getFileName();
         if (new File(savePath).exists()) {
@@ -247,11 +250,29 @@ public class ChatContentCell extends ListCell<Message> {
         } catch (Exception e) {
             throw new RuntimeException(e.getMessage());
         }
+        // 下载文件
+        downloadFile(fileVo);
         // 图片
         if (MessageType.PICTURE.equals(message.getType())) {
             openPicture(fileVo);
         } else {
             throw new E2EchoException("不支持的消息类型");
+        }
+    }
+
+    // 提示是否下载文件
+    private void downloadFile(FileVo fileVo) {
+        // 文件是否存在
+        if (!new File("./download/" + fileVo.getFileId() + ".decrypted").exists()) {
+            Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+            alert.setTitle("提示");
+            alert.setHeaderText(null);
+            alert.setContentText("文件不存在，是否下载文件？");
+            alert.showAndWait().ifPresent(buttonType -> {
+                if (buttonType == ButtonType.OK) {
+                    fileController.downloadFile(fileVo);
+                }
+            });
         }
     }
 

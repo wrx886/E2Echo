@@ -2,15 +2,19 @@ package com.github.wrx886.e2echo.client.srv.service.impl;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.util.UUID;
 
+import org.springframework.core.io.Resource;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.wrx886.e2echo.client.common.exception.E2EchoException;
+import com.github.wrx886.e2echo.client.common.exception.E2EchoExceptionCodeEnum;
 import com.github.wrx886.e2echo.client.common.model.enum_.MessageType;
 import com.github.wrx886.e2echo.client.common.model.vo.FileVo;
 import com.github.wrx886.e2echo.client.srv.common.MockMultipartFile;
@@ -120,6 +124,47 @@ public class FileServiceImpl implements FileService {
             throw e;
         } catch (Exception e) {
             throw new E2EchoException(e.getMessage());
+        }
+    }
+
+    /**
+     * 下载文件，如果文件已经下载，则不会执行任何操作
+     *
+     * @param fileVo 文件信息
+     */
+    @Override
+    public void downloadFile(FileVo fileVo) {
+        try {
+            // 判断文件是否存在
+            String decryptedFilePath = "./download/" + fileVo.getFileId() + ".decrypted";
+            if (new File(decryptedFilePath).exists()) {
+                // 文件存在，不需要处理
+                return;
+            }
+
+            // 创建文件夹
+            File dir = new File("./download");
+            if (!dir.exists()) {
+                dir.mkdirs();
+            }
+
+            dir = new File("./temp");
+            if (!dir.exists()) {
+                dir.mkdirs();
+            }
+
+            // 下载文件
+            String outputPath = "./temp/" + fileVo.getFileId();
+            ResponseEntity<Resource> resource = fileFeign.download(fileVo.getFileId());
+            try (FileOutputStream outputStream = new FileOutputStream(outputPath)) {
+                resource.getBody().getInputStream().transferTo(outputStream);
+            }
+
+            // 解密文件
+            AesUtil.decryptFile(outputPath, decryptedFilePath, fileVo.getAesKey());
+        } catch (Exception e) {
+            // 文件下载失败
+            throw new E2EchoException(E2EchoExceptionCodeEnum.SRV_FILE_DOWNLOAD_FAILED);
         }
     }
 

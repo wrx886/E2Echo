@@ -4,6 +4,7 @@ import org.springframework.stereotype.Controller;
 
 import com.github.wrx886.e2echo.client.common.controller.srv.FileController;
 import com.github.wrx886.e2echo.client.common.model.enum_.MessageType;
+import com.github.wrx886.e2echo.client.common.model.vo.FileVo;
 import com.github.wrx886.e2echo.client.srv.service.FileService;
 
 import lombok.AllArgsConstructor;
@@ -36,6 +37,16 @@ public class FileControllerImpl implements FileController {
     @Override
     public void sendGroupFile(String groupUuid, String filePath, MessageType type) {
         fileService.sendGroupFile(groupUuid, filePath, type);
+    }
+
+    /**
+     * 下载文件，如果文件已经下载，则不会执行任何操作
+     *
+     * @param fileVo 文件信息
+     */
+    @Override
+    public void downloadFile(FileVo fileVo) {
+        fileService.downloadFile(fileVo);
     }
 
 }
