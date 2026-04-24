@@ -18,7 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class GroupKeySharedMessageHandler extends BaseMessageHandler<GroupKeyVo> {
+public class GroupKeySharedMessageHandler extends BaseMessageHandler {
 
     private final ObjectMapper objectMapper;
     private final EccController eccController;

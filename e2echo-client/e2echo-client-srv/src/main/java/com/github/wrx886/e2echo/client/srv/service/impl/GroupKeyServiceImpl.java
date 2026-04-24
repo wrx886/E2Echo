@@ -16,7 +16,6 @@ import com.github.wrx886.e2echo.client.srv.service.GroupKeySharedService;
 import com.github.wrx886.e2echo.client.srv.service.SessionService;
 
 import lombok.AllArgsConstructor;
-import lombok.Data;
 
 @Service
 @AllArgsConstructor
@@ -25,11 +24,8 @@ public class GroupKeyServiceImpl extends ServiceImpl<GroupKeyMapper, GroupKey> i
     private final EccController eccController;
     private final SessionService sessionService;
 
-    @Data
-    @AllArgsConstructor
-    private static final class Pair {
-        private final String groupUuid;
-        private final Long timestamp;
+    // 缓存键
+    private record Pair(String groupUuid, Long timestamp) {
     }
 
     // 缓存机制
@@ -38,11 +34,10 @@ public class GroupKeyServiceImpl extends ServiceImpl<GroupKeyMapper, GroupKey> i
 
     /**
      * 添加/更新群密钥
-     * 
+     *
      * @param groupUuid 群聊UUID
      * @param timestamp 时间戳
      * @param aesKey    密钥
-     * @return 密钥ID
      */
     @Override
     public void put(String groupUuid, Long timestamp, String aesKey) {
@@ -86,7 +81,7 @@ public class GroupKeyServiceImpl extends ServiceImpl<GroupKeyMapper, GroupKey> i
 
     /**
      * 获取群密钥
-     * 
+     *
      * @param groupUuid 群聊UUID
      * @param timestamp 时间戳
      * @return 密钥
@@ -115,9 +110,9 @@ public class GroupKeyServiceImpl extends ServiceImpl<GroupKeyMapper, GroupKey> i
 
     /**
      * 获取群密钥
-     * 
-     * @param id
-     * @return
+     *
+     * @param id 群UUID
+     * @return 群密钥
      */
     public GroupKey getById(Long id) {
         if (!groupKeyIdMap.containsKey(id)) {

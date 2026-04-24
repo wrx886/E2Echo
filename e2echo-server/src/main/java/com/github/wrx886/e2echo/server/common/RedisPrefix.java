@@ -5,9 +5,6 @@ public final class RedisPrefix {
     private RedisPrefix() {
     }
 
-    // websocket session id 的前缀
-    public static final String WEBSOCKET_SESSION_PREFIX = "e2echo:websocket:";
-
     // 会话 ID -> 接收者公钥
     public static final String SESSION_ID_2_PUBLIC_KEY_HEX = "e2echo:sessionId2PublicKeyHex:";
 

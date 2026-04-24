@@ -103,9 +103,7 @@ public final class LoginDialog extends Dialog<String> {
         saveButton.setOnAction(this::onSaveButtonAction);
 
         // 处理取消按钮
-        this.setResultConverter(dialogButton -> {
-            return null;
-        });
+        this.setResultConverter(dialogButton -> null);
     }
 
     /**
@@ -117,7 +115,7 @@ public final class LoginDialog extends Dialog<String> {
         return new LoginDialog().showAndWait().orElse(null);
     }
 
-    private void onLoginButtonAction(Event event) {
+    private void onLoginButtonAction(Event ignoredEvent) {
         // 登入
         eccService.login(publicKeyTextField.getText(), privateKeyPasswordField.getText());
         publicKeyTextField.setText("");
@@ -126,13 +124,13 @@ public final class LoginDialog extends Dialog<String> {
         this.close();
     }
 
-    private void onGenerateButtonAction(Event event) {
+    private void onGenerateButtonAction(Event ignoredEvent) {
         KeyPairHex keyPairHex = eccService.generateKeyPair();
-        publicKeyTextField.setText(keyPairHex.getPublicKeyHex());
-        privateKeyPasswordField.setText(keyPairHex.getPrivateKeyHex());
+        publicKeyTextField.setText(keyPairHex.publicKeyHex());
+        privateKeyPasswordField.setText(keyPairHex.privateKeyHex());
     }
 
-    private void onReadButtonAction(Event event) {
+    private void onReadButtonAction(Event ignoredEvent) {
         // 选取 JSON 文件
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("选择密钥对 Json 文件");
@@ -153,7 +151,7 @@ public final class LoginDialog extends Dialog<String> {
         }
     }
 
-    private void onSaveButtonAction(Event event) {
+    private void onSaveButtonAction(Event ignoredEvent) {
         // 获取 JSON 文件
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("保存密钥对 Json 文件");

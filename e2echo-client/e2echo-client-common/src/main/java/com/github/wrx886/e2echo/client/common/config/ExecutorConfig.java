@@ -18,7 +18,7 @@ public class ExecutorConfig {
                 coreNumber,
                 coreNumber * 2,
                 60L, TimeUnit.SECONDS,
-                new ArrayBlockingQueue<Runnable>(300),
+                new ArrayBlockingQueue<>(300),
                 new ThreadPoolExecutor.AbortPolicy());
     }
 

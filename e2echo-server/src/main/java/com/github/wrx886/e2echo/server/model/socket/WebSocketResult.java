@@ -7,6 +7,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+@SuppressWarnings("unused")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -45,7 +46,7 @@ public class WebSocketResult<E> {
     }
 
     public static <E> WebSocketResult<E> build(String id, String command, ResultCodeEnum resultCodeEnum, E data) {
-        return new WebSocketResult<E>(id, command, data, resultCodeEnum.getCode(), resultCodeEnum.getMessage());
+        return new WebSocketResult<>(id, command, data, resultCodeEnum.getCode(), resultCodeEnum.getMessage());
     }
 
     public static WebSocketResult<Void> build(String id, String command, ResultCodeEnum resultCodeEnum) {

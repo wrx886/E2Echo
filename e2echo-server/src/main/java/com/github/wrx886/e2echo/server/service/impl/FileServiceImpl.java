@@ -1,5 +1,6 @@
 package com.github.wrx886.e2echo.server.service.impl;
 
+import java.util.Objects;
 import java.util.UUID;
 
 import org.springframework.core.io.InputStreamResource;
@@ -63,13 +64,13 @@ public class FileServiceImpl implements FileService {
     private static String generateFileName(MultipartFile file) {
         // 获取文件扩展名
         String extension = "";
-        int i = file.getOriginalFilename().lastIndexOf('.');
+        int i = Objects.requireNonNull(file.getOriginalFilename()).lastIndexOf('.');
         if (i >= 0) {
             extension = file.getOriginalFilename().substring(i);
         }
 
         // 时间戳 - UUID（文件名）
-        return Long.toString(System.currentTimeMillis()) + "-" + UUID.randomUUID() + extension;
+        return System.currentTimeMillis() + "-" + UUID.randomUUID() + extension;
     }
 
     /**

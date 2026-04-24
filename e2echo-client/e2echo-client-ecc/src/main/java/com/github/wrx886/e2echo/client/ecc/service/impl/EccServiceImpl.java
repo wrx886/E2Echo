@@ -86,11 +86,11 @@ public final class EccServiceImpl implements EccService {
     public String getPublicKey() {
         KeyPairHex keyPairHex = eccKeyStore.get();
         // 用户未登入
-        if (keyPairHex.getPublicKeyHex() == null || keyPairHex.getPrivateKeyHex() == null) {
+        if (keyPairHex.publicKeyHex() == null || keyPairHex.privateKeyHex() == null) {
             throw new E2EchoException(E2EchoExceptionCodeEnum.ECC_NOT_LOGIN);
         }
 
-        return keyPairHex.getPublicKeyHex();
+        return keyPairHex.publicKeyHex();
     }
 
     /**
@@ -104,7 +104,7 @@ public final class EccServiceImpl implements EccService {
         KeyPairHex keyPairHex = eccKeyStore.get();
 
         // 用户未登入
-        if (keyPairHex.getPublicKeyHex() == null || keyPairHex.getPrivateKeyHex() == null) {
+        if (keyPairHex.publicKeyHex() == null || keyPairHex.privateKeyHex() == null) {
             throw new E2EchoException(E2EchoExceptionCodeEnum.ECC_NOT_LOGIN);
         }
 
@@ -119,7 +119,7 @@ public final class EccServiceImpl implements EccService {
         }
 
         // 检查发送方公钥是否匹配
-        if (!eccMessage.getFromPublicKeyHex().equals(keyPairHex.getPublicKeyHex())) {
+        if (!eccMessage.getFromPublicKeyHex().equals(keyPairHex.publicKeyHex())) {
             throw new E2EchoException(E2EchoExceptionCodeEnum.ECC_PUBLIC_KEY_NOT_MATCH);
         }
 
@@ -149,7 +149,7 @@ public final class EccServiceImpl implements EccService {
         try {
             result.setSignature(EccUtil.sign(
                     objectMapper.writeValueAsString(toMap(result)),
-                    keyPairHex.getPrivateKeyHex()));
+                    keyPairHex.privateKeyHex()));
         } catch (Exception e) {
             throw new E2EchoException(E2EchoExceptionCodeEnum.ECC_SIGN_FAILED);
         }
@@ -169,7 +169,7 @@ public final class EccServiceImpl implements EccService {
         KeyPairHex keyPairHex = eccKeyStore.get();
 
         // 用户未登入
-        if (keyPairHex.getPublicKeyHex() == null || keyPairHex.getPrivateKeyHex() == null) {
+        if (keyPairHex.publicKeyHex() == null || keyPairHex.privateKeyHex() == null) {
             throw new E2EchoException(E2EchoExceptionCodeEnum.ECC_NOT_LOGIN);
         }
 
@@ -179,7 +179,7 @@ public final class EccServiceImpl implements EccService {
         }
 
         // 接收方公钥不匹配
-        if (!eccMessage.getToPublicKeyHex().equals(keyPairHex.getPublicKeyHex())) {
+        if (!eccMessage.getToPublicKeyHex().equals(keyPairHex.publicKeyHex())) {
             throw new E2EchoException(E2EchoExceptionCodeEnum.ECC_PUBLIC_KEY_NOT_MATCH);
         }
 
@@ -211,7 +211,7 @@ public final class EccServiceImpl implements EccService {
 
         // 解密消息
         try {
-            result.setData(EccUtil.decrypt(eccMessage.getData(), keyPairHex.getPrivateKeyHex()));
+            result.setData(EccUtil.decrypt(eccMessage.getData(), keyPairHex.privateKeyHex()));
         } catch (Exception e) {
             throw new E2EchoException(E2EchoExceptionCodeEnum.ECC_DECRYPT_FAILED);
         }
@@ -231,7 +231,7 @@ public final class EccServiceImpl implements EccService {
         KeyPairHex keyPairHex = eccKeyStore.get();
 
         // 用户未登入
-        if (keyPairHex.getPublicKeyHex() == null || keyPairHex.getPrivateKeyHex() == null) {
+        if (keyPairHex.publicKeyHex() == null || keyPairHex.privateKeyHex() == null) {
             throw new E2EchoException(E2EchoExceptionCodeEnum.ECC_NOT_LOGIN);
         }
 
@@ -241,7 +241,7 @@ public final class EccServiceImpl implements EccService {
         }
 
         // 签名方公钥不匹配
-        if (!eccMessage.getFromPublicKeyHex().equals(keyPairHex.getPublicKeyHex())) {
+        if (!eccMessage.getFromPublicKeyHex().equals(keyPairHex.publicKeyHex())) {
             throw new E2EchoException(E2EchoExceptionCodeEnum.ECC_PUBLIC_KEY_NOT_MATCH);
         }
 
@@ -262,7 +262,7 @@ public final class EccServiceImpl implements EccService {
         try {
             result.setSignature(EccUtil.sign(
                     objectMapper.writeValueAsString(toMap(result)),
-                    keyPairHex.getPrivateKeyHex()));
+                    keyPairHex.privateKeyHex()));
         } catch (Exception e) {
             throw new E2EchoException(E2EchoExceptionCodeEnum.ECC_SIGN_FAILED);
         }

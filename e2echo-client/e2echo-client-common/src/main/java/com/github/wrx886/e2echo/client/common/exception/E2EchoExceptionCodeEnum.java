@@ -3,6 +3,7 @@ package com.github.wrx886.e2echo.client.common.exception;
 import lombok.Getter;
 
 // 返回状态码枚举
+@SuppressWarnings("unused")
 @Getter
 public enum E2EchoExceptionCodeEnum {
     OK("0000", "OK"),
@@ -50,7 +51,7 @@ public enum E2EchoExceptionCodeEnum {
     // 状态描述
     private final String message;
 
-    private E2EchoExceptionCodeEnum(String code, String message) {
+    E2EchoExceptionCodeEnum(String code, String message) {
         this.code = code;
         this.message = message;
     }

@@ -15,6 +15,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.layout.VBox;
 
+@SuppressWarnings("FieldCanBeLocal")
 public class GroupContentCell extends ListCell<String> {
 
     private final GuiStore guiStore = BeanProvider.getBean(GuiStore.class);
@@ -64,7 +65,7 @@ public class GroupContentCell extends ListCell<String> {
     }
 
     // 删除用户信息
-    private void memberDeleteButtonOnAction(Event event) {
+    private void memberDeleteButtonOnAction(Event ignoredEvent) {
         String member = getItem();
         // 弹出确认框
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);

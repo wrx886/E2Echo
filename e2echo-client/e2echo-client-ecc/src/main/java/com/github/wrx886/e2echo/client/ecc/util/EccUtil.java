@@ -10,8 +10,6 @@ import org.bouncycastle.jce.spec.ECPublicKeySpec;
 import org.bouncycastle.math.ec.ECPoint;
 import org.bouncycastle.util.encoders.Hex;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
 import javax.crypto.Cipher;
 
 import java.math.BigInteger;
@@ -27,18 +25,14 @@ public final class EccUtil {
     }
 
     // RAW HEX 格式的密钥对
-    @Data
-    @AllArgsConstructor
-    public static class KeyPairHex {
-        private final String publicKeyHex;
-        private final String privateKeyHex;
+    public record KeyPairHex(String publicKeyHex, String privateKeyHex) {
     }
 
     /**
      * 生成 ECC 密钥对
-     * 
+     *
      * @return 包含公钥和私钥 RAW HEX 字符串的 KeyPairHex 对象
-     * @throws Exception
+     * @throws Exception 异常
      */
     public static KeyPairHex generateKeyPair() throws Exception {
         KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("EC", "BC");
@@ -50,12 +44,11 @@ public final class EccUtil {
 
     /**
      * 将公钥转换为 RAW HEX 字符串 (X.509 format)
-     * 
+     *
      * @param publicKey 公钥
      * @return RAW HEX 字符串格式的公钥
-     * @throws Exception
      */
-    private static String publicKeyToRawHex(PublicKey publicKey) throws Exception {
+    private static String publicKeyToRawHex(PublicKey publicKey) {
         ECPoint ecPoint = ((ECPublicKey) publicKey).getQ();
         byte[] x = ecPoint.getAffineXCoord().getEncoded();
         byte[] y = ecPoint.getAffineYCoord().getEncoded();
@@ -68,7 +61,7 @@ public final class EccUtil {
 
     /**
      * 将私钥转换为 RAW HEX 字符串
-     * 
+     *
      * @param privateKey 私钥
      * @return RAW HEX 字符串格式的私钥
      */
@@ -85,10 +78,10 @@ public final class EccUtil {
 
     /**
      * 从 RAW HEX 字符串恢复公钥 (X.509 format)
-     * 
+     *
      * @param hexPublicKey RAW HEX 格式的公钥
      * @return 公钥
-     * @throws Exception
+     * @throws Exception 异常
      */
     private static PublicKey rawHexToPublicKey(String hexPublicKey) throws Exception {
         byte[] keyBytes = Hex.decode(hexPublicKey);
@@ -112,29 +105,29 @@ public final class EccUtil {
 
     /**
      * 从 RAW HEX 字符串恢复私钥
-     * 
+     *
      * @param hexPrivateKey RAW HEX 格式的私钥
      * @return 私钥
-     * @throws Exception
+     * @throws Exception 异常
      */
     private static PrivateKey rawHexToPrivateKey(String hexPrivateKey) throws Exception {
         BigInteger d = new BigInteger(hexPrivateKey, 16);
         X9ECParameters ecParams = SECNamedCurves.getByName("secp256k1");
         ECParameterSpec ecSpec = new ECParameterSpec(ecParams.getCurve(), ecParams.getG(), ecParams.getN(),
                 ecParams.getH());
-        ECPrivateKeySpec privKeySpec = new ECPrivateKeySpec(d, ecSpec);
+        ECPrivateKeySpec privateKeySpec = new ECPrivateKeySpec(d, ecSpec);
 
         KeyFactory keyFactory = KeyFactory.getInstance("ECDSA", "BC");
-        return keyFactory.generatePrivate(privKeySpec);
+        return keyFactory.generatePrivate(privateKeySpec);
     }
 
     /**
      * 使用公钥加密字符串
-     * 
+     *
      * @param plainText 明文字符串
      * @param publicKey 公钥
      * @return 加密后的十六进制字符串
-     * @throws Exception
+     * @throws Exception 异常
      */
     private static String encrypt(String plainText, PublicKey publicKey) throws Exception {
         Cipher cipher = Cipher.getInstance("ECIES", "BC");
@@ -145,11 +138,11 @@ public final class EccUtil {
 
     /**
      * 使用 RAW HEX 格式的公钥加密字符串
-     * 
+     *
      * @param plainText    明文字符串
      * @param hexPublicKey RAW HEX 格式的公钥
      * @return 加密后的十六进制字符串
-     * @throws Exception
+     * @throws Exception 异常
      */
     public static String encrypt(String plainText, String hexPublicKey) throws Exception {
         PublicKey publicKey = rawHexToPublicKey(hexPublicKey);
@@ -158,11 +151,11 @@ public final class EccUtil {
 
     /**
      * 使用私钥解密字符串
-     * 
+     *
      * @param encryptedHex 加密后的十六进制字符串
      * @param privateKey   私钥
      * @return 解密后的明文字符串
-     * @throws Exception
+     * @throws Exception 异常
      */
     private static String decrypt(String encryptedHex, PrivateKey privateKey) throws Exception {
         Cipher cipher = Cipher.getInstance("ECIES", "BC");
@@ -173,11 +166,11 @@ public final class EccUtil {
 
     /**
      * 使用 RAW HEX 格式的私钥解密字符串
-     * 
+     *
      * @param encryptedHex  加密后的十六进制字符串
      * @param hexPrivateKey RAW HEX 格式的私钥
      * @return 解密后的明文字符串
-     * @throws Exception
+     * @throws Exception 异常
      */
     public static String decrypt(String encryptedHex, String hexPrivateKey) throws Exception {
         PrivateKey privateKey = rawHexToPrivateKey(hexPrivateKey);
@@ -186,11 +179,11 @@ public final class EccUtil {
 
     /**
      * 使用私钥对数据进行签名
-     * 
+     *
      * @param data       要签名的数据
      * @param privateKey 私钥
      * @return 数据的签名
-     * @throws Exception
+     * @throws Exception 异常
      */
     private static String sign(String data, PrivateKey privateKey) throws Exception {
         Signature signature = Signature.getInstance("SHA256withECDSA", "BC");
@@ -202,11 +195,11 @@ public final class EccUtil {
 
     /**
      * 使用 RAW HEX 格式的私钥对数据进行签名
-     * 
+     *
      * @param data          要签名的数据
      * @param hexPrivateKey RAW HEX 格式的私钥
      * @return 数据的签名
-     * @throws Exception
+     * @throws Exception 异常
      */
     public static String sign(String data, String hexPrivateKey) throws Exception {
         PrivateKey privateKey = rawHexToPrivateKey(hexPrivateKey);
@@ -215,15 +208,12 @@ public final class EccUtil {
 
     /**
      * 使用公钥验证签名
-     */
-    /**
-     * 使用公钥验证签名
-     * 
+     *
      * @param data         数据
      * @param signatureHex 数据的签名
      * @param publicKey    公钥
      * @return 验证结果，true表示签名有效，false表示签名无效
-     * @throws Exception
+     * @throws Exception 异常
      */
     private static boolean verify(String data, String signatureHex, PublicKey publicKey) throws Exception {
         Signature signature = Signature.getInstance("SHA256withECDSA", "BC");
@@ -235,12 +225,12 @@ public final class EccUtil {
 
     /**
      * 使用 RAW HEX 格式的公钥验证签名
-     * 
+     *
      * @param data         数据
      * @param signatureHex 数据的签名
      * @param hexPublicKey RAW HEX 格式的公钥
      * @return 验证结果，true表示签名有效，false表示签名无效
-     * @throws Exception
+     * @throws Exception 异常
      */
     public static boolean verify(String data, String signatureHex, String hexPublicKey) throws Exception {
         PublicKey publicKey = rawHexToPublicKey(hexPublicKey);

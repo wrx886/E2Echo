@@ -22,6 +22,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
+@SuppressWarnings("FieldCanBeLocal")
 public class GroupContent extends VBox {
 
     private final GroupManageController groupManageController = BeanProvider.getBean(GroupManageController.class);
@@ -44,7 +45,7 @@ public class GroupContent extends VBox {
     private final Button redistributeKeyButton;
 
     // 构造函数
-    public GroupContent(SidebarPanelContentLayout layout) {
+    public GroupContent(SidebarPanelContentLayout ignoredLayout) {
 
         // 设置宽度
         setPrefWidth(500);
@@ -88,7 +89,7 @@ public class GroupContent extends VBox {
 
     }
 
-    private void addMemberButtonOnAction(Event event) {
+    private void addMemberButtonOnAction(Event ignoredEvent) {
         TextInputDialog dialog = new TextInputDialog();
         dialog.setTitle("添加群成员");
         dialog.setHeaderText(null);
@@ -106,7 +107,7 @@ public class GroupContent extends VBox {
         dialog.showAndWait();
     }
 
-    private void refreshKeyButtonOnAction(Event event) {
+    private void refreshKeyButtonOnAction(Event ignoredEvent) {
         // 弹出确认框
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
         alert.setTitle("刷新密钥");
@@ -119,7 +120,7 @@ public class GroupContent extends VBox {
         }
     }
 
-    private void redistributeKeyButtonOnAction(Event event) {
+    private void redistributeKeyButtonOnAction(Event ignoredEvent) {
         groupManageController.redistributeKey(guiStore.getCurrentGroup().get());
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setTitle("重新分发密钥");

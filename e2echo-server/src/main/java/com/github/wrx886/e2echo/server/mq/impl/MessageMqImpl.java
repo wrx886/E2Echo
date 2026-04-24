@@ -1,5 +1,6 @@
 package com.github.wrx886.e2echo.server.mq.impl;
 
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -37,7 +38,7 @@ public class MessageMqImpl implements MessageMq {
         private String sessionId;
         private EccMessage eccMessage;
         private Boolean isGroup;
-    };
+    }
 
     @Data
     public static class MqForward {
@@ -48,7 +49,7 @@ public class MessageMqImpl implements MessageMq {
 
     /**
      * 将消息分发到指定的 Session
-     * 
+     *
      * @param sessionId  WebSocketSession id（这里是实例UUID+WebSocketSession id）
      * @param eccMessage 消息
      * @param isGroup    是否是群组消息
@@ -66,7 +67,7 @@ public class MessageMqImpl implements MessageMq {
 
     /**
      * 将消息发布到所有订阅者
-     * 
+     *
      * @param eccMessage 消息
      * @param isGroup    是否是群组消息
      */
@@ -76,20 +77,20 @@ public class MessageMqImpl implements MessageMq {
         mqForward.setUuid(UUID.randomUUID().toString());
         mqForward.setEccMessage(eccMessage);
         mqForward.setIsGroup(isGroup);
-        rabbitTemplate.convertAndSend(RabbitMqConfig.MESSAGE_PUBLISH_EXCHANGE, null, mqForward);
+        rabbitTemplate.convertAndSend(RabbitMqConfig.MESSAGE_PUBLISH_EXCHANGE, "", mqForward);
     }
 
     /**
      * 监听消息分发
-     * 
-     * @param mqMessage
+     *
+     * @param mqMessage 消息
      */
-    @RabbitListener(bindings = @QueueBinding(value = @Queue(name = RabbitMqConfig.MESSAGE_DISTRIBUTE_QUEUE, durable = "false", autoDelete = "true"), exchange = @Exchange(name = RabbitMqConfig.MESSAGE_DISTRIBUTE_EXCHANGE, type = ExchangeTypes.DIRECT, durable = "false", autoDelete = "true"), key = {
-            "#{idConfig.getID()}" }))
+    @RabbitListener(bindings = @QueueBinding(value = @Queue(name = RabbitMqConfig.MESSAGE_DISTRIBUTE_QUEUE, durable = "false", autoDelete = "true"), exchange = @Exchange(name = RabbitMqConfig.MESSAGE_DISTRIBUTE_EXCHANGE, durable = "false", autoDelete = "true"), key = {
+            "#{idConfig.getID()}"}))
     public void messageDistributeListener(MqMessage mqMessage) {
         try {
             // 幂等性
-            if (!stringRedisTemplate.opsForValue().setIfAbsent(RedisPrefix.MQ_UUID + mqMessage.getUuid(), "1")) {
+            if (Boolean.FALSE.equals(stringRedisTemplate.opsForValue().setIfAbsent(RedisPrefix.MQ_UUID + mqMessage.getUuid(), "1"))) {
                 // 重复消息
                 return;
             }
@@ -98,12 +99,12 @@ public class MessageMqImpl implements MessageMq {
             if (!mqMessage.getIsGroup()) {
                 MessageWebSocketHandler.sendMessage(
                         mqMessage.getSessionId().substring(IdConfig.ID.length()),
-                        "autoReveiveOne",
+                        "autoReceiveOne",
                         mqMessage.getEccMessage());
             } else {
                 MessageWebSocketHandler.sendMessage(
                         mqMessage.getSessionId().substring(IdConfig.ID.length()),
-                        "autoReveiveGroup",
+                        "autoReceiveGroup",
                         mqMessage.getEccMessage());
             }
         } catch (Exception e) {
@@ -113,13 +114,13 @@ public class MessageMqImpl implements MessageMq {
 
     /**
      * 监听消息发布
-     * 
-     * @param mqForward
+     *
+     * @param mqForward 消息
      */
     @RabbitListener(bindings = @QueueBinding(value = @Queue(name = RabbitMqConfig.MESSAGE_PUBLISH_QUEUE, durable = "false", autoDelete = "true"), exchange = @Exchange(name = RabbitMqConfig.MESSAGE_PUBLISH_EXCHANGE, type = ExchangeTypes.FANOUT, durable = "false", autoDelete = "true")))
     public void messagePublishListener(MqForward mqForward) {
         // 幂等性
-        if (!stringRedisTemplate.opsForValue().setIfAbsent(RedisPrefix.MQ_UUID + mqForward.getUuid(), "1")) {
+        if (Boolean.FALSE.equals(stringRedisTemplate.opsForValue().setIfAbsent(RedisPrefix.MQ_UUID + mqForward.getUuid(), "1"))) {
             // 重复消息
             return;
         }
@@ -138,7 +139,7 @@ public class MessageMqImpl implements MessageMq {
         }
 
         // 转发
-        for (String sessionId : sessionIds) {
+        for (String sessionId : Objects.requireNonNull(sessionIds)) {
             messageDistribute(sessionId, eccMessage, mqForward.getIsGroup());
         }
 

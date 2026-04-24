@@ -1,7 +1,9 @@
 package com.github.wrx886.e2echo.server.service.impl;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
+
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -29,8 +31,8 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
 
     /**
      * 发送消息
-     * 
-     * @param eccMessage
+     *
+     * @param eccMessage ECC消息
      */
     @Override
     public void sendOne(EccMessage eccMessage) {
@@ -56,7 +58,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
 
     /**
      * 接收消息
-     * 
+     *
      * @param toPublicKeyHex 接收者公钥
      * @param startTimestamp 起始时间
      * @return 接收到的消息
@@ -84,7 +86,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
 
     /**
      * 发送群聊消息
-     * 
+     *
      * @param eccMessage 群聊消息，toPublicKeyHex 存储群聊 UUID（格式：{群主公钥}:{群聊UUID}）
      */
     @Override
@@ -111,7 +113,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
 
     /**
      * 获取群聊消息
-     * 
+     *
      * @param groupUuid      群聊 UUID（格式：{群主公钥}:{群聊UUID}）
      * @param startTimestamp 起始时间
      */
@@ -138,8 +140,8 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
 
     /**
      * 检查 ECC 消息
-     * 
-     * @param eccMessage
+     *
+     * @param eccMessage ECC消息
      */
     private void checkEccMessage(EccMessage eccMessage) {
 
@@ -194,7 +196,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
 
     /**
      * 订阅私聊消息
-     * 
+     *
      * @param sessionId      会话 ID
      * @param toPublicKeyHex 接收者公钥
      */
@@ -217,7 +219,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
 
     /**
      * 取消订阅私聊消息
-     * 
+     *
      * @param sessionId 会话 ID
      */
     @Override
@@ -238,51 +240,51 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
 
     /**
      * 订阅群聊消息
-     * 
+     *
      * @param sessionId 会话 ID
      * @param groupUuid 群聊 UUID（格式：{群主公钥}:{群聊UUID}）
      */
     @Override
     public void subscribeGroup(String sessionId, String groupUuid) {
         // 封装 SessionID
-        String sessionIdPaackage = IdConfig.ID + sessionId;
+        String sessionIdPackage = IdConfig.ID + sessionId;
 
         // session id -> group uuid
         stringRedisTemplate.opsForSet().add(
-                RedisPrefix.SESSION_ID_2_GROUP_UUID + sessionIdPaackage,
+                RedisPrefix.SESSION_ID_2_GROUP_UUID + sessionIdPackage,
                 groupUuid);
 
         // group uuid -> session id
         stringRedisTemplate.opsForSet().add(
                 RedisPrefix.GROUP_UUID_2_SESSION_ID + groupUuid,
-                sessionIdPaackage);
+                sessionIdPackage);
     }
 
     /**
      * 取消订阅群聊消息
-     * 
+     *
      * @param sessionId 会话 ID
      * @param groupUuid 群聊 UUID（格式：{群主公钥}:{群聊UUID}）
      */
     @Override
     public void unsubscribeGroup(String sessionId, String groupUuid) {
         // 封装 SessionID
-        String sessionIdPaackage = IdConfig.ID + sessionId;
+        String sessionIdPackage = IdConfig.ID + sessionId;
 
         // 删除 session id -> group uuid
         stringRedisTemplate.opsForSet().remove(
-                RedisPrefix.SESSION_ID_2_GROUP_UUID + sessionIdPaackage,
+                RedisPrefix.SESSION_ID_2_GROUP_UUID + sessionIdPackage,
                 groupUuid);
 
         // 删除 group uuid -> session id
         stringRedisTemplate.opsForSet().remove(
                 RedisPrefix.GROUP_UUID_2_SESSION_ID + groupUuid,
-                sessionIdPaackage);
+                sessionIdPackage);
     }
 
     /**
      * 取消订阅会话订阅的私聊和群聊消息
-     * 
+     *
      * @param sessionId 会话 ID
      */
     @Override
@@ -290,11 +292,11 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         // 取消私聊订阅
         unsubscribeOne(sessionId);
         // 获取订阅的群聊 UUID 列表
-        String sessionIdPaackage = IdConfig.ID + sessionId;
+        String sessionIdPackage = IdConfig.ID + sessionId;
         Set<String> groupUuids = stringRedisTemplate.opsForSet().members(
-                RedisPrefix.SESSION_ID_2_GROUP_UUID + sessionIdPaackage);
+                RedisPrefix.SESSION_ID_2_GROUP_UUID + sessionIdPackage);
         // 取消订阅
-        for (String groupUuid : groupUuids) {
+        for (String groupUuid : Objects.requireNonNull(groupUuids)) {
             unsubscribeGroup(sessionId, groupUuid);
         }
     }

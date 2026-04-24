@@ -13,6 +13,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.layout.VBox;
 
+@SuppressWarnings("FieldCanBeLocal")
 public class GroupKeySharedContentCell extends ListCell<GroupKeyShared> {
 
     private final GroupKeySharedController groupKeySharedController = BeanProvider
@@ -60,7 +61,7 @@ public class GroupKeySharedContentCell extends ListCell<GroupKeyShared> {
         }
     }
 
-    private void removeButtonOnAction(Event event) {
+    private void removeButtonOnAction(Event ignoredEvent) {
         GroupKeyShared groupKeyShared = getItem();
         // 弹出确认框
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);

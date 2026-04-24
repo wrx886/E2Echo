@@ -20,6 +20,7 @@ import com.github.wrx886.e2echo.client.srv.model.socket.WebSocketResult;
 
 import lombok.extern.slf4j.Slf4j;
 
+@SuppressWarnings("unused")
 @Slf4j
 public class BaseWebSocketClient extends WebSocketClient implements AutoCloseable {
 
@@ -29,10 +30,10 @@ public class BaseWebSocketClient extends WebSocketClient implements AutoCloseabl
     protected final ObjectMapper objectMapper = BeanProvider.getBean(ObjectMapper.class);
 
     // 存储请求的特有处理方法
-    private ConcurrentHashMap<String, BaseWebSocketClientMethod> requestId2Method = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, BaseWebSocketClientMethod> requestId2Method;
 
     // 存储方法通用的处理方法
-    private ConcurrentHashMap<String, BaseWebSocketClientMethod> command2Method = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, BaseWebSocketClientMethod> command2Method = new ConcurrentHashMap<>();
 
     // 构造函数，url格式：：ws://127.0.0.1:8080/server/socket
     public BaseWebSocketClient(String url) throws Exception {
@@ -41,6 +42,7 @@ public class BaseWebSocketClient extends WebSocketClient implements AutoCloseabl
         if (!ReadyState.OPEN.equals(this.getReadyState())) {
             throw new Exception("连接失败");
         }
+        requestId2Method = new ConcurrentHashMap<>();
     }
 
     // 处理接收到的请求
@@ -55,7 +57,6 @@ public class BaseWebSocketClient extends WebSocketClient implements AutoCloseabl
 
                     // 表示请求是否被处理
                     boolean[] handle = new boolean[1];
-                    handle[0] = false;
 
                     // 使用请求特有方法处理
                     requestId2Method.compute(result.getId(), (id, method) -> {
@@ -68,7 +69,7 @@ public class BaseWebSocketClient extends WebSocketClient implements AutoCloseabl
                     });
 
                     // 处理完成
-                    if (handle[0] == true) {
+                    if (handle[0]) {
                         return;
                     }
 
@@ -83,7 +84,7 @@ public class BaseWebSocketClient extends WebSocketClient implements AutoCloseabl
                     });
 
                     // 处理完成
-                    if (handle[0] == true) {
+                    if (handle[0]) {
                         return;
                     }
 
@@ -118,7 +119,7 @@ public class BaseWebSocketClient extends WebSocketClient implements AutoCloseabl
     }
 
     // 发送请求
-    public final void sendMessgae(String command, BaseWebSocketClientMethod method) throws Exception {
+    public final void sendMessage(String command, BaseWebSocketClientMethod method) throws Exception {
         sendMessage(command, null, method);
     }
 
@@ -187,7 +188,7 @@ public class BaseWebSocketClient extends WebSocketClient implements AutoCloseabl
 
     // WebSocket 开启时调用
     @Override
-    public final void onOpen(ServerHandshake handshakedata) {
+    public final void onOpen(ServerHandshake handshake) {
         log.info("连接 {} 已开启", this.getURI());
     }
 

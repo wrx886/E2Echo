@@ -14,14 +14,14 @@ public interface MessageService extends IService<Message> {
      * 
      * @param eccMessage 群聊消息
      */
-    void autoReveiveOne(EccMessage eccMessage);
+    void autoReceiveOne(EccMessage eccMessage);
 
     /**
      * 自动接收群聊消息
      * 
      * @param eccMessage 群聊消息
      */
-    void autoReveiveGroup(EccMessage eccMessage);
+    void autoReceiveGroup(EccMessage eccMessage);
 
     /**
      * 根据会话公钥查询私聊消息

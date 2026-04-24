@@ -19,6 +19,7 @@ import com.github.wrx886.e2echo.server.service.MessageService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+@SuppressWarnings("unused")
 @Slf4j
 @Component
 @AllArgsConstructor
@@ -29,7 +30,7 @@ public class MessageWebSocketHandler extends BaseWebSocketHandler {
 
     /**
      * 发送私聊消息
-     * 
+     *
      * @param session    会话
      * @param eccMessage ECC 消息
      */
@@ -39,7 +40,7 @@ public class MessageWebSocketHandler extends BaseWebSocketHandler {
 
     /**
      * 接收私聊消息
-     * 
+     *
      * @param session                   会话
      * @param receiveOneMessageSocketVo 接收私聊消息参数
      * @return ECC 私聊消息列表
@@ -52,7 +53,7 @@ public class MessageWebSocketHandler extends BaseWebSocketHandler {
 
     /**
      * 发送群聊消息
-     * 
+     *
      * @param session    会话
      * @param eccMessage ECC 群聊消息，toPublicKeyHex字段填写群聊 UUID（格式：{群主公钥}:{群聊UUID}）
      */
@@ -62,13 +63,13 @@ public class MessageWebSocketHandler extends BaseWebSocketHandler {
 
     /**
      * 接收群聊消息
-     * 
+     *
      * @param session                     会话
      * @param receiveGroupMessageSocketVo 接收群聊消息参数
      * @return ECC 群聊消息列表
      */
     public List<EccMessage> receiveGroup(WebSocketSession session,
-            ReceiveGroupMessageSocketVo receiveGroupMessageSocketVo) {
+                                         ReceiveGroupMessageSocketVo receiveGroupMessageSocketVo) {
         return messageService.receiveGroup(
                 receiveGroupMessageSocketVo.getGroupUuid(),
                 receiveGroupMessageSocketVo.getStartTimestamp());
@@ -76,7 +77,7 @@ public class MessageWebSocketHandler extends BaseWebSocketHandler {
 
     /**
      * 订阅私聊消息
-     * 
+     *
      * @param session        会话
      * @param toPublicKeyHex 接收者公钥
      */
@@ -86,7 +87,7 @@ public class MessageWebSocketHandler extends BaseWebSocketHandler {
 
     /**
      * 取消订阅私聊消息
-     * 
+     *
      * @param session 会话
      */
     public void unsubscribeOne(WebSocketSession session) {
@@ -95,7 +96,7 @@ public class MessageWebSocketHandler extends BaseWebSocketHandler {
 
     /**
      * 订阅群聊消息
-     * 
+     *
      * @param session   会话
      * @param groupUuid 群聊 UUID（格式：{群主公钥}:{群聊UUID}）
      */
@@ -105,7 +106,7 @@ public class MessageWebSocketHandler extends BaseWebSocketHandler {
 
     /**
      * 批量订阅群聊消息
-     * 
+     *
      * @param session    会话
      * @param groupUuids 群聊 UUID列表
      */
@@ -117,7 +118,7 @@ public class MessageWebSocketHandler extends BaseWebSocketHandler {
 
     /**
      * 取消订阅群聊消息
-     * 
+     *
      * @param session   会话
      * @param groupUuid 群聊 UUID（格式：{群主公钥}:{群聊UUID}）
      */
@@ -143,6 +144,7 @@ public class MessageWebSocketHandler extends BaseWebSocketHandler {
     @EventListener(ContextClosedEvent.class)
     @Order(Ordered.HIGHEST_PRECEDENCE)
     public void handleClose() {
+
         // 断开所有连接
         Collection<WebSocketSession> sessions = sessionMap.values();
         for (WebSocketSession session : sessions) {
@@ -152,14 +154,21 @@ public class MessageWebSocketHandler extends BaseWebSocketHandler {
                 log.error(null, e);
             }
         }
-        // 等待
-        while (sessions.size() > 0) {
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                log.error(null, e);
-                break;
-            }
+
+        // 等待所有连接关闭
+        try {
+            // 5s - 60s
+            Thread.sleep(Long.max(5_000L, Long.min(sessions.size() * 100L, 60_000L))); // 10s
+        } catch (InterruptedException e) {
+            log.error(null, e);
+        }
+
+        // 未关闭提示
+        if (!sessionMap.isEmpty()) {
+            log.warn("{} WebSocket connection(s) still active at shutdown",
+                    sessionMap.size());
+        } else {
+            log.info("All WebSocket connections closed successfully");
         }
     }
 

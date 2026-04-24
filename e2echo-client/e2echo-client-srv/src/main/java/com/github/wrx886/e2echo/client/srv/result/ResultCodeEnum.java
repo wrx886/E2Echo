@@ -3,6 +3,7 @@ package com.github.wrx886.e2echo.client.srv.result;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 
+@SuppressWarnings("unused")
 @Getter
 @Schema(description = "返回状态码枚举")
 public enum ResultCodeEnum {
@@ -15,7 +16,7 @@ public enum ResultCodeEnum {
     @Schema(description = "状态描述")
     private final String message;
 
-    private ResultCodeEnum(String code, String message) {
+    ResultCodeEnum(String code, String message) {
         this.code = code;
         this.message = message;
     }

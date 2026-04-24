@@ -9,7 +9,7 @@ import lombok.RequiredArgsConstructor;
 
 @Component
 @RequiredArgsConstructor
-public class TextMessageHandler extends BaseMessageHandler<String> {
+public class TextMessageHandler extends BaseMessageHandler {
 
     // 注册
     static {
@@ -19,8 +19,8 @@ public class TextMessageHandler extends BaseMessageHandler<String> {
 
     /**
      * 接收消息处理
-     * 
-     * @param sendMessageVo
+     *
+     * @param sendMessageVo 消息
      */
     @Override
     public void receiveHandler(EccMessage eccMessage, SendMessageVo sendMessageVo) {

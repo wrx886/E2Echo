@@ -21,7 +21,7 @@ public enum ResultCodeEnum {
     MESSAGE_SIGNATURE_NOT_MATCH("A009", "ECC 签名不匹配"),
 
     // WebSocket 相关
-    WEB_SOCKET_REQUEST_FARMAT_ERROR("B001", "WebSocket 请求格式错误"),
+    WEB_SOCKET_REQUEST_FORMAT_ERROR("B001", "WebSocket 请求格式错误"),
     WEB_SOCKET_REQUEST_ID_EMPTY("B002", "WebSocket 请求 ID 为空"),
     WEB_SOCKET_REQUEST_COMMAND_EMPTY("B003", "WebSocket 命令为空"),
     WEB_SOCKET_REQUEST_NOT_FOUND("B004", "WebSocket 命令未找到"),
@@ -35,7 +35,7 @@ public enum ResultCodeEnum {
     @Schema(description = "状态描述")
     private final String message;
 
-    private ResultCodeEnum(String code, String message) {
+    ResultCodeEnum(String code, String message) {
         this.code = code;
         this.message = message;
     }

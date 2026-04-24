@@ -3,6 +3,7 @@ package com.github.wrx886.e2echo.server.mq;
 import com.github.wrx886.e2echo.server.model.EccMessage;
 
 // 消息队列
+@SuppressWarnings("unused")
 public interface MessageMq {
 
     /**

@@ -16,6 +16,7 @@ import com.github.wrx886.e2echo.client.srv.model.vo.socket.message.ReceiveOneMes
 import com.github.wrx886.e2echo.client.srv.result.ResultCodeEnum;
 import com.github.wrx886.e2echo.client.srv.service.MessageService;
 
+@SuppressWarnings("unused")
 public final class MessageWebSocketClient extends BaseWebSocketClient {
 
     private final EccController eccController = BeanProvider.getBean(EccController.class);
@@ -28,10 +29,10 @@ public final class MessageWebSocketClient extends BaseWebSocketClient {
 
     /**
      * 自动接收私聊消息处理
-     * 
-     * @param result
+     *
+     * @param result WebSocket结果
      */
-    public void autoReveiveOne(WebSocketResult<?> result) {
+    public void autoReceiveOne(WebSocketResult<?> result) {
         // 消息为空
         if (result.getData() == null) {
             return;
@@ -41,15 +42,15 @@ public final class MessageWebSocketClient extends BaseWebSocketClient {
         EccMessage eccMessage = objectMapper.convertValue(result.getData(), EccMessage.class);
 
         // 处理
-        messageService.autoReveiveOne(eccMessage);
+        messageService.autoReceiveOne(eccMessage);
     }
 
     /**
      * 自动接收群聊消息处理
-     * 
-     * @param result
+     *
+     * @param result WebSocket结果
      */
-    public void autoReveiveGroup(WebSocketResult<?> result) {
+    public void autoReceiveGroup(WebSocketResult<?> result) {
         // 消息为空
         if (result.getData() == null) {
             return;
@@ -59,12 +60,12 @@ public final class MessageWebSocketClient extends BaseWebSocketClient {
         EccMessage eccMessage = objectMapper.convertValue(result.getData(), EccMessage.class);
 
         // 处理
-        messageService.autoReveiveGroup(eccMessage);
+        messageService.autoReceiveGroup(eccMessage);
     }
 
     /**
      * 发送单聊消息
-     * 
+     *
      * @param eccMessage 消息
      */
     public void sendOne(EccMessage eccMessage) {
@@ -84,7 +85,7 @@ public final class MessageWebSocketClient extends BaseWebSocketClient {
 
     /**
      * 发送群聊消息
-     * 
+     *
      * @param eccMessage 群聊消息
      */
     public void sendGroup(EccMessage eccMessage) {
@@ -104,7 +105,7 @@ public final class MessageWebSocketClient extends BaseWebSocketClient {
 
     /**
      * 接收单聊消息
-     * 
+     *
      * @param toPublicKeyHex 接收方公钥
      * @param startTimestamp 开始时间戳(int64)
      * @return 私聊消息列表
@@ -140,10 +141,10 @@ public final class MessageWebSocketClient extends BaseWebSocketClient {
 
     /**
      * 接收群聊消息
-     * 
+     *
      * @param groupUuid      群组 UUID
      * @param startTimestamp 开始时间戳(int64)
-     * @return
+     * @return 消息列表
      */
     public List<EccMessage> receiveGroup(String groupUuid, String startTimestamp) {
         try {
@@ -214,7 +215,7 @@ public final class MessageWebSocketClient extends BaseWebSocketClient {
 
     /**
      * 批量订阅群聊消息
-     * 
+     *
      * @param groupUuids 群聊UUID列表
      */
     public void subscribeGroups(List<String> groupUuids) {

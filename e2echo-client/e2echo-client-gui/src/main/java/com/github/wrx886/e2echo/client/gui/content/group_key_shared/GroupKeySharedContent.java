@@ -20,6 +20,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
+@SuppressWarnings("FieldCanBeLocal")
 public class GroupKeySharedContent extends VBox {
 
     private final GuiStore guiStore = BeanProvider.getBean(GuiStore.class);
@@ -78,7 +79,7 @@ public class GroupKeySharedContent extends VBox {
         getChildren().add(groupKeySharedListView);
     }
 
-    private void resendAllButtonOnAction(Event event) {
+    private void resendAllButtonOnAction(Event ignoredEvent) {
         groupKeySharedController.resendAll();
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setTitle("重新共享所有密钥");
@@ -87,7 +88,7 @@ public class GroupKeySharedContent extends VBox {
         alert.showAndWait();
     }
 
-    private void addButtonOnAction(Event event) {
+    private void addButtonOnAction(Event ignoredEvent) {
         Dialog<Void> dialog = new Dialog<>();
         dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
         dialog.setTitle("添加规则");

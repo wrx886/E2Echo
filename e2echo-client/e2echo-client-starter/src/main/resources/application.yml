@@ -10,7 +10,6 @@ spring:
   jackson:
     time-zone: GMT+8
   datasource:
-    initialization-mode: always
     # H2 数据库相关配置
     type: com.zaxxer.hikari.HikariDataSource
     url: jdbc:h2:./mydb
@@ -31,3 +30,6 @@ spring:
       minimum-idle: 10
       # 连接池名称
       pool-name: SPHHikariPool
+  sql:
+    init:
+      mode: always

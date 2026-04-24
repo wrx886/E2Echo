@@ -73,13 +73,13 @@ public class AliasServiceImpl extends ServiceImpl<AliasMapper, Alias> implements
             } else {
                 // 不存在，取最后4位作为默认名称，不足4位则直接使用公钥
                 String aliasString = publicKeyHex.length() > 4
-                        ? publicKeyHex.substring(publicKeyHex.length() - 4, publicKeyHex.length())
+                        ? publicKeyHex.substring(publicKeyHex.length() - 4)
                         : publicKeyHex;
                 this.put(publicKeyHex, aliasString);
                 aliasMap.put(publicKeyHex, aliasString);
             }
         }
-        return aliasMap.containsKey(publicKeyHex) ? aliasMap.get(publicKeyHex) : null;
+        return aliasMap.getOrDefault(publicKeyHex, null);
     }
 
 }

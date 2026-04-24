@@ -6,7 +6,7 @@ import lombok.Getter;
 @Getter
 public final class E2EchoException extends RuntimeException {
 
-    private E2EchoExceptionCodeEnum e2EchoExceptionCodeEnum;
+    private final E2EchoExceptionCodeEnum e2EchoExceptionCodeEnum;
 
     public E2EchoException(E2EchoExceptionCodeEnum e2EchoExceptionCodeEnum) {
         super(e2EchoExceptionCodeEnum.getMessage());

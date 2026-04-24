@@ -116,7 +116,7 @@ public class AesUtil {
             cipher.init(Cipher.ENCRYPT_MODE, secretKey, spec);
 
             try (FileInputStream inputStream = new FileInputStream(inputFile);
-                    FileOutputStream outputStream = new FileOutputStream(outputFile);) {
+                    FileOutputStream outputStream = new FileOutputStream(outputFile)) {
                 // 写入 iv
                 outputStream.write(iv);
 
@@ -144,7 +144,7 @@ public class AesUtil {
 
             // 读取 iv
             try (FileInputStream inputStream = new FileInputStream(inputFile);
-                    FileOutputStream outputStream = new FileOutputStream(outputFile);) {
+                    FileOutputStream outputStream = new FileOutputStream(outputFile)) {
                 // 提取 IV
                 byte[] iv = new byte[GCM_IV_LENGTH];
                 inputStream.read(iv);

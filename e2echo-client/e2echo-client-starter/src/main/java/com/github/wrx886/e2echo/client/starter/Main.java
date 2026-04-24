@@ -3,11 +3,8 @@ package com.github.wrx886.e2echo.client.starter;
 import java.io.File;
 
 import org.springframework.beans.BeanUtils;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ApplicationContext;
-import org.springframework.context.annotation.ComponentScan;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.wrx886.e2echo.client.common.common.BeanProvider;
 import com.github.wrx886.e2echo.client.common.controller.ecc.EccController;
@@ -59,6 +56,7 @@ public final class Main extends Application {
                 try {
                     webSocketClientStore.close();
                 } catch (Throwable t) {
+                    // 不处理
                 }
 
                 // 保存到 json 文件
@@ -71,7 +69,7 @@ public final class Main extends Application {
                     objectMapper.writeValue(new File("./JsonStore/" + eccController.getPublicKey() + ".json"),
                             jsonStore);
                 } catch (Throwable t) {
-                    t.printStackTrace();
+                    log.error("", t);
                 }
 
                 SpringApplication.exit(applicationContext);
@@ -103,9 +101,7 @@ public final class Main extends Application {
         }
 
         // 启动 WebSocket
-        Platform.runLater(() -> {
-            webSocketClientStore.getClient();
-        });
+        Platform.runLater(webSocketClientStore::getClient);
 
         // 设置场景
         stage.setScene(new MainScene());
@@ -117,23 +113,5 @@ public final class Main extends Application {
         stage.show();
     }
 
-    @SpringBootApplication
-    @ComponentScan("com.github.wrx886.e2echo.client")
-    public final static class Starter {
-
-        private static boolean test;
-
-        @Value("${test:false}")
-        public void setTest(boolean testValue) {
-            test = testValue;
-        }
-
-        public static void main(String[] args) {
-            SpringApplication.run(Starter.class, args);
-            if (!test) {
-                Application.launch(Main.class, args);
-            }
-        }
-    }
 
 }

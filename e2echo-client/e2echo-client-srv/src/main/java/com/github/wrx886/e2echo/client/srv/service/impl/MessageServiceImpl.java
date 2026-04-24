@@ -73,8 +73,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         messageSet.addAll(messages2);
 
         // 合并
-        ArrayList<Message> messages = new ArrayList<>();
-        messages.addAll(messageSet);
+        ArrayList<Message> messages = new ArrayList<>(messageSet);
         // 根据时间排序（倒序）
         messages.sort(Comparator.comparing(Message::getTimestamp).reversed());
 
@@ -264,7 +263,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
      * @param eccMessage 群聊消息
      */
     @Override
-    public void autoReveiveOne(EccMessage eccMessage) {
+    public void autoReceiveOne(EccMessage eccMessage) {
         try {
             receiveOneEccMessage(eccMessage);
             guiController.flushAsync();
@@ -279,7 +278,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
      * @param eccMessage 群聊消息
      */
     @Override
-    public void autoReveiveGroup(EccMessage eccMessage) {
+    public void autoReceiveGroup(EccMessage eccMessage) {
         try {
             receiveGroupEccMessage(eccMessage);
             guiController.flushAsync();
@@ -291,7 +290,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
     /**
      * 处理结束到的单个私聊消息（未解密）
      * 
-     * @param eccMessage
+     * @param eccMessage ECC消息
      */
     private void receiveOneEccMessage(EccMessage eccMessage) {
 
@@ -305,7 +304,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         }
 
         // 消息是否过期
-        if (Long.valueOf(eccMessage.getTimestamp()) <= 0 || Long.valueOf(eccMessage.getTimestamp()) < startTimestamp) {
+        if (Long.parseLong(eccMessage.getTimestamp()) <= 0 || Long.parseLong(eccMessage.getTimestamp()) < startTimestamp) {
             return;
         }
 
@@ -318,7 +317,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         }
 
         // 针对不同的消息类型进行处理
-        Class<? extends BaseMessageHandler<?>> messageHadnlerClass = BaseMessageHandler
+        Class<? extends BaseMessageHandler> messageHadnlerClass = BaseMessageHandler
                 .getHandler(sendMessageVo.getType(), false);
         if (messageHadnlerClass == null) {
             sendMessageVo.setType(MessageType.UNSUPPORTED);
@@ -376,7 +375,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         }
 
         // 消息是否过期
-        if (Long.valueOf(eccMessage.getTimestamp()) <= 0 || Long.valueOf(eccMessage.getTimestamp()) < startTimestamp) {
+        if (Long.parseLong(eccMessage.getTimestamp()) <= 0 || Long.parseLong(eccMessage.getTimestamp()) < startTimestamp) {
             return;
         }
 
@@ -409,7 +408,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
 
         // 判读是否使用过期的密钥
         if (!groupKey.getTimestamp().equals(Long.valueOf(groupMessageVo.getTimestamp()))
-                && groupKey.getTimestamp() + 1000L * 60 < Long.valueOf(eccMessage.getTimestamp())) {
+                && groupKey.getTimestamp() + 1000L * 60 < Long.parseLong(eccMessage.getTimestamp())) {
             // 使用过时密钥，新密钥已经发布超过一分钟，还在使用原先的密钥，视为无效
             return;
         }
@@ -440,7 +439,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         }
 
         // 针对不同的消息类型进行处理
-        Class<? extends BaseMessageHandler<?>> messageHadnlerClass = BaseMessageHandler
+        Class<? extends BaseMessageHandler> messageHadnlerClass = BaseMessageHandler
                 .getHandler(sendMessageVo.getType(), true);
         if (messageHadnlerClass == null) {
             sendMessageVo.setType(MessageType.UNSUPPORTED);

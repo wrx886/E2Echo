@@ -38,7 +38,7 @@ public class GroupMemberServiceImpl extends ServiceImpl<GroupMemberMapper, Group
                 .eq(GroupMember::getOwnerPublicKeyHex, eccController.getPublicKey())
                 .eq(GroupMember::getGroupUuid, groupUuid))
                 .stream()
-                .map(groupMember -> groupMember.getPublicKeyHex())
+                .map(GroupMember::getPublicKeyHex)
                 .toList();
     }
 
@@ -102,7 +102,6 @@ public class GroupMemberServiceImpl extends ServiceImpl<GroupMemberMapper, Group
      * 判断是否是群主
      * 
      * @param groupUuid 群聊UUID
-     * @return 是否是群主
      */
     private void verifyGroupOwner(String groupUuid) {
         try {

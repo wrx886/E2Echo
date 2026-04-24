@@ -36,6 +36,7 @@ import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
 import lombok.extern.slf4j.Slf4j;
 
+@SuppressWarnings("FieldCanBeLocal")
 @Slf4j
 public class ChatContentCell extends ListCell<Message> {
 
@@ -199,7 +200,7 @@ public class ChatContentCell extends ListCell<Message> {
     }
 
     // 另存为
-    private void onSaveButtonAction(Event event) {
+    private void onSaveButtonAction(Event ignoredEvent) {
         // 获取所选项
         Message message = getItem();
         // 转为 FileVo
@@ -226,7 +227,7 @@ public class ChatContentCell extends ListCell<Message> {
             throw new E2EchoException("文件已存在");
         }
         try (FileOutputStream fos = new FileOutputStream(savePath);
-                FileInputStream fis = new FileInputStream(filePath);) {
+                FileInputStream fis = new FileInputStream(filePath)) {
             fis.transferTo(fos);
         } catch (Exception e) {
             throw new E2EchoException(e.getMessage());
@@ -240,7 +241,7 @@ public class ChatContentCell extends ListCell<Message> {
     }
 
     // 打开
-    private void onOpenButtonAction(Event event) {
+    private void onOpenButtonAction(Event ignoredEvent) {
         // 获取所选项
         Message message = getItem();
         // 转为 FileVo

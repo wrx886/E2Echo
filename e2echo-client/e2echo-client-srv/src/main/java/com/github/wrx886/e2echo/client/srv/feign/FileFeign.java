@@ -21,10 +21,10 @@ public interface FileFeign {
 
     @Operation(summary = "上传文件")
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public Result<String> upload(@RequestPart MultipartFile file);
+    Result<String> upload(@RequestPart MultipartFile file);
 
     @Operation(summary = "下载文件")
     @GetMapping("/download/{fileId}")
-    public ResponseEntity<Resource> download(@PathVariable String fileId);
+    ResponseEntity<Resource> download(@PathVariable String fileId);
 
 }

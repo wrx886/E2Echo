@@ -4,6 +4,7 @@ import com.github.wrx886.e2echo.client.common.model.EccMessage;
 import com.github.wrx886.e2echo.client.ecc.util.EccUtil.KeyPairHex;
 
 // ECC 服务
+@SuppressWarnings("unused")
 public interface EccService {
 
     /**

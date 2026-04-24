@@ -37,21 +37,15 @@ public class MainScene extends Scene {
 
         // 会话按钮
         Button sessionButton = new Button("会话");
-        sessionButton.setOnAction(event -> {
-            panelRouter.push(SessionPanel.class);
-        });
+        sessionButton.setOnAction(event -> panelRouter.push(SessionPanel.class));
 
         // 群聊按钮
         Button groupButton = new Button("群聊");
-        groupButton.setOnAction(event -> {
-            panelRouter.push(GroupPanel.class);
-        });
+        groupButton.setOnAction(event -> panelRouter.push(GroupPanel.class));
 
         // 群聊密钥共享按钮
         Button groupKeySharedButton = new Button("共享");
-        groupKeySharedButton.setOnAction(event -> {
-            contentRouter.push(GroupKeySharedContent.class);
-        });
+        groupKeySharedButton.setOnAction(event -> contentRouter.push(GroupKeySharedContent.class));
 
         // 左侧
         VBox sidebarVBox = layout.getSidebarVBox();

@@ -1,17 +1,21 @@
-// Source code is decompiled from a .class file using FernFlower decompiler (from Intellij IDEA).
+// Source code is decompiled from a .class file using FernFlower decompiler (from IntelliJ IDEA).
 package com.github.wrx886.e2echo.client.srv.common;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+
+import lombok.Getter;
 import org.springframework.lang.NonNull;
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.FileCopyUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+@SuppressWarnings("unused")
 public class MockMultipartFile implements MultipartFile {
+    @Getter
     private final String name;
     private final String originalFilename;
     @Nullable
@@ -19,15 +23,15 @@ public class MockMultipartFile implements MultipartFile {
     private final byte[] content;
 
     public MockMultipartFile(String name, @Nullable byte[] content) {
-        this(name, "", (String) null, (byte[]) content);
+        this(name, "", null, content);
     }
 
     public MockMultipartFile(String name, InputStream contentStream) throws IOException {
-        this(name, "", (String) null, (byte[]) FileCopyUtils.copyToByteArray(contentStream));
+        this(name, "", null, FileCopyUtils.copyToByteArray(contentStream));
     }
 
     public MockMultipartFile(String name, @Nullable String originalFilename, @Nullable String contentType,
-            @Nullable byte[] content) {
+                             @Nullable byte[] content) {
         Assert.hasLength(name, "Name must not be empty");
         this.name = name;
         this.originalFilename = originalFilename != null ? originalFilename : "";
@@ -36,12 +40,8 @@ public class MockMultipartFile implements MultipartFile {
     }
 
     public MockMultipartFile(String name, @Nullable String originalFilename, @Nullable String contentType,
-            InputStream contentStream) throws IOException {
+                             InputStream contentStream) throws IOException {
         this(name, originalFilename, contentType, FileCopyUtils.copyToByteArray(contentStream));
-    }
-
-    public String getName() {
-        return this.name;
     }
 
     @NonNull
@@ -59,18 +59,22 @@ public class MockMultipartFile implements MultipartFile {
     }
 
     public long getSize() {
-        return (long) this.content.length;
+        return this.content.length;
     }
 
-    public byte[] getBytes() throws IOException {
+    @NonNull
+    @Override
+    public byte[] getBytes() {
         return this.content;
     }
 
-    public InputStream getInputStream() throws IOException {
+    @Override
+    @NonNull
+    public InputStream getInputStream() {
         return new ByteArrayInputStream(this.content);
     }
 
-    public void transferTo(File dest) throws IOException, IllegalStateException {
+    public void transferTo(@NonNull File dest) throws IOException, IllegalStateException {
         FileCopyUtils.copy(this.content, dest);
     }
 }

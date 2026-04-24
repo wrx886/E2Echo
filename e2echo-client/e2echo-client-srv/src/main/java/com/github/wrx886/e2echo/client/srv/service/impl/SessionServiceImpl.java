@@ -28,7 +28,7 @@ public class SessionServiceImpl extends ServiceImpl<SessionMapper, Session> impl
 
     /**
      * 更新会话
-     * 
+     *
      * @param publicKeyHex 公钥或群聊UUID
      * @param message      消息
      * @param group        是否是群聊
@@ -70,7 +70,7 @@ public class SessionServiceImpl extends ServiceImpl<SessionMapper, Session> impl
 
     /**
      * 创建会话
-     * 
+     *
      * @param publicKeyHex 对方公钥或群聊UUID
      * @param group        是否是群聊
      */
@@ -101,7 +101,7 @@ public class SessionServiceImpl extends ServiceImpl<SessionMapper, Session> impl
 
     /**
      * 更新群密钥
-     * 
+     *
      * @param groupUuid  群聊UUID
      * @param groupKeyId 群密钥ID
      */
@@ -137,8 +137,8 @@ public class SessionServiceImpl extends ServiceImpl<SessionMapper, Session> impl
 
     /**
      * 会话是否存在
-     * 
-     * @param publicKeyHex
+     *
+     * @param publicKeyHex 公钥
      * @return true：存在，false：不存在
      */
     @Override
@@ -150,7 +150,7 @@ public class SessionServiceImpl extends ServiceImpl<SessionMapper, Session> impl
 
     /**
      * 获取会话列表
-     * 
+     *
      * @return 会话列表（根据时间戳降序排列）
      */
     @Override
@@ -162,7 +162,7 @@ public class SessionServiceImpl extends ServiceImpl<SessionMapper, Session> impl
 
     /**
      * 修改群聊启用状态
-     * 
+     *
      * @param groupUuid 群聊 UUID
      * @param enabled   启用状态
      */
@@ -183,7 +183,7 @@ public class SessionServiceImpl extends ServiceImpl<SessionMapper, Session> impl
 
     /**
      * 获取会话
-     * 
+     *
      * @param publicKeyHex 公钥或群聊 UUID
      * @return 会话
      */

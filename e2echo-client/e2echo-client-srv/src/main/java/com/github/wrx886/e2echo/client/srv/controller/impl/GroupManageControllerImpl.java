@@ -17,8 +17,7 @@ public class GroupManageControllerImpl implements GroupManageController {
 
     /**
      * 创建群聊
-     * 
-     * @return 群聊UUID
+     *
      */
     @Override
     public void create() {
@@ -27,7 +26,7 @@ public class GroupManageControllerImpl implements GroupManageController {
 
     /**
      * 刷新群密钥
-     * 
+     *
      * @param groupUuid 群聊UUID
      */
     @Override
@@ -37,8 +36,8 @@ public class GroupManageControllerImpl implements GroupManageController {
 
     /**
      * 重新分发原有群密钥
-     * 
-     * @param groupUuid
+     *
+     * @param groupUuid 群聊UUID
      */
     @Override
     public void redistributeKey(String groupUuid) {
@@ -47,7 +46,7 @@ public class GroupManageControllerImpl implements GroupManageController {
 
     /**
      * 列出所有群聊（用户作为群主）
-     * 
+     *
      * @return 群聊UUID列表
      */
     @Override

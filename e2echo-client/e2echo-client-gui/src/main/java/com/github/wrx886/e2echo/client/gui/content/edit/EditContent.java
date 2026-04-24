@@ -18,6 +18,7 @@ import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 
+@SuppressWarnings("FieldCanBeLocal")
 public class EditContent extends GridPane {
 
     private final SessionController sessionController = BeanProvider.getBean(SessionController.class);
@@ -158,7 +159,7 @@ public class EditContent extends GridPane {
     }
 
     // 取消按钮激活
-    public void cancelButtonOnAction(Event event) {
+    public void cancelButtonOnAction(Event ignoredEvent) {
         if (guiStore.getEditVo().get() != null) {
             EditVo editVo = new EditVo();
             editVo.setPublicKeyHex(guiStore.getCurrentSession().get().getPublicKeyHex());
@@ -178,7 +179,7 @@ public class EditContent extends GridPane {
     }
 
     // 保存按钮激活
-    public void saveButtonOnAction(Event event) {
+    public void saveButtonOnAction(Event ignoredEvent) {
         // 如果不存在
         if (!sessionController.contain(publicKeyTextField.getText())) {
             // 创建会话

@@ -40,12 +40,11 @@ public class GroupManageServiceImpl implements GroupManageService {
 
     /**
      * 创建群聊
-     * 
-     * @return 群聊UUID
+     *
      */
     @Override
     public void create() {
-        String groupUuid = eccController.getPublicKey() + ":" + UUID.randomUUID().toString();
+        String groupUuid = eccController.getPublicKey() + ":" + UUID.randomUUID();
         sessionService.create(groupUuid, true);
         reflushKey(groupUuid); // 刷新群密钥
         groupMemberService.addMember(groupUuid, eccController.getPublicKey());
@@ -55,7 +54,7 @@ public class GroupManageServiceImpl implements GroupManageService {
 
     /**
      * 刷新群密钥
-     * 
+     *
      * @param groupUuid 群聊UUID
      */
     @Override
@@ -75,8 +74,8 @@ public class GroupManageServiceImpl implements GroupManageService {
 
     /**
      * 重新分发原有群密钥
-     * 
-     * @param groupUuid
+     *
+     * @param groupUuid 群聊UUID
      */
     @Override
     public void redistributeKey(String groupUuid) {
@@ -109,9 +108,8 @@ public class GroupManageServiceImpl implements GroupManageService {
 
     /**
      * 判断是否是群主
-     * 
+     *
      * @param groupUuid 群聊UUID
-     * @return 是否是群主
      */
     private void verifyGroupOwner(String groupUuid) {
         try {
@@ -125,7 +123,7 @@ public class GroupManageServiceImpl implements GroupManageService {
 
     /**
      * 列出所有群聊
-     * 
+     *
      * @return 群聊列表
      */
     @Override
@@ -134,9 +132,10 @@ public class GroupManageServiceImpl implements GroupManageService {
                 .listSession()
                 .stream()
                 .filter(Session::getGroup)
-                .filter(session -> {
+                .map(Session::getPublicKeyHex)
+                .filter(publicKeyHex -> {
                     try {
-                        if (!eccController.getPublicKey().equals(session.getPublicKeyHex().split(":")[0])) {
+                        if (!eccController.getPublicKey().equals(publicKeyHex.split(":")[0])) {
                             return false;
                         }
                     } catch (Exception e) {
@@ -144,13 +143,12 @@ public class GroupManageServiceImpl implements GroupManageService {
                     }
                     return true;
                 })
-                .map(Session::getPublicKeyHex)
                 .toList();
     }
 
     /**
      * 发送群密钥
-     * 
+     *
      * @param groupUuid    群聊UUID
      * @param publicKeyHex 接收者公钥
      */

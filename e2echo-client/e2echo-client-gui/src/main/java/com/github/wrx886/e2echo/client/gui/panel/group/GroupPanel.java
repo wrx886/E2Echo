@@ -18,6 +18,7 @@ import javafx.scene.control.ListView;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
+@SuppressWarnings("FieldCanBeLocal")
 public class GroupPanel extends VBox {
 
     private final GuiController guiController = BeanProvider.getBean(GuiController.class);
@@ -62,9 +63,7 @@ public class GroupPanel extends VBox {
 
         // 创建群聊按钮
         createGroupButton = new Button("创建群聊");
-        createGroupButton.setOnAction((event) -> {
-            groupManageController.create();
-        });
+        createGroupButton.setOnAction((event) -> groupManageController.create());
         root.add(createGroupButton);
 
         // 放入列表
@@ -76,7 +75,7 @@ public class GroupPanel extends VBox {
     }
 
     // 群聊选择
-    private void groupListOnMouseClicked(Event event) {
+    private void groupListOnMouseClicked(Event ignoredEvent) {
         // 获取当前选择的群聊
         String groupUuid = groupList.getSelectionModel().getSelectedItem();
         if (groupUuid != null) {

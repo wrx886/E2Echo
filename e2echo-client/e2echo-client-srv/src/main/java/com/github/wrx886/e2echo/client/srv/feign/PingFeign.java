@@ -13,6 +13,6 @@ public interface PingFeign {
 
     @GetMapping
     @Operation(summary = "Ping")
-    public Result<Void> ping();
+    Result<Void> ping();
 
 }

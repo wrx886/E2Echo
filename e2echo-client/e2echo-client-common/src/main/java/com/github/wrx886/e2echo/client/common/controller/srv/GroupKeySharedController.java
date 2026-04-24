@@ -8,25 +8,25 @@ public interface GroupKeySharedController {
 
     /**
      * 添加群密钥共享规则
-     * 
-     * @param groupUuid
-     * @param from
-     * @param to
+     *
+     * @param groupUuid 群聊UUID
+     * @param from      发送者
+     * @param to        接收者
      */
     void add(String groupUuid, String from, String to);
 
     /**
      * 删除群密钥共享规则
-     * 
-     * @param groupUuid
-     * @param from
-     * @param to
+     *
+     * @param groupUuid 群聊UUID
+     * @param from      发送者
+     * @param to        接收者
      */
     void remove(String groupUuid, String from, String to);
 
     /**
      * 获取群密钥共享列表
-     * 
+     *
      * @return 所有共享规则
      */
     List<GroupKeyShared> listGroupKeyShared();

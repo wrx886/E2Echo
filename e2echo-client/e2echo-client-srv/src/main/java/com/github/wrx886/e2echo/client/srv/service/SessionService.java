@@ -10,7 +10,7 @@ public interface SessionService extends IService<Session> {
 
     /**
      * 更新会话
-     * 
+     *
      * @param publicKeyHex 公钥或群聊UUID
      * @param message      消息
      * @param group        是否是群聊
@@ -19,7 +19,7 @@ public interface SessionService extends IService<Session> {
 
     /**
      * 创建会话
-     * 
+     *
      * @param publicKeyHex 对方公钥或群聊UUID
      * @param group        是否是群聊
      */
@@ -27,7 +27,7 @@ public interface SessionService extends IService<Session> {
 
     /**
      * 更新群密钥
-     * 
+     *
      * @param groupUuid  群聊UUID
      * @param groupKeyId 群密钥ID
      */
@@ -35,22 +35,22 @@ public interface SessionService extends IService<Session> {
 
     /**
      * 会话是否存在
-     * 
-     * @param publicKeyHex
+     *
+     * @param publicKeyHex 公钥
      * @return true：存在，false：不存在
      */
     boolean contain(String publicKeyHex);
 
     /**
      * 获取会话列表
-     * 
+     *
      * @return 会话列表（根据时间戳降序排列）
      */
     List<Session> listSession();
 
     /**
      * 修改群聊启用状态
-     * 
+     *
      * @param groupUuid 群聊 UUID
      * @param enabled   启用状态
      */
@@ -58,7 +58,7 @@ public interface SessionService extends IService<Session> {
 
     /**
      * 获取会话
-     * 
+     *
      * @param publicKeyHex 公钥或群聊 UUID
      * @return 会话
      */

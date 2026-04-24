@@ -28,6 +28,7 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 
+@SuppressWarnings("FieldCanBeLocal")
 public class ChatContent extends VBox {
 
     private final FileController fileController = BeanProvider.getBean(FileController.class);
@@ -131,7 +132,7 @@ public class ChatContent extends VBox {
     }
 
     // 发送消息事件
-    private void sendButtonOnAction(Event event) {
+    private void sendButtonOnAction(Event ignoredEvent) {
         Session session = guiStore.getCurrentSession().get();
         // 发送消息
         if (session.getGroup()) {
@@ -151,7 +152,7 @@ public class ChatContent extends VBox {
     }
 
     // 用户信息修改
-    private void updateSessionButtonOnAction(Event event) {
+    private void updateSessionButtonOnAction(Event ignoredEvent) {
         EditVo editVo = new EditVo();
         editVo.setPublicKeyHex(guiStore.getCurrentSession().get().getPublicKeyHex());
         editVo.setGroup(guiStore.getCurrentSession().get().getGroup());
@@ -161,7 +162,7 @@ public class ChatContent extends VBox {
     }
 
     // 文件发送
-    private void sendFileButtonOnAction(Event event) {
+    private void sendFileButtonOnAction(Event ignoredEvent) {
         Session session = guiStore.getCurrentSession().get();
         // 弹出文件选择框
         FileChooser fileChooser = new FileChooser();
@@ -187,7 +188,7 @@ public class ChatContent extends VBox {
     }
 
     // 图片发送
-    private void sendImageButtonOnAction(Event event) {
+    private void sendImageButtonOnAction(Event ignoredEvent) {
         Session session = guiStore.getCurrentSession().get();
         // 弹出文件选择框
         FileChooser fileChooser = new FileChooser();

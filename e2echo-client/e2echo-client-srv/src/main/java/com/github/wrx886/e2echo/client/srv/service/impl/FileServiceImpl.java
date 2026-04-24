@@ -5,6 +5,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.nio.file.Files;
+import java.util.Objects;
 import java.util.UUID;
 
 import org.springframework.core.io.Resource;
@@ -157,7 +158,7 @@ public class FileServiceImpl implements FileService {
             String outputPath = "./temp/" + fileVo.getFileId();
             ResponseEntity<Resource> resource = fileFeign.download(fileVo.getFileId());
             try (FileOutputStream outputStream = new FileOutputStream(outputPath)) {
-                resource.getBody().getInputStream().transferTo(outputStream);
+                Objects.requireNonNull(resource.getBody()).getInputStream().transferTo(outputStream);
             }
 
             // 解密文件

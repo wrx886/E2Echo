@@ -20,6 +20,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
+@SuppressWarnings("FieldCanBeLocal")
 public class SessionPanel extends VBox {
 
     private final MessageController messageController = BeanProvider.getBean(MessageController.class);
@@ -91,12 +92,12 @@ public class SessionPanel extends VBox {
     }
 
     // 刷新按钮事件
-    private void reflushButtonOnAction(Event event) {
+    private void reflushButtonOnAction(Event ignoredEvent) {
         messageController.receiveMessage();
     }
 
     // 当选择会话事件
-    private void sessionListViewOnMouseClicked(Event event) {
+    private void sessionListViewOnMouseClicked(Event ignoredEvent) {
         // 获取当前选择的会话
         Session selectedItem = sessionListView.getSelectionModel().getSelectedItem();
         // 如果不为空，就需要更新聊天窗口的内容
@@ -109,7 +110,7 @@ public class SessionPanel extends VBox {
     }
 
     // 添加会话事件
-    private void addSessionButtonOnAction(Event event) {
+    private void addSessionButtonOnAction(Event ignoredEvent) {
         guiStore.getEditVo().set(null);
         layout.getContentRouter().push(EditContent.class);
     }

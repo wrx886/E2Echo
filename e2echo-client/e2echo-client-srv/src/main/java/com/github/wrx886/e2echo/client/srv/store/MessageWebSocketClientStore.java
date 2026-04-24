@@ -2,6 +2,10 @@ package com.github.wrx886.e2echo.client.srv.store;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
 import org.java_websocket.enums.ReadyState;
 import org.springframework.stereotype.Component;
 
@@ -22,7 +26,7 @@ public class MessageWebSocketClientStore {
     private final WebUrlStore webUrlStore;
     private MessageWebSocketClient client;
     private volatile boolean closed = false;
-    private Thread monitorThread;
+    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
     // 构造函数
     public MessageWebSocketClientStore(WebUrlStore webUrlStore) {
@@ -31,8 +35,8 @@ public class MessageWebSocketClientStore {
 
     /**
      * 现取现用
-     * 
-     * @return
+     *
+     * @return WebSocket客户端实例
      */
     public synchronized MessageWebSocketClient getClient() {
         // 已经关闭
@@ -57,19 +61,13 @@ public class MessageWebSocketClientStore {
             // 初始化
             init();
             // 创建监控线程
-            monitorThread = new Thread(() -> {
-                while (!closed) {
-                    try {
-                        getClient();
-                    } catch (Exception e) {
-                    }
-                    try {
-                        Thread.sleep(1000L * 5 * 60);
-                    } catch (Exception e) {
-                    }
+            scheduler.scheduleAtFixedRate(() -> {
+                try {
+                    getClient();
+                } catch (Exception e) {
+                    // 不处理
                 }
-            });
-            monitorThread.start();
+            }, 1, 1, TimeUnit.MINUTES);
         }
 
         // 连接
@@ -92,6 +90,7 @@ public class MessageWebSocketClientStore {
     public synchronized void close() {
         if (client != null) {
             client.close();
+            scheduler.shutdown();
             closed = true;
             client = null;
         }

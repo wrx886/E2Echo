@@ -10,14 +10,14 @@ public interface MessageService extends IService<Message> {
 
     /**
      * 发送消息
-     * 
-     * @param eccMessage
+     *
+     * @param eccMessage ECC消息
      */
     void sendOne(EccMessage eccMessage);
 
     /**
      * 接收消息
-     * 
+     *
      * @param toPublicKeyHex 接收者公钥
      * @param startTimestamp 起始时间
      * @return 接收到的消息
@@ -26,14 +26,14 @@ public interface MessageService extends IService<Message> {
 
     /**
      * 发送群聊消息（格式：{群主公钥}:{群聊UUID}）
-     * 
+     *
      * @param eccMessage 群聊消息，toPublicKeyHex 存储群聊 UUID
      */
     void sendGroup(EccMessage eccMessage);
 
     /**
      * 获取群聊消息
-     * 
+     *
      * @param groupUuid      群聊 UUID（格式：{群主公钥}:{群聊UUID}）
      * @param startTimestamp 起始时间
      * @return 群聊消息
@@ -42,7 +42,7 @@ public interface MessageService extends IService<Message> {
 
     /**
      * 订阅私聊消息
-     * 
+     *
      * @param sessionId      会话 ID
      * @param toPublicKeyHex 接收者公钥
      */
@@ -50,14 +50,14 @@ public interface MessageService extends IService<Message> {
 
     /**
      * 取消订阅私聊消息
-     * 
+     *
      * @param sessionId 会话 ID
      */
     void unsubscribeOne(String sessionId);
 
     /**
      * 订阅群聊消息
-     * 
+     *
      * @param sessionId 会话 ID
      * @param groupUuid 群聊 UUID（格式：{群主公钥}:{群聊UUID}）
      */
@@ -65,7 +65,7 @@ public interface MessageService extends IService<Message> {
 
     /**
      * 取消订阅群聊消息
-     * 
+     *
      * @param sessionId 会话 ID
      * @param groupUuid 群聊 UUID（格式：{群主公钥}:{群聊UUID}）
      */
@@ -73,7 +73,7 @@ public interface MessageService extends IService<Message> {
 
     /**
      * 取消订阅会话订阅的私聊和群聊消息
-     * 
+     *
      * @param sessionId 会话 ID
      */
     void unsubscribeAll(String sessionId);
