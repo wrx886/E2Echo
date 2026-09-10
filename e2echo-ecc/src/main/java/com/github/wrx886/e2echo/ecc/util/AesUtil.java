@@ -26,7 +26,9 @@ import javax.crypto.spec.SecretKeySpec;
  */
 public class AesUtil {
 
-    /** 私有构造方法，禁止外部实例化工具类。 */
+    /**
+     * 私有构造方法，禁止外部实例化工具类。
+     */
     private AesUtil() {
     }
 
@@ -153,7 +155,7 @@ public class AesUtil {
         cipher.init(Cipher.ENCRYPT_MODE, secretKey, spec);
 
         try (FileInputStream inputStream = new FileInputStream(inputFile);
-                FileOutputStream outputStream = new FileOutputStream(outputFile)) {
+             FileOutputStream outputStream = new FileOutputStream(outputFile)) {
             // 写入 iv
             outputStream.write(iv);
 

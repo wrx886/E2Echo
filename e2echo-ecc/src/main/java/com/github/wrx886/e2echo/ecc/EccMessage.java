@@ -12,31 +12,49 @@ package com.github.wrx886.e2echo.ecc;
  */
 public class EccMessage {
 
-    /** 消息 ID，由“16 位十六进制时间戳 + 32 位无连字符 UUID”组成，共 48 位。 */
+    /**
+     * 消息 ID，由“16 位十六进制时间戳 + 32 位无连字符 UUID”组成，共 48 位。
+     */
     private String id;
 
-    /** 发送者身份，即发送者的 secp256k1 公钥（RAW HEX 格式）。 */
+    /**
+     * 发送者身份，即发送者的 secp256k1 公钥（RAW HEX 格式）。
+     */
     private String from;
 
-    /** 接收者信息：接收者公钥（ECC 加密）、群聊标识（AES 加密）或留空（不加密）。 */
+    /**
+     * 接收者信息：接收者公钥（ECC 加密）、群聊标识（AES 加密）或留空（不加密）。
+     */
     private String to;
 
-    /** 消息正文：根据 {@code to} 的取值可为 ECC 密文、AES 密文或明文。 */
+    /**
+     * 消息正文：根据 {@code to} 的取值可为 ECC 密文、AES 密文或明文。
+     */
     private String message;
 
-    /** 消息类型，由业务方自行定义。 */
+    /**
+     * 消息类型，由业务方自行定义。
+     */
     private String type;
 
-    /** 消息通道（如私聊、群聊），由业务方自行定义。 */
+    /**
+     * 消息通道（如私聊、群聊），由业务方自行定义。
+     */
     private String channel;
 
-    /** 消息时间戳，保存为系统当前毫秒数的十进制字符串。 */
+    /**
+     * 消息时间戳，保存为系统当前毫秒数的十进制字符串。
+     */
     private String timestamp;
 
-    /** 消息签名，基于 {@link #toStringWithoutSign()} 原文使用 SHA256withECDSA 计算。 */
+    /**
+     * 消息签名，基于 {@link #toStringWithoutSign()} 原文使用 SHA256withECDSA 计算。
+     */
     private String sign;
 
-    /** 创建一个空消息。 */
+    /**
+     * 创建一个空消息。
+     */
     public EccMessage() {
     }
 
@@ -255,11 +273,8 @@ public class EccMessage {
         } else if (!timestamp.equals(other.timestamp))
             return false;
         if (sign == null) {
-            if (other.sign != null)
-                return false;
-        } else if (!sign.equals(other.sign))
-            return false;
-        return true;
+            return other.sign == null;
+        } else return sign.equals(other.sign);
     }
 
     /**

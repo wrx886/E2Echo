@@ -21,10 +21,14 @@ import com.github.wrx886.e2echo.ecc.util.EccUtil.KeyPairHex;
  */
 public final class Ecc {
 
-    /** 当前保存的 ECC 密钥对，使用 volatile 保证跨线程可见性。 */
+    /**
+     * 当前保存的 ECC 密钥对，使用 volatile 保证跨线程可见性。
+     */
     private static volatile KeyPairHex keyPairHex;
 
-    /** 私有构造方法，防止外部实例化工具类。 */
+    /**
+     * 私有构造方法，防止外部实例化工具类。
+     */
     private Ecc() {
     }
 

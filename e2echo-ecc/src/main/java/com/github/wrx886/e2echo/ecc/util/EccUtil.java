@@ -26,7 +26,9 @@ import java.security.spec.ECGenParameterSpec;
  */
 public final class EccUtil {
 
-    /** 私有构造方法，禁止外部实例化工具类。 */
+    /**
+     * 私有构造方法，禁止外部实例化工具类。
+     */
     private EccUtil() {
     }
 
