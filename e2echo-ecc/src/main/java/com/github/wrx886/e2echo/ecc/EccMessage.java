@@ -3,8 +3,8 @@ package com.github.wrx886.e2echo.ecc;
 /**
  * 端到端消息的数据载体。
  *
- * <p>{@code from} 始终是发送者公钥；{@code to} 决定正文的加密方式：为接收者公钥时使用
- * ECC 加密，为群聊标识时使用 AES 加密，留空时正文不加密。</p>
+ * <p>{@code from} 始终是发送者公钥；正文的加密方式由 {@code channel} 决定，不同通道
+ * 使用不同的加密方案，{@code to} 仅表示接收者信息。</p>
  *
  * <p>{@link #toStringWithoutSign()} 是签名与验签的原文：其中除 {@code sign} 外的所有字段
  * 共同参与签名。除 {@code sign} 外的任一字段被修改后，原有签名都会验签失败。加密时
@@ -23,12 +23,12 @@ public class EccMessage {
     private String from;
 
     /**
-     * 接收者信息：接收者公钥（ECC 加密）、群聊标识（AES 加密）或留空（不加密）。
+     * 接收者信息，具体含义由通道决定，如私聊时为接收者公钥、群聊时为群聊标识。
      */
     private String to;
 
     /**
-     * 消息正文：根据 {@code to} 的取值可为 ECC 密文、AES 密文或明文。
+     * 消息正文：加密方式由 {@code channel} 决定，可为密文或明文。
      */
     private String message;
 
@@ -97,7 +97,7 @@ public class EccMessage {
     /**
      * 获取接收者信息。
      *
-     * @return 接收者公钥（RAW HEX）、群聊标识，或 {@code null}/空白表示不加密
+     * @return 接收者信息，具体含义由通道决定
      */
     public String getTo() {
         return to;
@@ -106,7 +106,7 @@ public class EccMessage {
     /**
      * 设置接收者信息。
      *
-     * @param to 接收者公钥（RAW HEX）、群聊标识，或 {@code null}/空白表示不加密
+     * @param to 接收者信息，具体含义由通道决定
      */
     public void setTo(String to) {
         this.to = to;
@@ -115,7 +115,7 @@ public class EccMessage {
     /**
      * 获取消息正文。
      *
-     * @return 消息正文（可为 ECC 密文、AES 密文或明文）
+     * @return 消息正文（加密方式由通道决定，可为密文或明文）
      */
     public String getMessage() {
         return message;
