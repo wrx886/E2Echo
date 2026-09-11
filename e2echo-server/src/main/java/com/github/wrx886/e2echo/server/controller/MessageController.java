@@ -58,7 +58,9 @@ public class MessageController {
     /**
      * 按条件分页查询消息列表。
      *
-     * <p>过滤条件均为可选，未传时表示不参与过滤；结果按时间从老到新返回。</p>
+     * <p>过滤条件均为可选，未传时表示不参与过滤；结果默认按时间从老到新返回，可通过
+     * {@code order} 改为从新到老——例如查询某个用户最新的用户信息时，可传
+     * {@code channel=USERINFO&fromList={用户公钥}&order=desc&pageSize=1}。</p>
      *
      * @param fromList       发送者公钥列表
      * @param toList         接收者信息列表
@@ -66,6 +68,7 @@ public class MessageController {
      * @param startTimestamp 起始时间戳（毫秒，含）
      * @param endTimestamp   结束时间戳（毫秒，含）
      * @param startId        起始消息 ID，仅返回 ID 大于该值的消息
+     * @param order          排序方向，{@code asc} 从老到新（默认）、{@code desc} 从新到老
      * @param pageNum        页码，从 1 开始（必填）
      * @param pageSize       每页条数（必填）
      * @return 分页消息列表
@@ -78,10 +81,11 @@ public class MessageController {
             @RequestParam(required = false) String startTimestamp,
             @RequestParam(required = false) String endTimestamp,
             @RequestParam(required = false) String startId,
+            @RequestParam(required = false) String order,
             @RequestParam int pageNum,
             @RequestParam int pageSize) {
         return Result.ok(messageService.list(fromList, toList, channel, startTimestamp, endTimestamp, startId,
-                pageNum, pageSize));
+                order, pageNum, pageSize));
     }
 
 }

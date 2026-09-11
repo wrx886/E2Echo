@@ -2,6 +2,7 @@ package com.github.wrx886.e2echo.server.service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 import org.springframework.beans.BeanUtils;
 import org.springframework.data.domain.Page;
@@ -68,9 +69,9 @@ public class MessageService {
     /**
      * 按条件分页查询消息列表。
      *
-     * <p>过滤条件均为可选，条件为空时不参与过滤。结果按消息 ID 升序排列（从老到新）：
-     * ID 前 16 位为定长的十六进制时间戳，其字典序与时间顺序一致，因此无需额外按时间戳
-     * 排序即可保证时间先后。</p>
+     * <p>过滤条件均为可选，条件为空时不参与过滤。结果按消息 ID 排序：ID 前 16 位为定长的
+     * 十六进制时间戳，其字典序与时间顺序一致，因此无需额外按时间戳排序即可保证时间先后。
+     * 升序即从老到新，降序即从新到老。</p>
      *
      * @param fromList       发送者公钥列表，为空表示不过滤
      * @param toList         接收者信息列表，为空表示不过滤
@@ -78,10 +79,11 @@ public class MessageService {
      * @param startTimestamp 起始时间戳（毫秒，含），为空表示不限制
      * @param endTimestamp   结束时间戳（毫秒，含），为空表示不限制
      * @param startId        起始消息 ID，仅返回 ID 大于该值的消息，为空表示不限制
+     * @param order          排序方向，{@code asc} 从老到新（默认）、{@code desc} 从新到老
      * @param pageNum        页码，从 1 开始
      * @param pageSize       每页条数
      * @return 分页后的消息视图
-     * @throws E2EchoException 时间戳格式错误、页码或每页条数非法
+     * @throws E2EchoException 时间戳格式错误、排序方向非法、页码或每页条数非法
      */
     public Page<EccMessage> list(
             List<String> fromList,
@@ -90,6 +92,7 @@ public class MessageService {
             String startTimestamp,
             String endTimestamp,
             String startId,
+            String order,
             int pageNum,
             int pageSize
     ) {
@@ -102,6 +105,7 @@ public class MessageService {
 
         Long start = parseTimestamp(startTimestamp);
         Long end = parseTimestamp(endTimestamp);
+        Sort.Direction direction = parseOrder(order);
 
         Specification<Message> specification = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -126,7 +130,7 @@ public class MessageService {
             return cb.and(predicates.toArray(new Predicate[0]));
         };
 
-        Pageable pageable = PageRequest.of(pageNum - 1, pageSize, Sort.by(Sort.Direction.ASC, "id"));
+        Pageable pageable = PageRequest.of(pageNum - 1, pageSize, Sort.by(direction, "id"));
         return messageRepository.findAll(specification, pageable).map(this::toView);
     }
 
@@ -176,6 +180,25 @@ public class MessageService {
         } catch (NumberFormatException e) {
             throw new E2EchoException("时间戳格式错误：" + value);
         }
+    }
+
+    /**
+     * 解析排序方向。
+     *
+     * @param order 排序方向，{@code asc} 表示按消息 ID 升序（从老到新）、{@code desc} 表示按
+     *              消息 ID 降序（从新到老），为空时默认升序；取值不区分大小写
+     * @return 排序方向
+     * @throws E2EchoException 取值不是 asc 或 desc
+     */
+    private Sort.Direction parseOrder(String order) {
+        if (order == null || order.isBlank()) {
+            return Sort.Direction.ASC;
+        }
+        return switch (order.trim().toLowerCase(Locale.ROOT)) {
+            case "asc" -> Sort.Direction.ASC;
+            case "desc" -> Sort.Direction.DESC;
+            default -> throw new E2EchoException("排序方向只能是 asc 或 desc：" + order);
+        };
     }
 
     /**

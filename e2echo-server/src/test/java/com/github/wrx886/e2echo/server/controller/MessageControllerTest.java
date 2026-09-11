@@ -46,6 +46,11 @@ class MessageControllerTest {
     private static final String PRIVATE_CHANNEL = "private";
 
     /**
+     * 用户信息消息的通道，用于验证「取某个用户最新用户信息」的场景。
+     */
+    private static final String USERINFO_CHANNEL = "USERINFO";
+
+    /**
      * 待测控制器。
      */
     @Autowired
@@ -153,12 +158,13 @@ class MessageControllerTest {
      * @param startTimestamp 起始时间戳（毫秒），可为 {@code null}
      * @param endTimestamp   结束时间戳（毫秒），可为 {@code null}
      * @param startId        起始消息 ID，可为 {@code null}
+     * @param order          排序方向，可为 {@code null}（默认升序）
      * @param pageNum        页码，从 1 开始
      * @param pageSize       每页条数
      * @return 分页查询结果
      */
     private Page<EccMessage> list(String channel, String startTimestamp, String endTimestamp,
-            String startId, int pageNum, int pageSize) {
+            String startId, String order, int pageNum, int pageSize) {
         return messageController.list(
                 null,
                 List.of(receiverKeyPair.publicKeyHex()),
@@ -166,6 +172,7 @@ class MessageControllerTest {
                 startTimestamp,
                 endTimestamp,
                 startId,
+                order,
                 pageNum,
                 pageSize).data();
     }
@@ -315,13 +322,14 @@ class MessageControllerTest {
                     null,
                     null,
                     null,
+                    null,
                     1,
                     10).data();
             assertThat(privatePage.getTotalElements()).isEqualTo(2);
             assertThat(privatePage.getContent())
                     .allSatisfy(eccMessage -> assertThat(eccMessage.getChannel()).isEqualTo(PRIVATE_CHANNEL));
 
-            Page<EccMessage> groupPage = list("group", null, null, null, 1, 10);
+            Page<EccMessage> groupPage = list("group", null, null, null, null, 1, 10);
             assertThat(groupPage.getTotalElements()).isEqualTo(1);
         }
 
@@ -338,14 +346,54 @@ class MessageControllerTest {
 
             // 起始与结束时间戳均包含边界
             Page<EccMessage> ranged = list(null, Long.toString(second.getTimestamp()),
-                    Long.toString(second.getTimestamp()), null, 1, 10);
+                    Long.toString(second.getTimestamp()), null, null, 1, 10);
             assertThat(ranged.getContent()).extracting(EccMessage::getId).containsExactly(second.getId());
 
             // 只返回 ID 大于该值的消息
-            Page<EccMessage> afterFirst = list(null, null, null, first.getId(), 1, 10);
+            Page<EccMessage> afterFirst = list(null, null, null, first.getId(), null, 1, 10);
             assertThat(afterFirst.getTotalElements()).isEqualTo(2);
             assertThat(afterFirst.getContent()).extracting(EccMessage::getId)
                     .allSatisfy(id -> assertThat(id).isGreaterThan(first.getId()));
+        }
+
+        /**
+         * 校验倒序查询：通道为 USERINFO 时，按发送者过滤并取倒序第一条，即该用户最新的
+         * 用户信息。
+         */
+        @Test
+        @DisplayName("倒序查询：取某个用户最新的用户信息")
+        void returnsLatestMessageWhenOrderDesc() {
+            long base = System.currentTimeMillis();
+            Message first = persistMessage(base, 1, USERINFO_CHANNEL);
+            Message second = persistMessage(base + 1_000, 2, USERINFO_CHANNEL);
+            Message third = persistMessage(base + 2_000, 3, USERINFO_CHANNEL);
+
+            // 倒序取第一条即最新一条
+            Page<EccMessage> latest = messageController.list(
+                    List.of(senderKeyPair.publicKeyHex()),
+                    null,
+                    USERINFO_CHANNEL,
+                    null,
+                    null,
+                    null,
+                    "desc",
+                    1,
+                    1).data();
+            assertThat(latest.getContent()).extracting(EccMessage::getId).containsExactly(third.getId());
+
+            // 整页倒序：从新到老
+            Page<EccMessage> all = list(USERINFO_CHANNEL, null, null, null, "desc", 1, 10);
+            assertThat(all.getContent()).extracting(EccMessage::getId)
+                    .containsExactly(third.getId(), second.getId(), first.getId());
+
+            // 排序方向不区分大小写
+            Page<EccMessage> upperCase = list(USERINFO_CHANNEL, null, null, null, "DESC", 1, 10);
+            assertThat(upperCase.getContent()).extracting(EccMessage::getId)
+                    .containsExactly(third.getId(), second.getId(), first.getId());
+
+            // 不传排序方向时默认升序，取第一条即最早一条
+            Page<EccMessage> oldest = list(USERINFO_CHANNEL, null, null, null, null, 1, 1);
+            assertThat(oldest.getContent()).extracting(EccMessage::getId).containsExactly(first.getId());
         }
 
         /**
@@ -359,7 +407,7 @@ class MessageControllerTest {
             Message second = persistMessage(base + 1_000, 2, PRIVATE_CHANNEL);
             Message third = persistMessage(base + 2_000, 3, PRIVATE_CHANNEL);
 
-            Page<EccMessage> pageOne = list(null, null, null, null, 1, 2);
+            Page<EccMessage> pageOne = list(null, null, null, null, null, 1, 2);
             assertThat(pageOne.getContent()).extracting(EccMessage::getId)
                     .containsExactly(first.getId(), second.getId());
             assertThat(pageOne.getTotalElements()).isEqualTo(3);
@@ -367,7 +415,7 @@ class MessageControllerTest {
             assertThat(pageOne.getNumber()).isZero();
             assertThat(pageOne.getSize()).isEqualTo(2);
 
-            Page<EccMessage> pageTwo = list(null, null, null, null, 2, 2);
+            Page<EccMessage> pageTwo = list(null, null, null, null, null, 2, 2);
             assertThat(pageTwo.getContent()).extracting(EccMessage::getId)
                     .containsExactly(third.getId());
         }
@@ -378,17 +426,21 @@ class MessageControllerTest {
         @Test
         @DisplayName("参数非法：抛出业务异常")
         void throwsWhenArgumentsInvalid() {
-            assertThatThrownBy(() -> list(null, null, null, null, 0, 10))
+            assertThatThrownBy(() -> list(null, null, null, null, null, 0, 10))
                     .isInstanceOf(E2EchoException.class)
                     .hasMessage("页码必须大于等于 1！");
 
-            assertThatThrownBy(() -> list(null, null, null, null, 1, 0))
+            assertThatThrownBy(() -> list(null, null, null, null, null, 1, 0))
                     .isInstanceOf(E2EchoException.class)
                     .hasMessage("每页条数必须大于等于 1！");
 
-            assertThatThrownBy(() -> list(null, "abc", null, null, 1, 10))
+            assertThatThrownBy(() -> list(null, "abc", null, null, null, 1, 10))
                     .isInstanceOf(E2EchoException.class)
                     .hasMessage("时间戳格式错误：abc");
+
+            assertThatThrownBy(() -> list(null, null, null, null, "unknown", 1, 10))
+                    .isInstanceOf(E2EchoException.class)
+                    .hasMessage("排序方向只能是 asc 或 desc：unknown");
         }
 
     }
