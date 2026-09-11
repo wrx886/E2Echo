@@ -131,6 +131,7 @@ public final class Ecc {
         eccMessage.setType(message.getType());
         eccMessage.setChannel(message.getChannel());
         eccMessage.setTimestamp(Long.toString(System.currentTimeMillis()));
+        eccMessage.setInfo(message.getInfo());
         eccMessage.setSign(EccUtil.sign(eccMessage.toStringWithoutSign(), keyPair.privateKeyHex()));
 
         return eccMessage;
@@ -145,7 +146,7 @@ public final class Ecc {
      * </p>
      *
      * @param eccMessage 已加密并携带签名的消息
-     * @return 解密后的消息，元数据（id/from/to/type/channel/timestamp/sign）保持不变
+     * @return 解密后的消息，元数据（id/from/to/type/channel/timestamp/info/sign）保持不变
      * @throws Exception 消息为 null、验签失败、密钥对缺失、接收者与已存公钥不匹配或解密失败
      */
     public static EccMessage decrypt(EccMessage eccMessage) throws Exception {
@@ -178,6 +179,7 @@ public final class Ecc {
         message.setType(eccMessage.getType());
         message.setChannel(eccMessage.getChannel());
         message.setTimestamp(eccMessage.getTimestamp());
+        message.setInfo(eccMessage.getInfo());
         message.setSign(eccMessage.getSign());
 
         return message;
@@ -227,6 +229,7 @@ public final class Ecc {
         eccMessage.setType(message.getType());
         eccMessage.setChannel(message.getChannel());
         eccMessage.setTimestamp(Long.toString(System.currentTimeMillis()));
+        eccMessage.setInfo(message.getInfo());
         eccMessage.setSign(EccUtil.sign(eccMessage.toStringWithoutSign(), keyPair.privateKeyHex()));
 
         return eccMessage;

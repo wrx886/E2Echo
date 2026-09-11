@@ -1,5 +1,7 @@
 package com.github.wrx886.e2echo.ecc;
 
+import java.util.Objects;
+
 /**
  * 端到端消息的数据载体。
  *
@@ -46,6 +48,11 @@ public class EccMessage {
      * 消息时间戳，保存为系统当前毫秒数的十进制字符串。
      */
     private String timestamp;
+
+    /**
+     * 消息附加信息，由业务方自行定义。
+     */
+    private String info;
 
     /**
      * 消息签名，基于 {@link #toStringWithoutSign()} 原文使用 SHA256withECDSA 计算。
@@ -203,78 +210,34 @@ public class EccMessage {
     }
 
     /**
-     * 计算消息的哈希值，参与计算的字段与 {@link #equals(Object)} 保持一致。
+     * 获取消息附加信息。
      *
-     * @return 消息哈希值
+     * @return 消息附加信息
      */
-    @Override
-    public int hashCode() {
-        final int prime = 31;
-        int result = 1;
-        result = prime * result + ((id == null) ? 0 : id.hashCode());
-        result = prime * result + ((from == null) ? 0 : from.hashCode());
-        result = prime * result + ((to == null) ? 0 : to.hashCode());
-        result = prime * result + ((message == null) ? 0 : message.hashCode());
-        result = prime * result + ((type == null) ? 0 : type.hashCode());
-        result = prime * result + ((channel == null) ? 0 : channel.hashCode());
-        result = prime * result + ((timestamp == null) ? 0 : timestamp.hashCode());
-        result = prime * result + ((sign == null) ? 0 : sign.hashCode());
-        return result;
+    public String getInfo() {
+        return info;
     }
 
     /**
-     * 比较两个消息对象的所有字段是否相等。
+     * 设置消息附加信息。
      *
-     * @param obj 待比较对象
-     * @return 所有字段均相等返回 {@code true}，否则返回 {@code false}
+     * @param info 消息附加信息
      */
+    public void setInfo(String info) {
+        this.info = info;
+    }
+
     @Override
-    public boolean equals(Object obj) {
-        if (this == obj)
-            return true;
-        if (obj == null)
-            return false;
-        if (getClass() != obj.getClass())
-            return false;
-        EccMessage other = (EccMessage) obj;
-        if (id == null) {
-            if (other.id != null)
-                return false;
-        } else if (!id.equals(other.id))
-            return false;
-        if (from == null) {
-            if (other.from != null)
-                return false;
-        } else if (!from.equals(other.from))
-            return false;
-        if (to == null) {
-            if (other.to != null)
-                return false;
-        } else if (!to.equals(other.to))
-            return false;
-        if (message == null) {
-            if (other.message != null)
-                return false;
-        } else if (!message.equals(other.message))
-            return false;
-        if (type == null) {
-            if (other.type != null)
-                return false;
-        } else if (!type.equals(other.type))
-            return false;
-        if (channel == null) {
-            if (other.channel != null)
-                return false;
-        } else if (!channel.equals(other.channel))
-            return false;
-        if (timestamp == null) {
-            if (other.timestamp != null)
-                return false;
-        } else if (!timestamp.equals(other.timestamp))
-            return false;
-        if (sign == null) {
-            return other.sign == null;
-        } else return sign.equals(other.sign);
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        EccMessage that = (EccMessage) o;
+        return Objects.equals(id, that.id) && Objects.equals(from, that.from) && Objects.equals(to, that.to) && Objects.equals(message, that.message) && Objects.equals(type, that.type) && Objects.equals(channel, that.channel) && Objects.equals(timestamp, that.timestamp) && Objects.equals(info, that.info) && Objects.equals(sign, that.sign);
+    }
+
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, from, to, message, type, channel, timestamp, info, sign);
     }
 
     /**
@@ -284,8 +247,17 @@ public class EccMessage {
      */
     @Override
     public String toString() {
-        return "EccMessage [id=" + id + ", from=" + from + ", to=" + to + ", message=" + message + ", type=" + type
-                + ", channel=" + channel + ", timestamp=" + timestamp + ", sign=" + sign + "]";
+        return "EccMessage{" +
+                "id='" + id + '\'' +
+                ", from='" + from + '\'' +
+                ", to='" + to + '\'' +
+                ", message='" + message + '\'' +
+                ", type='" + type + '\'' +
+                ", channel='" + channel + '\'' +
+                ", timestamp='" + timestamp + '\'' +
+                ", info='" + info + '\'' +
+                ", sign='" + sign + '\'' +
+                '}';
     }
 
     /**
@@ -297,8 +269,16 @@ public class EccMessage {
      * @return 不含 sign 字段的消息字符串
      */
     public String toStringWithoutSign() {
-        return "EccMessage [id=" + id + ", from=" + from + ", to=" + to + ", message=" + message + ", type=" + type
-                + ", channel=" + channel + ", timestamp=" + timestamp + "]";
+        return "EccMessage{" +
+                "id='" + id + '\'' +
+                ", from='" + from + '\'' +
+                ", to='" + to + '\'' +
+                ", message='" + message + '\'' +
+                ", type='" + type + '\'' +
+                ", channel='" + channel + '\'' +
+                ", timestamp='" + timestamp + '\'' +
+                ", info='" + info + '\'' +
+                '}';
     }
 
 }
