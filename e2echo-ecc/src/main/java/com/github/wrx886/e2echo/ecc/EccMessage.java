@@ -45,11 +45,6 @@ public class EccMessage {
     private String channel;
 
     /**
-     * 消息时间戳，保存为系统当前毫秒数的十进制字符串。
-     */
-    private String timestamp;
-
-    /**
      * 消息附加信息，由业务方自行定义。
      */
     private String info;
@@ -174,24 +169,6 @@ public class EccMessage {
     }
 
     /**
-     * 获取消息时间戳。
-     *
-     * @return 消息时间戳（毫秒数的十进制字符串）
-     */
-    public String getTimestamp() {
-        return timestamp;
-    }
-
-    /**
-     * 设置消息时间戳。
-     *
-     * @param timestamp 消息时间戳
-     */
-    public void setTimestamp(String timestamp) {
-        this.timestamp = timestamp;
-    }
-
-    /**
      * 获取消息签名。
      *
      * @return 消息签名（HEX 字符串）
@@ -231,13 +208,13 @@ public class EccMessage {
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) return false;
         EccMessage that = (EccMessage) o;
-        return Objects.equals(id, that.id) && Objects.equals(from, that.from) && Objects.equals(to, that.to) && Objects.equals(message, that.message) && Objects.equals(type, that.type) && Objects.equals(channel, that.channel) && Objects.equals(timestamp, that.timestamp) && Objects.equals(info, that.info) && Objects.equals(sign, that.sign);
+        return Objects.equals(id, that.id) && Objects.equals(from, that.from) && Objects.equals(to, that.to) && Objects.equals(message, that.message) && Objects.equals(type, that.type) && Objects.equals(channel, that.channel) && Objects.equals(info, that.info) && Objects.equals(sign, that.sign);
     }
 
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, from, to, message, type, channel, timestamp, info, sign);
+        return Objects.hash(id, from, to, message, type, channel, info, sign);
     }
 
     /**
@@ -254,7 +231,6 @@ public class EccMessage {
                 ", message='" + message + '\'' +
                 ", type='" + type + '\'' +
                 ", channel='" + channel + '\'' +
-                ", timestamp='" + timestamp + '\'' +
                 ", info='" + info + '\'' +
                 ", sign='" + sign + '\'' +
                 '}';
@@ -276,7 +252,6 @@ public class EccMessage {
                 ", message='" + message + '\'' +
                 ", type='" + type + '\'' +
                 ", channel='" + channel + '\'' +
-                ", timestamp='" + timestamp + '\'' +
                 ", info='" + info + '\'' +
                 '}';
     }

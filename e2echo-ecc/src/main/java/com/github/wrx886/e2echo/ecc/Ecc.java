@@ -81,7 +81,7 @@ public final class Ecc {
      *
      * <p>
      * 要求当前已保存密钥对，且 {@code message.getFrom()} 与已保存公钥一致。
-     * 返回消息的 id 和 timestamp 会由本方法重新生成，正文为加密后的十六进制字符串。
+     * 返回消息的 id 会由本方法重新生成，正文为加密后的十六进制字符串。
      * </p>
      *
      * @param message 待加密消息，from 为发送者（当前用户）公钥，to 为接收者公钥
@@ -130,7 +130,6 @@ public final class Ecc {
         eccMessage.setMessage(EccUtil.encrypt(message.getMessage(), message.getTo()));
         eccMessage.setType(message.getType());
         eccMessage.setChannel(message.getChannel());
-        eccMessage.setTimestamp(Long.toString(System.currentTimeMillis()));
         eccMessage.setInfo(message.getInfo());
         eccMessage.setSign(EccUtil.sign(eccMessage.toStringWithoutSign(), keyPair.privateKeyHex()));
 
@@ -146,7 +145,7 @@ public final class Ecc {
      * </p>
      *
      * @param eccMessage 已加密并携带签名的消息
-     * @return 解密后的消息，元数据（id/from/to/type/channel/timestamp/info/sign）保持不变
+     * @return 解密后的消息，元数据（id/from/to/type/channel/info/sign）保持不变
      * @throws Exception 消息为 null、验签失败、密钥对缺失、接收者与已存公钥不匹配或解密失败
      */
     public static EccMessage decrypt(EccMessage eccMessage) throws Exception {
@@ -178,7 +177,6 @@ public final class Ecc {
         message.setMessage(EccUtil.decrypt(eccMessage.getMessage(), keyPair.privateKeyHex()));
         message.setType(eccMessage.getType());
         message.setChannel(eccMessage.getChannel());
-        message.setTimestamp(eccMessage.getTimestamp());
         message.setInfo(eccMessage.getInfo());
         message.setSign(eccMessage.getSign());
 
@@ -190,7 +188,7 @@ public final class Ecc {
      *
      * <p>
      * 要求当前已保存密钥对，且 {@code message.getFrom()} 与已保存公钥一致。
-     * 返回消息的 id 和 timestamp 会由本方法重新生成，消息正文保持明文。
+     * 返回消息的 id 会由本方法重新生成，消息正文保持明文。
      * </p>
      *
      * @param message 待签名消息，from 为签名者（当前用户）公钥
@@ -228,7 +226,6 @@ public final class Ecc {
         eccMessage.setMessage(message.getMessage());
         eccMessage.setType(message.getType());
         eccMessage.setChannel(message.getChannel());
-        eccMessage.setTimestamp(Long.toString(System.currentTimeMillis()));
         eccMessage.setInfo(message.getInfo());
         eccMessage.setSign(EccUtil.sign(eccMessage.toStringWithoutSign(), keyPair.privateKeyHex()));
 
