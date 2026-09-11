@@ -204,6 +204,12 @@ public class EccMessage {
         this.info = info;
     }
 
+    /**
+     * 比较两个消息对象的所有字段是否相等。
+     *
+     * @param o 待比较对象
+     * @return 所有字段均相等返回 {@code true}，否则返回 {@code false}
+     */
     @Override
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) return false;
@@ -211,7 +217,11 @@ public class EccMessage {
         return Objects.equals(id, that.id) && Objects.equals(from, that.from) && Objects.equals(to, that.to) && Objects.equals(message, that.message) && Objects.equals(type, that.type) && Objects.equals(channel, that.channel) && Objects.equals(info, that.info) && Objects.equals(sign, that.sign);
     }
 
-
+    /**
+     * 计算消息的哈希值，参与计算的字段与 {@link #equals(Object)} 保持一致。
+     *
+     * @return 消息哈希值
+     */
     @Override
     public int hashCode() {
         return Objects.hash(id, from, to, message, type, channel, info, sign);

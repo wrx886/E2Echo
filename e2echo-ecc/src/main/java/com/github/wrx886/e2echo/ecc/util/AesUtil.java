@@ -32,16 +32,34 @@ public class AesUtil {
     private AesUtil() {
     }
 
-    // 算法字符串 GCM 模式
+    /**
+     * 加密算法转换字符串，使用 GCM 模式且不填充。
+     */
     private static final String CIPHER_TRANSFORMATION = "AES/GCM/NoPadding";
+
+    /**
+     * 密钥算法名称。
+     */
     private static final String KEY_ALGORITHM = "AES";
+
+    /**
+     * 密钥长度（位），固定为 256 位。
+     */
     private static final int KEY_SIZE = 256;
 
-    // 新增：GCM 模式参数
-    private static final int GCM_IV_LENGTH = 12; // 推荐使用 12 字节 IV
-    private static final int GCM_TAG_LENGTH = 128; // 认证标签长度 (位)
+    /**
+     * GCM 模式使用的 IV 长度（字节），推荐为 12 字节。
+     */
+    private static final int GCM_IV_LENGTH = 12;
 
-    // 缓冲区大小
+    /**
+     * GCM 模式认证标签长度（位）。
+     */
+    private static final int GCM_TAG_LENGTH = 128;
+
+    /**
+     * 文件加解密的缓冲区大小（字节）。
+     */
     private static final int BUFFER_SIZE = 8192;
 
     /**
