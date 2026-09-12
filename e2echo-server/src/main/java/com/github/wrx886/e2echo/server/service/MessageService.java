@@ -26,6 +26,9 @@ import lombok.RequiredArgsConstructor;
  *
  * <p>对外统一以 {@link EccMessage} 作为视图，内部持久化为 {@link Message} 实体，
  * 封装消息的校验、保存与查询操作。</p>
+ *
+ * <p>消息保存成功后会通过 {@link NoticeService} 通知订阅了该消息接收者的客户端，使它们能够
+ * 及时拉取新消息。</p>
  */
 @Service
 @RequiredArgsConstructor
@@ -37,10 +40,15 @@ public class MessageService {
     private final MessageRepository messageRepository;
 
     /**
+     * 通知业务逻辑对象，用于在消息保存成功后通知订阅者。
+     */
+    private final NoticeService noticeService;
+
+    /**
      * 保存消息。
      *
      * <p>先校验消息签名与发送时间，再转换为实体保存；实体时间戳取自消息 ID 前 16 位
-     * 十六进制时间戳，便于后续按时间查询。</p>
+     * 十六进制时间戳，便于后续按时间查询。保存成功后，通知订阅了该消息接收者的客户端。</p>
      *
      * @param eccMessage 待保存的消息视图
      * @return 保存后的消息视图
@@ -50,7 +58,9 @@ public class MessageService {
         long timestamp = verify(eccMessage);
         Message message = toEntity(eccMessage);
         message.setTimestamp(timestamp);
-        return toView(messageRepository.save(message));
+        EccMessage ret = toView(messageRepository.save(message));
+        noticeService.notice(ret.getTo());
+        return ret;
     }
 
     /**
