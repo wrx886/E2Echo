@@ -2,11 +2,12 @@ package com.github.wrx886.e2echo.server.service;
 
 import com.github.wrx886.e2echo.server.common.RedisPrefix;
 import com.github.wrx886.e2echo.server.exception.E2EchoException;
-import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
+import org.springframework.context.event.ContextClosedEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.data.redis.connection.Message;
 import org.springframework.data.redis.connection.MessageListener;
 import org.springframework.data.redis.core.Cursor;
@@ -203,18 +204,30 @@ public class NoticeService implements MessageListener {
     /**
      * 应用关闭时结束本实例持有的全部 SSE 连接，并等待关闭回调完成清理。
      *
+     * <p>监听 {@link ContextClosedEvent} 而不是用 {@code @PreDestroy}：关闭事件在 Spring 停止
+     * 生命周期组件之前发布，此时 Web 容器与 Redis 连接都还可以使用，{@link SseEmitter#complete()}
+     * 发出的关闭信号能真正送达客户端并触发关闭回调，兜底清理中的 Redis 调用也能正常执行。若放在
+     * {@code @PreDestroy} 里，两者都已被停止，连接结束不了、Redis 调用还会抛
+     * {@code IllegalStateException}。</p>
+     *
      * <p>{@link SseEmitter#complete()} 只是发出关闭信号，真正的关闭过程由容器异步完成，连接
      * 关闭回调 {@link #onEmitterClose(String, Throwable)} 会把连接从映射中移除并清理 Redis 中的
      * 订阅关系。这里以指数退避的方式等待，直到映射清空或等待超时；等待结束后再对仍然留在映射
-     * 中的连接同步清理一次，因此即使关闭回调没有触发，Redis 中的订阅关系也不会残留。</p>
+     * 中的连接同步清理一次，保证 Redis 中的订阅关系不残留。</p>
      */
     @SuppressWarnings("BusyWait")
-    @PreDestroy
+    @EventListener(ContextClosedEvent.class)
     public void cleanUp() {
         log.info("Shutting down, {} SSE connection(s) to close.", emitters.size());
 
-        emitters.forEach((k, emitter) -> {
-            emitter.complete();
+        emitters.forEach((client, emitter) -> {
+            try {
+                emitter.complete();
+            } catch (Exception e) {
+                // 单个连接结束失败不能影响其它连接与后续清理
+                log.warn("Failed to complete SSE connection for client: {}",
+                        client.substring(instanceId.length()), e);
+            }
         });
 
         // 指数退避等待：休眠 1、2、4 …… 8192 毫秒，累计最长约 16 秒
