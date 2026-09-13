@@ -129,13 +129,13 @@ public class MessageService {
                 predicates.add(cb.equal(root.get("channel"), channel));
             }
             if (start != null) {
-                predicates.add(cb.greaterThanOrEqualTo(root.<Long>get("timestamp"), start));
+                predicates.add(cb.greaterThanOrEqualTo(root.get("timestamp"), start));
             }
             if (end != null) {
-                predicates.add(cb.lessThanOrEqualTo(root.<Long>get("timestamp"), end));
+                predicates.add(cb.lessThanOrEqualTo(root.get("timestamp"), end));
             }
             if (startId != null && !startId.isBlank()) {
-                predicates.add(cb.greaterThan(root.<String>get("id"), startId));
+                predicates.add(cb.greaterThan(root.get("id"), startId));
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };

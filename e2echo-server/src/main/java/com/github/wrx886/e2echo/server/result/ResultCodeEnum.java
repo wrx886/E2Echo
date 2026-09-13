@@ -1,6 +1,5 @@
 package com.github.wrx886.e2echo.server.result;
 
-import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
 

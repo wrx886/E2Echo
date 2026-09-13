@@ -23,3 +23,18 @@ spring:
     redis:
       host: localhost
       port: 6379
+
+  # 文件上传限制：默认上限只有 1MB，这里放开到 100MB；
+  # 请求上限留出 multipart 边界等开销，反向代理的 client_max_body_size 也要同步放开
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 110MB
+
+# 自定义的 S3 配置
+s3:
+  endpoint: http://localhost:9000  # 你的 RustFS 服务地址
+  access-key: admin
+  secret-key: admin
+  region: us-east-1  # 对于 S3 兼容存储，通常使用 us-east-1
+  bucket-name: e2echo  # 可选，设置默认桶
