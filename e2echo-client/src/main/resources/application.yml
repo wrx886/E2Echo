@@ -1,0 +1,6 @@
+server:
+  port: 0 # 0 表示随机端口，避免与其它程序冲突
+  address: localhost # 仅监听回环地址，局域网内其它主机无法访问
+  servlet:
+    session:
+      tracking-modes: COOKIE # 仅用 Cookie 跟踪会话，避免会话 ID 出现在 URL 中
