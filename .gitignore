@@ -1,3 +1,4 @@
 target
 .vscode
 /.idea/
+/e2echo-client/src/main/resources/static/
