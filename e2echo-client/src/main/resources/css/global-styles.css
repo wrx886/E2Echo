@@ -1,0 +1,4 @@
+/* 为根节点设置全局字体 */
+.root {
+    -fx-font-family: "Noto Serif SC Light"; /* 字体系列 */
+}

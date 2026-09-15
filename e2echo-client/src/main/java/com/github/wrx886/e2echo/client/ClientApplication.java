@@ -1,10 +1,12 @@
 package com.github.wrx886.e2echo.client;
 
+import com.github.wrx886.e2echo.client.common.BaseUrlStore;
 import com.github.wrx886.e2echo.client.common.BeanProvider;
+import com.github.wrx886.e2echo.client.fx.LoginApplication;
 import com.github.wrx886.e2echo.client.service.AuthService;
+import javafx.application.Application;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.web.server.context.WebServerApplicationContext;
 import org.springframework.core.env.Environment;
 
 /**
@@ -30,6 +32,14 @@ public class ClientApplication {
      * @param args 命令行参数，原样交给 Spring Boot 处理
      */
     public static void main(String[] args) {
+
+        // 登入，要填充 baseUrl 和 Ecc 密钥对
+        Application.launch(LoginApplication.class, args);
+        if (BaseUrlStore.getBaseUrl() == null || BaseUrlStore.getBaseUrl().isBlank()) {
+            // 没有登入，直接结束程序
+            return;
+        }
+
         SpringApplication.run(ClientApplication.class, args);
         System.out.println( // 开发阶段使用，在没有GUI的情况下快速验证。
                 "http://localhost:" +
