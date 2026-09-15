@@ -4,8 +4,10 @@ import java.util.Objects;
 
 import com.github.wrx886.e2echo.client.exception.E2EchoException;
 
+import javafx.application.Platform;
 import javafx.scene.control.Alert;
 import javafx.scene.text.Font;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * JavaFX 界面公共支持。
@@ -15,6 +17,7 @@ import javafx.scene.text.Font;
  *
  * <p>本类只依赖 JavaFX 与 JDK，在 Spring 容器启动前后都可以使用。</p>
  */
+@Slf4j
 public final class FxSupport {
 
     /**
@@ -81,16 +84,21 @@ public final class FxSupport {
     }
 
     /**
-     * 安装 FX 全局异常处理器。
+     * 安装全局异常处理器。
      *
-     * <p>需要在 FX 应用线程上调用，安装后界面事件中抛出的未捕获异常都会进入本类的处理逻辑。</p>
+     * <p>注册为所有线程的默认未捕获异常处理器：控制器里抛出的异常由 Spring 的全局异常处理器返回
+     * 统一的失败结果，不会走到这里；其他线程（界面事件、通知长连接、后台任务等）未捕获的异常都会
+     * 进入本类的处理逻辑，弹窗提示用户。</p>
+     *
+     * <p>需要在 FX 应用线程上调用（例如各个 {@code Application#start} 的开头），这样设置默认处理器
+     * 之后，FX 应用线程自己抛出的异常也能被捕获。</p>
      */
     public static void installExceptionHandler() {
-        Thread.currentThread().setUncaughtExceptionHandler(FxSupport::handleUncaughtException);
+        Thread.setDefaultUncaughtExceptionHandler(FxSupport::handleUncaughtException);
     }
 
     /**
-     * 处理 FX 应用线程上未捕获的异常。
+     * 处理未捕获的异常。
      *
      * <p>业务异常 {@link E2EchoException} 的信息是给用户看的，直接展示；其他异常属于未预期的
      * 错误，界面上只提示 {@code FAIL}，堆栈打印到标准错误输出，便于在控制台排查。</p>
@@ -109,8 +117,34 @@ public final class FxSupport {
                 ? throwable.getMessage()
                 : "FAIL";
 
-        // 用 show() 而不是 showAndWait()：异常可能发生在嵌套事件循环或布局过程中，
-        // 这些场景下 showAndWait() 会抛 IllegalStateException
-        alert(Alert.AlertType.ERROR, message).show();
+        // 弹窗只能在 FX 应用线程上创建，而异常可能来自任意线程，所以这里切回 FX 应用线程
+        if (Platform.isFxApplicationThread()) {
+            showError(message);
+            return;
+        }
+        try {
+            Platform.runLater(() -> showError(message));
+        } catch (Exception e) {
+            // FX 工具箱尚未启动或已经退出（例如容器启动阶段的线程），此时无法弹窗
+            log.error("无法在 FX 应用线程上弹出异常提示", e);
+        }
+    }
+
+    /**
+     * 在 FX 应用线程上弹出异常提示。
+     *
+     * <p>弹窗自身出错时只记录日志，不再往外抛：异常处理器里再抛异常会再次进入处理器，可能造成
+     * 无限弹窗。</p>
+     *
+     * @param message 提示内容
+     */
+    private static void showError(String message) {
+        try {
+            // 用 show() 而不是 showAndWait()：异常可能发生在嵌套事件循环或布局过程中，
+            // 这些场景下 showAndWait() 会抛 IllegalStateException
+            alert(Alert.AlertType.ERROR, message).show();
+        } catch (Exception e) {
+            log.error("弹出异常提示失败", e);
+        }
     }
 }
