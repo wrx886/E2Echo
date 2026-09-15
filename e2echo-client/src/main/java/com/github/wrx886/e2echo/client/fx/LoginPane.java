@@ -8,14 +8,8 @@ import com.github.wrx886.e2echo.ecc.Ecc;
 import com.github.wrx886.e2echo.ecc.util.EccUtil;
 import java.io.File;
 import java.util.Locale;
-import java.util.Objects;
-import javafx.application.Application;
-import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.Parent;
-import javafx.scene.Scene;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextArea;
@@ -27,9 +21,9 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.RowConstraints;
 import javafx.scene.layout.VBox;
-import javafx.scene.text.Font;
 import javafx.stage.FileChooser;
-import javafx.stage.Stage;
+import javafx.stage.Window;
+import lombok.Getter;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientException;
@@ -37,27 +31,16 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * 客户端登入窗口。
+ * 登入界面。
  *
- * <p>该窗口在 Spring 容器启动之前运行，用于收集服务器地址与 ECC 密钥对（公钥、私钥）并完成
- * 登入，因此不能使用容器中的任何 Bean。界面本身只依赖 JavaFX 与 JDK，网络请求使用
- * {@link WebClient} 这类不需要容器即可使用的工具类。</p>
+ * <p>由 {@link MainApplication} 放入登入窗口中显示，在 Spring 容器启动之前运行，用于收集服务器
+ * 地址与 ECC 密钥对（公钥、私钥）并完成登入，因此不能使用容器中的任何 Bean。界面本身只依赖
+ * JavaFX 与 JDK，网络请求使用 {@link WebClient} 这类不需要容器即可使用的工具类。</p>
  *
- * <p>登入成功后，服务器地址写入 {@link BaseUrlStore}、密钥对写入 {@link Ecc}，随后结束 JavaFX
- * 应用；启动类会在 {@link Application#launch} 返回后启动容器，并从上述两处读取登入信息。窗口
- * 关闭时若没有完成登入，启动类会因读取不到服务器地址而直接退出程序。</p>
+ * <p>登入成功后，服务器地址写入 {@link BaseUrlStore}、密钥对写入 {@link Ecc}，随后执行登入成功
+ * 回调（由调用方决定如何关闭窗口）；登入结果通过 {@link #isLoggedIn()} 读取。</p>
  */
-public class LoginApplication extends Application {
-
-    /**
-     * 界面字体资源路径。
-     */
-    private static final String FONT_RESOURCE = "/font/NotoSerifSC/SubsetOTF/SC/NotoSerifSC-Light.otf";
-
-    /**
-     * 全局样式表路径，界面字体在其中定义。
-     */
-    private static final String STYLESHEET = "/css/global-styles.css";
+public class LoginPane extends VBox {
 
     /**
      * 允许的客户端与服务端时间偏差，单位毫秒。
@@ -75,9 +58,15 @@ public class LoginApplication extends Application {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
-     * 主窗口，文件选择器需要它作为父窗口；未通过 {@link #start(Stage)} 启动时为 {@code null}。
+     * 登入成功后的回调，由调用方提供。
      */
-    private Stage stage;
+    private final Runnable onLoginSuccess;
+
+    /**
+     * 是否已登入成功。
+     */
+    @Getter
+    private boolean loggedIn;
 
     /**
      * 服务器地址输入框。
@@ -94,75 +83,17 @@ public class LoginApplication extends Application {
      */
     private final TextArea privateKeyField = new TextArea();
 
-    @Override
-    public void start(Stage stage) {
-
-        this.stage = stage;
-
-        // 全局异常处理器：界面事件中抛出的未捕获异常统一交给它处理
-        Thread.currentThread().setUncaughtExceptionHandler(this::handleUncaughtException);
-
-        // 加载字体：只负责把字体文件注册到 JavaFX，字体族由全局样式表引用
-        Font.loadFonts(getClass().getResourceAsStream(FONT_RESOURCE), -1);
-
-        Scene scene = new Scene(createRoot(), 520, 460);
-        scene.getStylesheets().add(stylesheet());
-
-        stage.setTitle("E2Echo 客户端登入");
-        stage.setScene(scene);
-        stage.show();
-    }
-
     /**
-     * 处理 FX 应用线程上未捕获的异常。
+     * 构建登入界面。
      *
-     * <p>业务异常 {@link E2EchoException} 的信息是给用户看的，直接展示；其他异常属于未预期的
-     * 错误，界面上只提示 {@code FAIL}，堆栈打印到标准错误输出，便于在控制台排查。</p>
-     *
-     * @param thread    抛出异常的线程
-     * @param throwable 未捕获的异常
+     * @param onLoginSuccess 登入成功后的回调，例如关闭登入窗口
      */
-    private void handleUncaughtException(Thread thread, Throwable throwable) {
+    public LoginPane(Runnable onLoginSuccess) {
 
-        // 未预期的异常保留堆栈，控制台是排查它们的唯一线索
-        if (!(throwable instanceof E2EchoException)) {
-            throwable.printStackTrace(System.err);
-        }
-
-        String message = throwable instanceof E2EchoException && throwable.getMessage() != null
-                ? throwable.getMessage()
-                : "FAIL";
-
-        Alert alert = new Alert(Alert.AlertType.ERROR);
-        alert.setTitle("错误");
-        alert.setHeaderText(null);
-        alert.setContentText(message);
-
-        // 弹窗是独立的场景图，不会继承登入窗口的样式，需要单独挂上全局样式表
-        alert.getDialogPane().getStylesheets().add(stylesheet());
-
-        // 用 show() 而不是 showAndWait()：异常可能发生在嵌套事件循环或布局过程中，
-        // 这些场景下 showAndWait() 会抛 IllegalStateException
-        alert.show();
-    }
-
-    /**
-     * 获取全局样式表的地址。
-     *
-     * @return 样式表地址
-     */
-    private String stylesheet() {
-        return Objects.requireNonNull(getClass().getResource(STYLESHEET)).toExternalForm();
-    }
-
-    /**
-     * 构建登入窗口的界面根节点。
-     *
-     * <p>与 {@link #start(Stage)} 分离，方便单独构建界面做布局验证。</p>
-     *
-     * @return 界面根节点
-     */
-    private Parent createRoot() {
+        super(18);
+        this.onLoginSuccess = onLoginSuccess;
+        setAlignment(Pos.CENTER);
+        setPadding(new Insets(30));
 
         Label title = new Label("客户端登入");
         title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
@@ -211,12 +142,8 @@ public class LoginApplication extends Application {
         HBox buttons = new HBox(12, loginBtn, generateBtn, saveBtn, loadBtn);
         buttons.setAlignment(Pos.CENTER);
 
-        VBox root = new VBox(18, title, grid, buttons);
-        root.setAlignment(Pos.CENTER);
-        root.setPadding(new Insets(30));
+        getChildren().addAll(title, grid, buttons);
         VBox.setVgrow(grid, Priority.ALWAYS);
-
-        return root;
     }
 
     /**
@@ -268,7 +195,7 @@ public class LoginApplication extends Application {
      *
      * <p>流程为：读取并校验三个输入框 → 用 {@link Ecc#store(String, String)} 校验密钥对是否匹配
      * 并保存 → 请求服务器 {@code /timestamp} 接口，检查响应状态与两端的时间偏差 → 把服务器地址
-     * 写入 {@link BaseUrlStore} 并结束 JavaFX 应用，把启动容器的工作交还给启动类。</p>
+     * 写入 {@link BaseUrlStore}，最后执行登入成功回调。</p>
      *
      * <p>可预期的错误统一以 {@link E2EchoException} 抛出，由全局异常处理器弹出提示。请求在 FX
      * 线程上同步执行，此时登入窗口还未进入主界面，短暂阻塞可以接受。</p>
@@ -317,9 +244,10 @@ public class LoginApplication extends Application {
             throw new E2EchoException("客户端与服务端时间差距过大！");
         }
 
-        // 登入成功：记录服务器地址供容器启动后构造 WebClient 使用，随后结束 JavaFX 应用
+        // 登入成功：记录服务器地址供容器启动后构造 WebClient 使用，并把结果交给调用方
         BaseUrlStore.setBaseUrl(loginInfo.baseUrl());
-        Platform.exit();
+        loggedIn = true;
+        onLoginSuccess.run();
     }
 
     /**
@@ -399,7 +327,7 @@ public class LoginApplication extends Application {
         FileChooser fileChooser = newFileChooser("保存登入信息");
         fileChooser.setInitialFileName(LOGIN_FILE_NAME);
 
-        File file = fileChooser.showSaveDialog(stage);
+        File file = fileChooser.showSaveDialog(owner());
         if (file == null) {
             return null;
         }
@@ -417,7 +345,7 @@ public class LoginApplication extends Application {
      * @return 用户选择的文件，取消选择时返回 {@code null}
      */
     private File chooseOpenFile() {
-        return newFileChooser("加载登入信息").showOpenDialog(stage);
+        return newFileChooser("加载登入信息").showOpenDialog(owner());
     }
 
     /**
@@ -432,6 +360,15 @@ public class LoginApplication extends Application {
         fileChooser.setTitle(title);
         fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("JSON 文件", "*.json"));
         return fileChooser;
+    }
+
+    /**
+     * 获取登入窗口，作为文件选择器的父窗口。
+     *
+     * @return 登入窗口，界面不在窗口中时返回 {@code null}
+     */
+    private Window owner() {
+        return getScene() == null ? null : getScene().getWindow();
     }
 
     /**

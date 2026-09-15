@@ -1,7 +1,5 @@
 package com.github.wrx886.e2echo.client.result;
 
-import com.github.wrx886.e2echo.client.result.ResultCodeEnum;
-
 /**
  * 统一响应结果。
  *

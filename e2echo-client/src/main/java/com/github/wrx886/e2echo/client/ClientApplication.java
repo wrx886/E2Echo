@@ -1,22 +1,15 @@
 package com.github.wrx886.e2echo.client;
 
-import com.github.wrx886.e2echo.client.common.BaseUrlStore;
-import com.github.wrx886.e2echo.client.common.BeanProvider;
-import com.github.wrx886.e2echo.client.fx.LoginApplication;
-import com.github.wrx886.e2echo.client.service.AuthService;
+import com.github.wrx886.e2echo.client.fx.MainApplication;
 import javafx.application.Application;
-import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.core.env.Environment;
 
 /**
  * 客户端启动类。
  *
- * <p>以 Spring Boot 方式启动客户端，启动完成后生成一次性 auth 票据，并把带真实端口的登录地址
- * 输出到标准输出，便于开发调试时直接在浏览器中打开完成本地登录。</p>
- *
- * <p>正式使用时登录地址由 JavaFX 启动器获取并负责打开浏览器，这里输出到标准输出仅用于本地
- * 验证。</p>
+ * <p>一个进程只能有一套 JavaFX 会话（{@code Application.launch} 只能调用一次，工具箱退出后也无法
+ * 重新启动），因此这里只启动唯一的界面程序 {@link MainApplication}，由它负责登入、启动本容器、
+ * 打开主界面的完整流程。</p>
  */
 @SpringBootApplication
 public class ClientApplication {
@@ -24,28 +17,10 @@ public class ClientApplication {
     /**
      * 客户端入口。
      *
-     * <p>启动 Spring Boot 应用后，从 {@link Environment} 读取 Web 容器的实际端口
-     * （{@code local.server.port}，服务端口配置为 0 时为随机端口），再通过 {@link BeanProvider}
-     * 取得 {@link AuthService} 生成一次性 auth 票据，最后把
-     * {@code http://localhost:{端口}/auth/{票据}} 形式的完整登录地址打印到标准输出。</p>
-     *
-     * @param args 命令行参数，原样交给 Spring Boot 处理
+     * @param args 命令行参数，原样交给 JavaFX 与后续的 Spring Boot
      */
     public static void main(String[] args) {
-
-        // 登入，要填充 baseUrl 和 Ecc 密钥对
-        Application.launch(LoginApplication.class, args);
-        if (BaseUrlStore.getBaseUrl() == null || BaseUrlStore.getBaseUrl().isBlank()) {
-            // 没有登入，直接结束程序
-            return;
-        }
-
-        SpringApplication.run(ClientApplication.class, args);
-        System.out.println( // 开发阶段使用，在没有GUI的情况下快速验证。
-                "http://localhost:" +
-                        BeanProvider.getBean(Environment.class).getProperty("local.server.port")
-                        + "/auth/" +
-                        BeanProvider.getBean(AuthService.class).newAndGetAuth());
+        Application.launch(MainApplication.class, args);
     }
 
 }

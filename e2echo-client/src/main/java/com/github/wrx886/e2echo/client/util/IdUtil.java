@@ -11,6 +11,12 @@ import java.util.UUID;
 public final class IdUtil {
 
     /**
+     * 私有构造方法，防止外部实例化工具类。
+     */
+    private IdUtil() {
+    }
+
+    /**
      * 生成一个新的 ID。
      *
      * @return 48 位 ID，前 16 位为十六进制毫秒时间戳，后 32 位为随机 UUID

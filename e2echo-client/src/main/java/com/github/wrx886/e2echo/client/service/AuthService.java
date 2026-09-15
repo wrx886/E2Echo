@@ -39,13 +39,17 @@ public class AuthService {
      * @throws E2EchoException 票据与当前待校验票据不一致，或已超过 60 秒有效期
      */
     public synchronized void auth(String auth, String sessionId) {
-        // 验证 auth，超时时间：60s
-        if (this.auth != null && this.auth.equals(auth) && Math.abs(System.currentTimeMillis() - IdUtil.getTimestampFromId(auth)) < 60 * 1000L) {
+
+        // 票据必须与待校验的票据一致，且距生成时间不超过 60 秒（生成时间记录在票据 ID 的前 16 位）
+        boolean valid = this.auth != null
+                && this.auth.equals(auth)
+                && Math.abs(System.currentTimeMillis() - IdUtil.getTimestampFromId(auth)) < 60 * 1000L;
+        if (valid) {
             this.sessionId = sessionId;
             this.auth = null;
-        } else {
-            throw new E2EchoException("auth 错误或超时！");
+            return;
         }
+        throw new E2EchoException("auth 错误或超时！");
     }
 
     /**
@@ -56,7 +60,7 @@ public class AuthService {
      * @return 新生成的一次性 auth 票据
      */
     public synchronized String newAndGetAuth() {
-        auth = IdUtil.newId();
+        this.auth = IdUtil.newId();
         this.sessionId = null;
         return auth;
     }

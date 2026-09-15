@@ -28,8 +28,12 @@ public final class BeanProvider implements ApplicationContextAware {
      * @param clazz Bean 的类型
      * @param <T>   Bean 类型
      * @return 该类型对应的 Bean 实例
+     * @throws IllegalStateException Spring 容器尚未启动
      */
     public static <T> T getBean(Class<T> clazz) {
+        if (applicationContext == null) {
+            throw new IllegalStateException("Spring 容器尚未启动，无法获取 Bean：" + clazz.getName());
+        }
         return applicationContext.getBean(clazz);
     }
 
