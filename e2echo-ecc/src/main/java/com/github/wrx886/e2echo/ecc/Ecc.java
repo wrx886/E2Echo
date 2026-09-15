@@ -67,6 +67,20 @@ public final class Ecc {
     }
 
     /**
+     * 获取当前保存的 ECC 公钥。
+     *
+     * <p>
+     * 公钥可直接用于加密消息或验签，也可以交给通信对端，用于标识当前用户身份。
+     * </p>
+     *
+     * @return 当前密钥对的 RAW HEX 格式 secp256k1 公钥；未保存密钥对时返回 {@code null}
+     */
+    public static String getPublicKey() {
+        KeyPairHex keyPair = keyPairHex;
+        return keyPair == null ? null : keyPair.publicKeyHex();
+    }
+
+    /**
      * 生成一对新的 ECC（secp256k1 曲线）密钥对。
      *
      * @return 包含公钥和私钥 RAW HEX 字符串的密钥对
