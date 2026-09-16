@@ -6,6 +6,7 @@ import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import org.springframework.data.domain.Persistable;
 
 /**
  * 消息实体，对应数据库 {@code message} 表。
@@ -29,7 +30,7 @@ import lombok.EqualsAndHashCode;
         @Index(name = "idx_message_channel", columnList = "channel"),
         @Index(name = "idx_message_timestamp", columnList = "timestamp")
 })
-public class Message extends BaseEntity {
+public class Message extends BaseEntity implements Persistable<String> {
 
     /**
      * 发送者身份，即发送者的 secp256k1 公钥（RAW HEX 格式）。
@@ -75,5 +76,23 @@ public class Message extends BaseEntity {
      * 消息签名，基于不含签名的消息原文使用 SHA256withECDSA 计算。
      */
     private String sign;
+
+
+    /**
+     * 判断实体是否为新建，恒为 {@code true}。
+     *
+     * <p>消息 ID 由客户端生成，保存前主键已非空，按默认规则会被当作已存在的实体，
+     * 从而走 merge 分支（先查询再更新）。消息只追加、不作修改，这里恒返回
+     * {@code true}，使 {@code save} 始终执行 persist 插入，既省去一次主键查询，
+     * 也避免误更新已有消息。</p>
+     *
+     * @return 恒为 {@code true}，表示实体始终按新建处理
+     * @see org.springframework.data.domain.Persistable#isNew()
+     */
+    @Override
+    public boolean isNew() {
+        // 仅插入
+        return true;
+    }
 
 }
