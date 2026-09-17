@@ -12,8 +12,6 @@
     <artifactId>e2echo-server</artifactId>
 
     <properties>
-        <maven.compiler.source>21</maven.compiler.source>
-        <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <!-- 本模块已提供测试，覆盖父工程的默认值，使 mvn test 能够正常执行 -->
         <skipTests>false</skipTests>
