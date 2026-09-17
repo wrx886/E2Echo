@@ -5,6 +5,10 @@ spring:
   application:
     name: e2echo-server
 
+  threads:
+    virtual:
+      enabled: true
+
   datasource:
     url: jdbc:postgresql://localhost:5432/e2echo-server
     username: postgres
