@@ -4,3 +4,24 @@ server:
   servlet:
     session:
       tracking-modes: COOKIE # 仅用 Cookie 跟踪会话，避免会话 ID 出现在 URL 中
+      cookie:
+        same-site: strict
+        http-only: true
+
+spring:
+  threads:
+    virtual:
+      enabled: true
+
+  datasource:
+    url: jdbc:h2:file:./data/e2echo_db;AUTO_SERVER=TRUE
+    driver-class-name: org.h2.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
