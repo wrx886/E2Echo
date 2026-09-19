@@ -43,6 +43,12 @@ public class SysParamService {
                 .orElse(null);
     }
 
+    /**
+     * 读取当前登入用户的参数值（按枚举取参数名）。
+     *
+     * @param sysParamEnum 参数名枚举
+     * @return 参数值，未设置时为 {@code null}
+     */
     public String find(SysParamEnum sysParamEnum) {
         return find(sysParamEnum.name());
     }
@@ -65,6 +71,12 @@ public class SysParamService {
         sysParamRepository.save(param);
     }
 
+    /**
+     * 按枚举写入参数，等价于用枚举项名称作为参数名。
+     *
+     * @param sysParamEnum 参数名枚举
+     * @param value        参数值
+     */
     @Transactional
     public void put(SysParamEnum sysParamEnum, String value) {
         put(sysParamEnum.name(), value);
@@ -82,6 +94,12 @@ public class SysParamService {
         return sysParamRepository.deleteByOwnerAndKey(currentOwner(), key) > 0;
     }
 
+    /**
+     * 按枚举删除参数。
+     *
+     * @param sysParamEnum 参数名枚举
+     * @return 删除成功返回 {@code true}，参数不存在返回 {@code false}
+     */
     @Transactional
     public boolean remove(SysParamEnum sysParamEnum) {
         return remove(sysParamEnum.name());
