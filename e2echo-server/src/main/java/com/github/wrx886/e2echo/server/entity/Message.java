@@ -25,8 +25,8 @@ import org.springframework.data.domain.Persistable;
 @EqualsAndHashCode(callSuper = true)
 @Entity
 @Table(name = "message", indexes = {
-        @Index(name = "idx_message_from", columnList = "\"from\""),
-        @Index(name = "idx_message_to", columnList = "\"to\""),
+        @Index(name = "idx_message_from", columnList = "from_"),
+        @Index(name = "idx_message_to", columnList = "to_"),
         @Index(name = "idx_message_channel", columnList = "channel"),
         @Index(name = "idx_message_timestamp", columnList = "timestamp")
 })
@@ -35,13 +35,13 @@ public class Message extends BaseEntity implements Persistable<String> {
     /**
      * 发送者身份，即发送者的 secp256k1 公钥（RAW HEX 格式）。
      */
-    @Column(name = "\"from\"")
+    @Column(name = "from_")
     private String from;
 
     /**
      * 接收者信息，具体含义由通道决定，如私聊时为接收者公钥、群聊时为群聊标识。
      */
-    @Column(name = "\"to\"")
+    @Column(name = "to_")
     private String to;
 
     /**
