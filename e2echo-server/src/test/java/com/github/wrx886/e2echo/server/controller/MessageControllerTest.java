@@ -95,7 +95,8 @@ class MessageControllerTest {
      */
     @AfterEach
     void tearDown() {
-        messageRepository.deleteAllById(createdIds);
+        createdIds.forEach(messageId -> messageRepository.findByMessageId(messageId)
+                .ifPresent(messageRepository::delete));
         createdIds.clear();
         Ecc.clear();
     }
@@ -137,7 +138,7 @@ class MessageControllerTest {
                 + String.format("%08x", sequence);
 
         Message message = new Message();
-        message.setId(id);
+        message.setMessageId(id);
         message.setFrom(senderKeyPair.publicKeyHex());
         message.setTo(receiverKeyPair.publicKeyHex());
         message.setMessage("cipher-text");
@@ -200,8 +201,9 @@ class MessageControllerTest {
             assertThat(result.message()).isEqualTo("OK");
             assertThat(result.data()).isEqualTo(sent);
 
-            Message stored = messageRepository.findById(sent.getId()).orElse(null);
+            Message stored = messageRepository.findByMessageId(sent.getId()).orElse(null);
             assertThat(stored).isNotNull();
+            assertThat(stored.getMessageId()).isEqualTo(sent.getId());
             assertThat(stored.getFrom()).isEqualTo(senderKeyPair.publicKeyHex());
             assertThat(stored.getTo()).isEqualTo(receiverKeyPair.publicKeyHex());
             assertThat(stored.getMessage()).isEqualTo(sent.getMessage());
@@ -232,7 +234,7 @@ class MessageControllerTest {
                     .isInstanceOf(E2EchoException.class)
                     .hasMessage("消息校验失败！");
 
-            assertThat(messageRepository.findById(tampered.getId())).isEmpty();
+            assertThat(messageRepository.findByMessageId(tampered.getId())).isEmpty();
         }
 
         /**
@@ -253,7 +255,7 @@ class MessageControllerTest {
                     .isInstanceOf(E2EchoException.class)
                     .hasMessage("发送时间与服务器当前时间差距过大！");
 
-            assertThat(messageRepository.findById(stale.getId())).isEmpty();
+            assertThat(messageRepository.findByMessageId(stale.getId())).isEmpty();
         }
 
     }
@@ -347,13 +349,14 @@ class MessageControllerTest {
             // 起始与结束时间戳均包含边界
             Page<EccMessage> ranged = list(null, Long.toString(second.getTimestamp()),
                     Long.toString(second.getTimestamp()), null, null, 1, 10);
-            assertThat(ranged.getContent()).extracting(EccMessage::getId).containsExactly(second.getId());
+            assertThat(ranged.getContent()).extracting(EccMessage::getId)
+                    .containsExactly(second.getMessageId());
 
             // 只返回 ID 大于该值的消息
-            Page<EccMessage> afterFirst = list(null, null, null, first.getId(), null, 1, 10);
+            Page<EccMessage> afterFirst = list(null, null, null, first.getMessageId(), null, 1, 10);
             assertThat(afterFirst.getTotalElements()).isEqualTo(2);
             assertThat(afterFirst.getContent()).extracting(EccMessage::getId)
-                    .allSatisfy(id -> assertThat(id).isGreaterThan(first.getId()));
+                    .allSatisfy(id -> assertThat(id).isGreaterThan(first.getMessageId()));
         }
 
         /**
@@ -379,21 +382,23 @@ class MessageControllerTest {
                     "desc",
                     1,
                     1).data();
-            assertThat(latest.getContent()).extracting(EccMessage::getId).containsExactly(third.getId());
+            assertThat(latest.getContent()).extracting(EccMessage::getId)
+                    .containsExactly(third.getMessageId());
 
             // 整页倒序：从新到老
             Page<EccMessage> all = list(USERINFO_CHANNEL, null, null, null, "desc", 1, 10);
             assertThat(all.getContent()).extracting(EccMessage::getId)
-                    .containsExactly(third.getId(), second.getId(), first.getId());
+                    .containsExactly(third.getMessageId(), second.getMessageId(), first.getMessageId());
 
             // 排序方向不区分大小写
             Page<EccMessage> upperCase = list(USERINFO_CHANNEL, null, null, null, "DESC", 1, 10);
             assertThat(upperCase.getContent()).extracting(EccMessage::getId)
-                    .containsExactly(third.getId(), second.getId(), first.getId());
+                    .containsExactly(third.getMessageId(), second.getMessageId(), first.getMessageId());
 
             // 不传排序方向时默认升序，取第一条即最早一条
             Page<EccMessage> oldest = list(USERINFO_CHANNEL, null, null, null, null, 1, 1);
-            assertThat(oldest.getContent()).extracting(EccMessage::getId).containsExactly(first.getId());
+            assertThat(oldest.getContent()).extracting(EccMessage::getId)
+                    .containsExactly(first.getMessageId());
         }
 
         /**
@@ -409,7 +414,7 @@ class MessageControllerTest {
 
             Page<EccMessage> pageOne = list(null, null, null, null, null, 1, 2);
             assertThat(pageOne.getContent()).extracting(EccMessage::getId)
-                    .containsExactly(first.getId(), second.getId());
+                    .containsExactly(first.getMessageId(), second.getMessageId());
             assertThat(pageOne.getTotalElements()).isEqualTo(3);
             assertThat(pageOne.getTotalPages()).isEqualTo(2);
             assertThat(pageOne.getNumber()).isZero();
@@ -417,7 +422,7 @@ class MessageControllerTest {
 
             Page<EccMessage> pageTwo = list(null, null, null, null, null, 2, 2);
             assertThat(pageTwo.getContent()).extracting(EccMessage::getId)
-                    .containsExactly(third.getId());
+                    .containsExactly(third.getMessageId());
         }
 
         /**

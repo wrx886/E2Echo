@@ -4,22 +4,24 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
-import org.springframework.data.domain.Persistable;
 
 /**
  * 消息实体，对应数据库 {@code message} 表。
  *
  * <p>字段与 {@link com.github.wrx886.e2echo.ecc.EccMessage} 基本一致，并额外保存
- * {@code timestamp}（由消息 ID 前 16 位十六进制时间戳解析而来），用于按时间查询。
- * 继承 {@link BaseEntity} 获得主键与审计字段，其中主键沿用 EccMessage 的
- * “16 位十六进制时间戳 + 32 位无连字符 UUID”形式。</p>
+ * {@code timestamp}（由消息 ID 前 16 位十六进制时间戳解析而来），用于按时间查询。</p>
  *
- * <p>{@code from}、{@code to} 是数据库保留字，因此对应列名使用双引号包裹。</p>
+ * <p>主键与消息 ID 是两回事：继承 {@link BaseEntity} 得到的 {@code id} 是数据库主键，由服务端
+ * 生成；{@code messageId} 是客户端生成的消息 ID，单独保存且全局唯一，查询与排序都以它为准。
+ * 消息只追加、不修改，因此不需要实现 {@code Persistable}：主键生成前为空，保存时天然按新建处理。</p>
  *
- * <p>为 {@code MessageService.list} 的过滤条件建立索引：{@code from}、{@code to}、
- * {@code channel}、{@code timestamp}；主键 {@code id} 已有主键索引，并用于排序。</p>
+ * <p>{@code from}、{@code to} 是数据库保留字，因此对应列名改为 {@code from_}、{@code to_}。</p>
+ *
+ * <p>为 {@code MessageService.list} 的过滤条件建立索引：{@code from_}、{@code to_}、
+ * {@code channel}、{@code timestamp}；消息 ID 的唯一索引同时用于排序与增量拉取。</p>
  */
 @Data
 @EqualsAndHashCode(callSuper = true)
@@ -29,8 +31,17 @@ import org.springframework.data.domain.Persistable;
         @Index(name = "idx_message_to", columnList = "to_"),
         @Index(name = "idx_message_channel", columnList = "channel"),
         @Index(name = "idx_message_timestamp", columnList = "timestamp")
+}, uniqueConstraints = {
+        @UniqueConstraint(name = "uk_message_message_id", columnNames = "message_id")
 })
-public class Message extends BaseEntity implements Persistable<String> {
+public class Message extends BaseEntity {
+
+    /**
+     * 消息 ID，由客户端生成（“16 位十六进制时间戳 + 32 位无连字符 UUID”，共 48 位），
+     * 全局唯一，同一消息重复提交会因唯一约束被拒绝。
+     */
+    @Column(name = "message_id", length = 48, nullable = false, updatable = false)
+    private String messageId;
 
     /**
      * 发送者身份，即发送者的 secp256k1 公钥（RAW HEX 格式）。
@@ -76,23 +87,5 @@ public class Message extends BaseEntity implements Persistable<String> {
      * 消息签名，基于不含签名的消息原文使用 SHA256withECDSA 计算。
      */
     private String sign;
-
-
-    /**
-     * 判断实体是否为新建，恒为 {@code true}。
-     *
-     * <p>消息 ID 由客户端生成，保存前主键已非空，按默认规则会被当作已存在的实体，
-     * 从而走 merge 分支（先查询再更新）。消息只追加、不作修改，这里恒返回
-     * {@code true}，使 {@code save} 始终执行 persist 插入，既省去一次主键查询，
-     * 也避免误更新已有消息。</p>
-     *
-     * @return 恒为 {@code true}，表示实体始终按新建处理
-     * @see org.springframework.data.domain.Persistable#isNew()
-     */
-    @Override
-    public boolean isNew() {
-        // 仅插入
-        return true;
-    }
 
 }

@@ -135,7 +135,8 @@ class NoticeIntegrationTest {
             createdKeys.clear();
         }
         if (!createdMessageIds.isEmpty()) {
-            messageRepository.deleteAllById(createdMessageIds);
+            createdMessageIds.forEach(messageId -> messageRepository.findByMessageId(messageId)
+                    .ifPresent(messageRepository::delete));
             createdMessageIds.clear();
         }
         Ecc.clear();

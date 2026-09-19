@@ -57,6 +57,7 @@ public class MessageService {
     public EccMessage save(EccMessage eccMessage) {
         long timestamp = verify(eccMessage);
         Message message = toEntity(eccMessage);
+        message.setId(null);
         message.setTimestamp(timestamp);
         EccMessage ret = toView(messageRepository.save(message));
         noticeService.notice(ret.getTo());
@@ -64,14 +65,14 @@ public class MessageService {
     }
 
     /**
-     * 根据主键查询消息。
+     * 根据消息 ID 查询消息。
      *
      * @param id 消息 ID
      * @return 消息视图
      * @throws E2EchoException 消息不存在
      */
     public EccMessage getById(String id) {
-        Message message = messageRepository.findById(id)
+        Message message = messageRepository.findByMessageId(id)
                 .orElseThrow(() -> new E2EchoException("消息不存在：" + id));
         return toView(message);
     }
@@ -120,10 +121,10 @@ public class MessageService {
         Specification<Message> specification = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             if (fromList != null && !fromList.isEmpty()) {
-                predicates.add(root.get("from_").in(fromList));
+                predicates.add(root.get("from").in(fromList));
             }
             if (toList != null && !toList.isEmpty()) {
-                predicates.add(root.get("to_").in(toList));
+                predicates.add(root.get("to").in(toList));
             }
             if (channel != null && !channel.isBlank()) {
                 predicates.add(cb.equal(root.get("channel"), channel));
@@ -135,12 +136,12 @@ public class MessageService {
                 predicates.add(cb.lessThanOrEqualTo(root.get("timestamp"), end));
             }
             if (startId != null && !startId.isBlank()) {
-                predicates.add(cb.greaterThan(root.get("id"), startId));
+                predicates.add(cb.greaterThan(root.get("messageId"), startId));
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
 
-        Pageable pageable = PageRequest.of(pageNum - 1, pageSize, Sort.by(direction, "id"));
+        Pageable pageable = PageRequest.of(pageNum - 1, pageSize, Sort.by(direction, "messageId"));
         return messageRepository.findAll(specification, pageable).map(this::toView);
     }
 
@@ -214,12 +215,16 @@ public class MessageService {
     /**
      * 将消息视图转换为持久化实体。
      *
+     * <p>{@code id} 在两边含义不同：视图里是消息 ID，实体里是数据库主键，因此不参与属性复制，
+     * 消息 ID 显式写入 {@code messageId}，主键由基类生成。</p>
+     *
      * @param eccMessage 消息视图
      * @return 消息实体
      */
     private Message toEntity(EccMessage eccMessage) {
         Message message = new Message();
-        BeanUtils.copyProperties(eccMessage, message);
+        BeanUtils.copyProperties(eccMessage, message, "id");
+        message.setMessageId(eccMessage.getId());
         return message;
     }
 
@@ -231,7 +236,8 @@ public class MessageService {
      */
     private EccMessage toView(Message message) {
         EccMessage eccMessage = new EccMessage();
-        BeanUtils.copyProperties(message, eccMessage);
+        BeanUtils.copyProperties(message, eccMessage, "id");
+        eccMessage.setId(message.getMessageId());
         return eccMessage;
     }
 
