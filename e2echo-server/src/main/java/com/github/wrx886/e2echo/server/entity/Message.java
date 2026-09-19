@@ -18,6 +18,8 @@ import lombok.EqualsAndHashCode;
  * 生成；{@code messageId} 是客户端生成的消息 ID，单独保存且全局唯一，查询与排序都以它为准。
  * 消息只追加、不修改，因此不需要实现 {@code Persistable}：主键生成前为空，保存时天然按新建处理。</p>
  *
+ * <p>各字段都不可为空，对应列均为非空约束，保存前由 {@code MessageService} 统一校验。</p>
+ *
  * <p>{@code from}、{@code to} 是数据库保留字，因此对应列名改为 {@code from_}、{@code to_}。</p>
  *
  * <p>为 {@code MessageService.list} 的过滤条件建立索引：{@code from_}、{@code to_}、
@@ -46,46 +48,49 @@ public class Message extends BaseEntity {
     /**
      * 发送者身份，即发送者的 secp256k1 公钥（RAW HEX 格式）。
      */
-    @Column(name = "from_")
+    @Column(name = "from_", nullable = false)
     private String from;
 
     /**
      * 接收者信息，具体含义由通道决定，如私聊时为接收者公钥、群聊时为群聊标识。
      */
-    @Column(name = "to_")
+    @Column(name = "to_", nullable = false)
     private String to;
 
     /**
      * 消息正文：加密方式由 {@code channel} 决定，可为密文或明文。
      */
-    @Column(columnDefinition = "text")
+    @Column(columnDefinition = "text", nullable = false)
     private String message;
 
     /**
      * 消息类型，由业务方自行定义。
      */
+    @Column(nullable = false)
     private String type;
 
     /**
      * 消息通道（如私聊、群聊），由业务方自行定义。
      */
+    @Column(nullable = false)
     private String channel;
 
     /**
-     * 消息时间戳，保存为系统当前毫秒数（long），用于按时间查询。
+     * 消息发送时间（毫秒），取自消息 ID 前 16 位十六进制时间戳，用于按时间查询。
      */
     @Column(nullable = false)
-    private Long timestamp;
+    private long timestamp;
 
     /**
      * 消息附加信息，由业务方自行定义。
      */
-    @Column(columnDefinition = "text")
+    @Column(columnDefinition = "text", nullable = false)
     private String info;
 
     /**
      * 消息签名，基于不含签名的消息原文使用 SHA256withECDSA 计算。
      */
+    @Column(nullable = false)
     private String sign;
 
 }

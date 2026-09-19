@@ -47,12 +47,12 @@ public class MessageService {
     /**
      * 保存消息。
      *
-     * <p>先校验消息签名与发送时间，再转换为实体保存；实体时间戳取自消息 ID 前 16 位
+     * <p>先校验消息的必填字段、签名与发送时间，再转换为实体保存；实体时间戳取自消息 ID 前 16 位
      * 十六进制时间戳，便于后续按时间查询。保存成功后，通知订阅了该消息接收者的客户端。</p>
      *
      * @param eccMessage 待保存的消息视图
      * @return 保存后的消息视图
-     * @throws E2EchoException 消息校验失败、ID 格式错误或发送时间偏差过大
+     * @throws E2EchoException 必填字段为空、消息校验失败、ID 格式错误或发送时间偏差过大
      */
     public EccMessage save(EccMessage eccMessage) {
         long timestamp = verify(eccMessage);
@@ -148,11 +148,22 @@ public class MessageService {
     /**
      * 校验消息签名与发送时间。
      *
+     * <p>先校验必填字段：这些字段在 {@code message} 表中都是非空列，提前校验可以避免把空值带到
+     * 持久化层，也能给调用方一个明确的错误提示。</p>
+     *
      * @param eccMessage 待校验的消息
      * @return 消息 ID 中携带的时间戳（毫秒）
-     * @throws E2EchoException 签名校验失败、ID 格式错误或发送时间偏差过大
+     * @throws E2EchoException 必填字段为空、签名校验失败、ID 格式错误或发送时间偏差过大
      */
     private long verify(EccMessage eccMessage) {
+        // 必填字段：与 message 表的非空约束保持一致
+        requireText(eccMessage.getFrom(), "from");
+        requireText(eccMessage.getTo(), "to");
+        requireText(eccMessage.getMessage(), "message");
+        requireText(eccMessage.getType(), "type");
+        requireText(eccMessage.getChannel(), "channel");
+        requireText(eccMessage.getInfo(), "info");
+
         // 校验签名
         if (!Ecc.verify(eccMessage)) {
             throw new E2EchoException("消息校验失败！");
@@ -173,6 +184,22 @@ public class MessageService {
         }
 
         return timestamp;
+    }
+
+    /**
+     * 校验消息的必填字段。
+     *
+     * <p>空白字符串与 {@code null} 一样都视为缺失：签名原文由字符串拼接而成，空白值对调用方没有
+     * 意义，还会让按字段过滤、按字段分派消息的逻辑失去依据。</p>
+     *
+     * @param value 字段值
+     * @param name  字段名，用于错误提示
+     * @throws E2EchoException 字段为 {@code null} 或空白
+     */
+    private void requireText(String value, String name) {
+        if (value == null || value.isBlank()) {
+            throw new E2EchoException("消息字段不完整：" + name + "！");
+        }
     }
 
     /**

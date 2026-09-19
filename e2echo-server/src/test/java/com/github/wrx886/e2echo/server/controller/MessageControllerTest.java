@@ -258,6 +258,30 @@ class MessageControllerTest {
             assertThat(messageRepository.findByMessageId(stale.getId())).isEmpty();
         }
 
+        /**
+         * 校验必填字段为空时以业务异常拒绝保存，而不是把空值带到数据库的非空约束上。
+         *
+         * @throws Exception 消息生成失败
+         */
+        @Test
+        @DisplayName("字段为空：拒绝保存，且数据库中没有新记录")
+        void rejectsIncompleteMessage() throws Exception {
+            // info 为空：加密不校验该字段，因此能构造出这种请求
+            EccMessage plain = new EccMessage();
+            plain.setFrom(senderKeyPair.publicKeyHex());
+            plain.setTo(receiverKeyPair.publicKeyHex());
+            plain.setMessage("hello, e2echo");
+            plain.setType("text");
+            plain.setChannel(PRIVATE_CHANNEL);
+            EccMessage incomplete = Ecc.encrypt(plain);
+
+            assertThatThrownBy(() -> messageController.save(incomplete))
+                    .isInstanceOf(E2EchoException.class)
+                    .hasMessage("消息字段不完整：info！");
+
+            assertThat(messageRepository.findByMessageId(incomplete.getId())).isEmpty();
+        }
+
     }
 
     /**
