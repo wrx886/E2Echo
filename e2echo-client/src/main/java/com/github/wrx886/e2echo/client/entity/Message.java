@@ -16,6 +16,9 @@ import org.springframework.data.domain.Persistable;
  *
  * <p>注意两个 ID 不能混用：主键是基类的 {@code id}（本地生成的记录 ID），服务端消息 ID 单独保存在
  * {@code messageId}，用于与服务端消息对应。</p>
+ *
+ * <p>除 {@code seq} 由保存时自动填充外，{@code messageId}、{@code from}、{@code to}、{@code message}、
+ * {@code type}、{@code channel}、{@code info} 都不可为空。</p>
  */
 @Data
 @EqualsAndHashCode(callSuper = true)
@@ -37,13 +40,13 @@ public class Message extends BaseEntity implements Persistable<String> {
     /**
      * 发送者身份，即发送者的 secp256k1 公钥（RAW HEX 格式）。
      */
-    @Column(name = "from_")
+    @Column(name = "from_", nullable = false)
     private String from;
 
     /**
      * 接收者信息，具体含义由通道决定，如私聊时为接收者公钥、群聊时为群聊标识。
      */
-    @Column(name = "to_")
+    @Column(name = "to_", nullable = false)
     private String to;
 
     /**
@@ -55,23 +58,25 @@ public class Message extends BaseEntity implements Persistable<String> {
     /**
      * 消息正文，保存解密后的明文。
      */
-    @Column(columnDefinition = "text")
+    @Column(columnDefinition = "text", nullable = false)
     private String message;
 
     /**
      * 消息类型，由业务方自行定义。
      */
+    @Column(nullable = false)
     private String type;
 
     /**
      * 消息通道（如私聊、群聊），由业务方自行定义。
      */
+    @Column(nullable = false)
     private String channel;
 
     /**
      * 消息附加信息，由业务方自行定义。
      */
-    @Column(columnDefinition = "text")
+    @Column(columnDefinition = "text", nullable = false)
     private String info;
 
     /**

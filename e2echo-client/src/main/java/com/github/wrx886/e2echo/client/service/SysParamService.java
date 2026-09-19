@@ -74,6 +74,10 @@ public class SysParamService {
      */
     @Transactional
     public void put(String key, String value) {
+        if (value == null) {
+            // 实体上参数值不可为空
+            throw new E2EchoException("参数值不能为空！");
+        }
         SysParam param = sysParamRepository.findByOwnerAndKey(currentOwner(), key).orElseGet(() -> {
             SysParam created = new SysParam();
             created.setKey(key);
@@ -105,6 +109,10 @@ public class SysParamService {
      */
     @Transactional
     public void putIfAbsent(String key, String value) {
+        if (value == null) {
+            // 实体上参数值不可为空
+            throw new E2EchoException("参数值不能为空！");
+        }
         SysParam created = new SysParam();
         created.setKey(key);
         created.setValue(value);

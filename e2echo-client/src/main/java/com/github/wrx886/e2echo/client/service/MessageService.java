@@ -72,6 +72,12 @@ public class MessageService {
             throw new E2EchoException("不支持的消息通道：" + message.getChannel());
         }
 
+        // 实体上这些字段不可为空，提前校验，避免落到数据库才报错
+        if (message.getFrom() == null || message.getTo() == null || message.getMessage() == null
+                || message.getType() == null || message.getInfo() == null) {
+            throw new E2EchoException("消息内容不完整！");
+        }
+
         // 构造 eccMessage
         EccMessage eccMessage = new EccMessage();
         eccMessage.setFrom(message.getFrom());
@@ -89,7 +95,7 @@ public class MessageService {
                 boolean encrypted = false;
                 List<String> aesKeys = aesKeyService.get(
                         eccMessage.getTo(),
-                        IdUtil.getTimestampFromId(eccMessage.getId()));
+                        System.currentTimeMillis());
                 for (String aesKey : aesKeys) {
                     try {
                         eccMessage.setMessage(Ecc.encryptAes(eccMessage.getMessage(), aesKey));

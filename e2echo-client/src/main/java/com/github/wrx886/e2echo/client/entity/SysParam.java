@@ -12,7 +12,8 @@ import lombok.ToString;
  * 系统参数实体，对应数据库 {@code sys_param} 表。
  *
  * <p>保存按登入用户隔离的键值参数：继承 {@link BaseEntity} 因此带有 {@code owner}（登入用户的
- * 公钥），主键是基类的 {@code id}，{@code key} 是参数名、在同一用户下唯一。</p>
+ * 公钥），主键是基类的 {@code id}；{@code key} 是参数名、在同一用户下唯一，参数名与参数值都不可
+ * 为空。</p>
  */
 @Data
 @Entity
@@ -30,9 +31,9 @@ public class SysParam extends BaseEntity {
     private String key;
 
     /**
-     * 参数值。
+     * 参数值，不可为空。
      */
-    @Column(name = "value_", columnDefinition = "text")
+    @Column(name = "value_", columnDefinition = "text", nullable = false)
     private String value;
 
 }
