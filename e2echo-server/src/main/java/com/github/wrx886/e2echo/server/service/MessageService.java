@@ -120,10 +120,10 @@ public class MessageService {
         Specification<Message> specification = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             if (fromList != null && !fromList.isEmpty()) {
-                predicates.add(root.get("from").in(fromList));
+                predicates.add(root.get("from_").in(fromList));
             }
             if (toList != null && !toList.isEmpty()) {
-                predicates.add(root.get("to").in(toList));
+                predicates.add(root.get("to_").in(toList));
             }
             if (channel != null && !channel.isBlank()) {
                 predicates.add(cb.equal(root.get("channel"), channel));
