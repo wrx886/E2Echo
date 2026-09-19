@@ -4,11 +4,12 @@ import com.github.wrx886.e2echo.client.entity.SysParam;
 import com.github.wrx886.e2echo.client.enums.SysParamEnum;
 import com.github.wrx886.e2echo.client.exception.E2EchoException;
 import com.github.wrx886.e2echo.client.repository.SysParamRepository;
-import com.github.wrx886.e2echo.ecc.Ecc;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import static com.github.wrx886.e2echo.client.util.CommonUtil.currentOwner;
 
 /**
  * 系统参数业务逻辑层。
@@ -82,6 +83,33 @@ public class SysParamService {
         put(sysParamEnum.name(), value);
     }
 
+
+    /**
+     * 新增参数，不判重：参数名已存在时会因唯一约束失败，存在则更新请用
+     * {@link #put(String, String)}。
+     *
+     * @param key   参数名
+     * @param value 参数值
+     */
+    @Transactional
+    public void putIfAbsent(String key, String value) {
+        SysParam created = new SysParam();
+        created.setKey(key);
+        created.setValue(value);
+        sysParamRepository.save(created);
+    }
+
+    /**
+     * 按枚举新增参数，等价于用枚举项名称作为参数名。
+     *
+     * @param sysParamEnum 参数名枚举
+     * @param value        参数值
+     */
+    @Transactional
+    public void putIfAbsent(SysParamEnum sysParamEnum, String value) {
+        putIfAbsent(sysParamEnum.name(), value);
+    }
+
     /**
      * 删除参数。
      *
@@ -103,21 +131,6 @@ public class SysParamService {
     @Transactional
     public boolean remove(SysParamEnum sysParamEnum) {
         return remove(sysParamEnum.name());
-    }
-
-    /**
-     * 获取当前登入用户的公钥。
-     *
-     * @return 当前登入用户的公钥
-     * @throws E2EchoException 尚未登入（未保存密钥对）
-     */
-    private String currentOwner() {
-
-        String owner = Ecc.getPublicKey();
-        if (owner == null) {
-            throw new E2EchoException("尚未登入！");
-        }
-        return owner;
     }
 
 }

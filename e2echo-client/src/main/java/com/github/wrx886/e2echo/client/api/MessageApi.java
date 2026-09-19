@@ -18,9 +18,8 @@ import org.springframework.web.util.UriBuilder;
 /**
  * 消息接口。
  *
- * <p>对应服务端的 {@code /message} 系列接口：保存、按 ID 查询、按条件分页查询。消息的加密与签名
- * 由 {@link com.github.wrx886.e2echo.ecc.Ecc} 完成，本类只负责传输：服务端校验签名与发送时间，
- * 但不解析消息正文。</p>
+ * <p>对应服务端的 {@code /message} 系列接口：保存、按 ID 查询、按条件分页查询。消息的加密与签名由
+ * {@link com.github.wrx886.e2echo.ecc.Ecc} 完成，本类只负责传输。</p>
  */
 @Component
 @RequiredArgsConstructor
@@ -32,16 +31,21 @@ public class MessageApi {
     private final WebClient webClient;
 
     /**
+     * 时间戳接口，请求前校验本机与服务器的时间。
+     */
+    private final TimestampApi timestampApi;
+
+    /**
      * 保存消息。
      *
-     * <p>服务端会校验消息签名与发送时间，所以调用前需要先给消息签名；正文是否加密由消息通道决定，
-     * 服务端不关心正文内容。</p>
+     * <p>服务端会校验签名与发送时间，调用前需要先给消息签名。</p>
      *
      * @param message 待保存的消息
      * @return 保存后的消息
      * @throws E2EchoException 请求失败，或服务端返回失败状态
      */
     public EccMessage save(EccMessage message) {
+        timestampApi.checkTime();
 
         return ApiUtil.apiGet(() -> webClient.post()
                 .uri("message")
@@ -60,6 +64,7 @@ public class MessageApi {
      * @throws E2EchoException 请求失败，或服务端返回失败状态（例如消息不存在）
      */
     public EccMessage getById(String id) {
+        timestampApi.checkTime();
 
         return ApiUtil.apiGet(() -> webClient.get()
                 .uri("message/{id}", id)
@@ -72,8 +77,8 @@ public class MessageApi {
     /**
      * 按条件分页查询消息列表。
      *
-     * <p>过滤条件均可为 {@code null} 或空白，表示不参与过滤。结果按消息 ID 排序，而 ID 前 16 位
-     * 是定长时间戳，因此 {@code asc} 即从老到新、{@code desc} 即从新到老。</p>
+     * <p>过滤条件为空时不参与过滤；结果按消息 ID 排序，因此 {@code asc} 从老到新、{@code desc}
+     * 从新到老。</p>
      *
      * @param fromList       发送者公钥列表，为空表示不过滤
      * @param toList         接收者信息列表，为空表示不过滤
@@ -88,9 +93,9 @@ public class MessageApi {
      * @throws E2EchoException 请求失败，或服务端返回失败状态（例如页码或排序方向非法）
      */
     public PageData<EccMessage> list(List<String> fromList, List<String> toList, String channel,
-            String startTimestamp, String endTimestamp, String startId, String order,
-            int pageNum, int pageSize) {
-
+                                     String startTimestamp, String endTimestamp, String startId, String order,
+                                     int pageNum, int pageSize) {
+        timestampApi.checkTime();
         return ApiUtil.apiGet(() -> webClient.get()
                 .uri(builder -> {
                     builder.path("message");
@@ -116,7 +121,7 @@ public class MessageApi {
      *
      * @param builder 地址构造器
      * @param name    参数名
-     * @param value   参数值，可以是字符串或集合
+     * @param value   参数值，字符串或集合
      */
     private static void addParam(UriBuilder builder, String name, Object value) {
 

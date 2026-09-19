@@ -3,12 +3,15 @@ package com.github.wrx886.e2echo.client.fx;
 import com.github.wrx886.e2echo.client.ClientApplication;
 import com.github.wrx886.e2echo.client.api.TimestampApi;
 import com.github.wrx886.e2echo.client.common.BeanProvider;
+import com.github.wrx886.e2echo.client.enums.SysParamEnum;
 import com.github.wrx886.e2echo.client.service.AuthService;
 
+import com.github.wrx886.e2echo.client.service.SysParamService;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.control.Alert;
 import javafx.stage.Stage;
 import org.springframework.boot.SpringApplication;
 import org.springframework.core.env.Environment;
@@ -77,6 +80,19 @@ public class MainApplication extends Application {
         // 启动容器：服务器地址与密钥对已由登入界面准备好
         SpringApplication.run(ClientApplication.class, getParameters().getRaw().toArray(String[]::new));
 
+        // 当前用户是否被使用
+        Platform.runLater(() -> {
+            SysParamService sysParamService = BeanProvider.getBean(SysParamService.class);
+            try {
+                sysParamService.putIfAbsent(SysParamEnum.IS_USED, Boolean.TRUE.toString());
+            } catch (Exception e) {
+                FxSupport.alert(Alert.AlertType.ERROR, "该用户已登入！").showAndWait();
+                // 这里不能使用 exit 退出，那里有一些清理逻辑
+                Platform.exit();
+                SpringApplication.exit(BeanProvider.getApplicationContext());
+            }
+        });
+
         // 主界面：需要的容器 Bean 在这里取出来交给界面，界面本身不再依赖 BeanProvider
         MainPane mainPane = new MainPane(this::exit, getHostServices(),
                 BeanProvider.getBean(Environment.class),
@@ -96,8 +112,12 @@ public class MainApplication extends Application {
      * 让 {@code main} 返回后进程正常结束。</p>
      */
     private void exit() {
-
         Platform.exit();
+
+        // 移除对当前用户的占用
+        SysParamService sysParamService = BeanProvider.getBean(SysParamService.class);
+        sysParamService.remove(SysParamEnum.IS_USED);
+
         SpringApplication.exit(BeanProvider.getApplicationContext());
     }
 

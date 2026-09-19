@@ -23,12 +23,11 @@ import reactor.core.publisher.Mono;
 /**
  * 文件接口。
  *
- * <p>对应服务端的 {@code /file} 系列接口：上传与下载。服务端只把文件当作不透明的字节流，加解密
- * 由调用方完成，因此上传前应先加密、下载后应自行解密。</p>
+ * <p>对应服务端的 {@code /file} 系列接口：上传与下载。服务端只把文件当字节流，加密与解密由调用方
+ * 完成。</p>
  *
- * <p>上传时可以指定生命周期：{@link #LIFECYCLE_DEFAULT} 为短期存储、
- * {@link #LIFECYCLE_FOREVER} 为长期存储，不指定时按短期存储处理。过期规则由对象存储按对象键
- * 前缀执行，服务端只负责加前缀。</p>
+ * <p>上传可指定生命周期：{@link #LIFECYCLE_DEFAULT} 短期存储、{@link #LIFECYCLE_FOREVER} 长期
+ * 存储，不指定按短期处理。</p>
  */
 @Component
 @RequiredArgsConstructor
@@ -50,6 +49,11 @@ public class FileApi {
     private final WebClient webClient;
 
     /**
+     * 时间戳接口，请求前校验本机与服务器的时间。
+     */
+    private final TimestampApi timestampApi;
+
+    /**
      * 上传文件。
      *
      * @param file      待上传的文件，内容应为加密后的密文
@@ -59,6 +63,7 @@ public class FileApi {
      * @throws E2EchoException 请求失败，或服务端返回失败状态（例如文件为空、生命周期非法）
      */
     public String upload(File file, String lifecycle) {
+        timestampApi.checkTime();
 
         MultiValueMap<String, Object> parts = new LinkedMultiValueMap<>();
         parts.add("file", new FileSystemResource(file));
@@ -79,8 +84,7 @@ public class FileApi {
     /**
      * 下载文件。
      *
-     * <p>文件内容以流的方式写入目标文件，不会整体读入内存；下载过程中失败可能留下不完整的文件，
-     * 需要由调用方决定是否删除。</p>
+     * <p>内容以流的方式写入目标文件；中途失败可能留下不完整的文件，由调用方决定是否删除。</p>
      *
      * @param lifecycle 生命周期前缀，与上传时一致
      * @param id        文件 ID
@@ -88,12 +92,12 @@ public class FileApi {
      * @throws E2EchoException 请求失败，或服务端返回失败状态（例如文件不存在）
      */
     public void download(String lifecycle, String id, File target) {
+        timestampApi.checkTime();
 
         ApiUtil.apiCall(() -> webClient.get()
                 .uri("file/{lifecycle}/{id}", lifecycle, id)
                 .exchangeToMono(response -> {
-                    // 服务端只有在返回文件内容时才是二进制流，失败时返回的是统一响应 JSON
-                    // （HTTP 状态码仍为 200），这里按响应类型区分，避免把 JSON 写进目标文件
+                    // 失败时服务端返回的是 JSON（状态码仍为 200），按响应类型区分，避免把 JSON 写进文件
                     if (isJson(response.headers().contentType())) {
                         return response.bodyToMono(new ParameterizedTypeReference<Result<Void>>() {
                         }).flatMap(result -> Mono.error(new E2EchoException(

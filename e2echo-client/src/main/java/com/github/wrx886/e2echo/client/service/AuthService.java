@@ -1,5 +1,6 @@
 package com.github.wrx886.e2echo.client.service;
 
+import com.github.wrx886.e2echo.client.common.Const;
 import com.github.wrx886.e2echo.client.exception.E2EchoException;
 import com.github.wrx886.e2echo.client.util.IdUtil;
 import lombok.Getter;
@@ -43,7 +44,7 @@ public class AuthService {
         // 票据必须与待校验的票据一致，且距生成时间不超过 60 秒（生成时间记录在票据 ID 的前 16 位）
         boolean valid = this.auth != null
                 && this.auth.equals(auth)
-                && Math.abs(System.currentTimeMillis() - IdUtil.getTimestampFromId(auth)) < 60 * 1000L;
+                && Math.abs(System.currentTimeMillis() - IdUtil.getTimestampFromId(auth)) < Const.AUTH_EXPIRED_TIME_MS;
         if (valid) {
             this.sessionId = sessionId;
             this.auth = null;

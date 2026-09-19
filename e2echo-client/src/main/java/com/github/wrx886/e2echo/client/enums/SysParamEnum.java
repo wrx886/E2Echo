@@ -8,6 +8,14 @@ package com.github.wrx886.e2echo.client.enums;
  */
 public enum SysParamEnum {
 
+    /**
+     * 上次拉取消息的时间。
+     */
+    LAST_PULL_TIME,
 
+    /**
+     * 当前配置是否正在使用，用于防止重复登入。
+     */
+    IS_USED
 
 }

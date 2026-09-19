@@ -1,6 +1,7 @@
 package com.github.wrx886.e2echo.client.fx;
 
 import com.github.wrx886.e2echo.client.common.BaseUrlStore;
+import com.github.wrx886.e2echo.client.common.Const;
 import com.github.wrx886.e2echo.client.exception.E2EchoException;
 import com.github.wrx886.e2echo.client.result.Result;
 import com.github.wrx886.e2echo.client.result.ResultCodeEnum;
@@ -45,7 +46,7 @@ public class LoginPane extends VBox {
     /**
      * 允许的客户端与服务端时间偏差，单位毫秒。
      */
-    private static final long MAX_TIMESTAMP_DIFF = 5 * 1000L;
+    private static final long MAX_TIMESTAMP_DIFF = Const.MAX_TIME_DIFF_MS;
 
     /**
      * 保存登入信息时默认使用的文件名。

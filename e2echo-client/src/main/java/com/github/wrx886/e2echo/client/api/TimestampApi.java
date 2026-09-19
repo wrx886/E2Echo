@@ -1,5 +1,6 @@
 package com.github.wrx886.e2echo.client.api;
 
+import com.github.wrx886.e2echo.client.common.Const;
 import com.github.wrx886.e2echo.client.exception.E2EchoException;
 import com.github.wrx886.e2echo.client.result.Result;
 import com.github.wrx886.e2echo.client.util.ApiUtil;
@@ -11,8 +12,8 @@ import org.springframework.web.reactive.function.client.WebClient;
 /**
  * 时间戳接口。
  *
- * <p>调用服务端 {@code /timestamp} 接口获取服务端当前时间，用于校准本地时间、判断客户端与服务端
- * 的连通性以及检查两端的时间偏差。</p>
+ * <p>调用服务端 {@code /timestamp} 接口获取服务端当前时间：其他接口在发请求前用它校验两端的时间
+ * 偏差，也可以用来判断与服务端的连通性。</p>
  */
 @Component
 @RequiredArgsConstructor
@@ -37,6 +38,20 @@ public class TimestampApi {
                 .bodyToMono(new ParameterizedTypeReference<Result<String>>() {
                 })
                 .block());
+    }
+
+    /**
+     * 校验本机与服务器的时间偏差。
+     *
+     * <p>偏差超过 5 秒时抛异常：服务端会用时间戳校验消息，偏差过大时消息发不出去。</p>
+     *
+     * @throws E2EchoException 时间偏差过大，或时间戳接口调用失败
+     */
+    public void checkTime() {
+        long timestamp = Long.parseLong(timestamp());
+        if (Math.abs(timestamp - System.currentTimeMillis()) > Const.MAX_TIME_DIFF_MS) {
+            throw new E2EchoException("本机与服务器时间差距过大!");
+        }
     }
 
 }
