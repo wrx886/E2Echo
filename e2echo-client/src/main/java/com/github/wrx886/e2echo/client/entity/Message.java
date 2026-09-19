@@ -12,11 +12,10 @@ import org.springframework.data.domain.Persistable;
  *
  * <p>保存本地解密后的消息，字段与 {@link EccMessage} 基本一致，区别有两点：{@code message}
  * 存的是解密后的明文（服务端存的是密文）；不保存 {@code sign}——签名针对的是原始报文，密钥与
- * 正文都不同了，留着也无法再验签。主键沿用消息 ID（“16 位十六进制时间戳 + 32 位无连字符
- * UUID”）。</p>
+ * 正文都不同了，留着也无法再验签。</p>
  *
- * <p>消息只插入、不更新（见 {@link #isNew()}），所以重复拉取同一条消息时不会覆盖已有数据，而是
- * 因主键冲突失败，拉取方需要先判断该消息是否已经存在。</p>
+ * <p>注意两个 ID 不能混用：主键是基类的 {@code id}（本地生成的记录 ID），服务端消息 ID 单独保存在
+ * {@code messageId}，用于与服务端消息对应。</p>
  */
 @Data
 @EqualsAndHashCode(callSuper = true)
@@ -24,9 +23,16 @@ import org.springframework.data.domain.Persistable;
 @Table(name = "message", indexes = {
         @Index(name = "idx_message_owner_from_to_seq", columnList = "owner, from_, to_, seq"),
 }, uniqueConstraints = {
-        @UniqueConstraint(name = "uk_message_owner_seq", columnNames = {"owner", "seq"})
+        @UniqueConstraint(name = "uk_message_owner_seq", columnNames = {"owner", "seq"}),
+        @UniqueConstraint(name = "uk_message_owner_message_id", columnNames = {"owner", "message_id"})
 })
 public class Message extends BaseEntity implements Persistable<String> {
+
+    /**
+     * 服务端消息 ID，即 {@link EccMessage#getId()}，用于与服务端消息对应，同一用户下唯一。
+     */
+    @Column(nullable = false, updatable = false)
+    private String messageId;
 
     /**
      * 发送者身份，即发送者的 secp256k1 公钥（RAW HEX 格式）。

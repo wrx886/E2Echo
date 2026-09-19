@@ -9,6 +9,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+
 import static com.github.wrx886.e2echo.client.util.CommonUtil.currentOwner;
 
 /**
@@ -31,6 +34,11 @@ public class SysParamService {
     private final SysParamRepository sysParamRepository;
 
     /**
+     * 系统参数数据缓存。
+     */
+    private final ConcurrentHashMap<String, Optional<String>> sysParamMap = new ConcurrentHashMap<>();
+
+    /**
      * 读取当前登入用户的参数值。
      *
      * @param key 参数名
@@ -38,10 +46,13 @@ public class SysParamService {
      * @throws E2EchoException 尚未登入
      */
     public String find(String key) {
-        return sysParamRepository
+        // 缓存
+        sysParamMap.computeIfAbsent(key, k -> sysParamRepository
                 .findByOwnerAndKey(currentOwner(), key)
-                .map(SysParam::getValue)
-                .orElse(null);
+                .map(SysParam::getValue));
+        // 获取，这里极端情况下，前面写入就被其他线程删除了，所以要额外再判断一次
+        Optional<String> val = sysParamMap.get(key);
+        return val != null ? val.orElse(null) : null;
     }
 
     /**
@@ -70,6 +81,7 @@ public class SysParamService {
         });
         param.setValue(value);
         sysParamRepository.save(param);
+        sysParamMap.remove(key);
     }
 
     /**
@@ -97,6 +109,7 @@ public class SysParamService {
         created.setKey(key);
         created.setValue(value);
         sysParamRepository.save(created);
+        sysParamMap.remove(key);
     }
 
     /**

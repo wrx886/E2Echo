@@ -113,7 +113,7 @@ public class MessageService {
         }
 
         // 是否存储到数据库
-        message.setId(eccMessage.getId());
+        message.setMessageId(eccMessage.getId());
         if (save) {
             save(message);
         }
@@ -186,7 +186,7 @@ public class MessageService {
 
         // 3. 构造 message
         Message message = new Message();
-        message.setId(eccMessage.getId());
+        message.setMessageId(eccMessage.getId());
         message.setFrom(eccMessage.getFrom());
         message.setTo(eccMessage.getTo());
         message.setMessage(eccMessage.getMessage());
