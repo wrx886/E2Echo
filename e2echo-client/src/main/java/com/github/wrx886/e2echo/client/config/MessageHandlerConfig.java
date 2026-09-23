@@ -1,7 +1,6 @@
 package com.github.wrx886.e2echo.client.config;
 
 import com.github.wrx886.e2echo.client.common.ReceiveMessageHandler;
-import jakarta.annotation.PostConstruct;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 

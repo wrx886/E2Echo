@@ -1,5 +1,6 @@
 package com.github.wrx886.e2echo.client.service;
 
+import com.github.wrx886.e2echo.client.common.BeanProvider;
 import com.github.wrx886.e2echo.client.entity.Conversation;
 import com.github.wrx886.e2echo.client.entity.Message;
 import com.github.wrx886.e2echo.client.repository.ConversationRepository;
@@ -19,14 +20,15 @@ import static com.github.wrx886.e2echo.client.util.CommonUtil.currentOwner;
  * 会话业务逻辑层。
  *
  * <p>维护当前用户的会话列表与别名：会话按登入用户隔离，最新消息随收发更新；别名读取带缓存，
- * 保存会话时让对应缓存失效。</p>
+ * 会话新建或保存时让对应缓存失效。</p>
  */
 @Service
 @RequiredArgsConstructor
 public class ConversationService {
 
     /**
-     * 别名缓存，键为会话对方；用 {@code Optional} 是为了把“查过但没有别名”也缓存下来。
+     * 别名缓存，键为“数据所有者 + 会话对方”（本机可能先后登入多个用户）；用 {@code Optional}
+     * 是为了把“查过但没有别名”也缓存下来。
      */
     private final ConcurrentHashMap<String, Optional<String>> aliasMap = new ConcurrentHashMap<>();
 
@@ -70,7 +72,11 @@ public class ConversationService {
      */
     public void save(Conversation conversation) {
         conversationRepository.save(conversation);
-        aliasMap.remove(conversation.getPeer());
+        aliasMap.remove(currentOwner() + conversation.getPeer());
+        if (Boolean.TRUE.equals(conversation.getGroup())) {
+            // 群聊是否启用决定了通知通道的订阅目标，所以群聊会话保存后要重建连接
+            BeanProvider.getBean(MessageService.class).connectNotice();
+        }
     }
 
     /**
@@ -90,25 +96,27 @@ public class ConversationService {
      * @return 别名，没有对应会话或没有别名时返回 {@code null}
      */
     public String findAliasByPeer(String peer) {
-        aliasMap.computeIfAbsent(peer, (k) -> Optional.ofNullable(conversationRepository.findByOwnerAndPeer(
+        String aliasKey = currentOwner() + peer;
+        aliasMap.computeIfAbsent(aliasKey, (k) -> Optional.ofNullable(conversationRepository.findByOwnerAndPeer(
                 currentOwner(),
                 peer
         )).map(Conversation::getAlias));
-        Optional<String> alias = aliasMap.get(peer);
+        Optional<String> alias = aliasMap.get(aliasKey);
         return alias == null ? null : alias.orElse(null);
     }
 
     /**
      * 更新会话的最新消息；会话不存在时按对方新建，别名默认取对方末尾 5 位并置为启用。
      *
-     * <p>这里不调用 {@link #save(Conversation)}，是为了不清空别名缓存、不破坏别名机制。</p>
+     * <p>这里不调用 {@link #save(Conversation)}：那会清掉用户设置的别名缓存，而本方法只更新最新
+     * 消息。只有新建会话时才需要清缓存——别名从无到有，之前缓存的“没有别名”已经失效。</p>
      *
      * @param peer    会话对方
      * @param group   是否群聊
      * @param message 最新消息
      */
     @Transactional
-    public void updateLeastMessageByPeer(String peer, Boolean group, Message message) {
+    public void updateLatestMessageByPeer(String peer, Boolean group, Message message) {
         Conversation conversation = conversationRepository.findByOwnerAndPeer(currentOwner(), peer);
         if (conversation == null) {
             conversation = new Conversation();
@@ -116,6 +124,12 @@ public class ConversationService {
             conversation.setAlias(peer.substring(peer.length() > 5 ? peer.length() - 5 : 0));
             conversation.setGroup(group);
             conversation.setEnabled(true);
+            // 会话新建，别名从无到有，之前可能缓存过“没有别名”，这里让它失效
+            aliasMap.remove(currentOwner() + peer);
+            // 新加入的群聊要立刻订阅，重建通知连接（用 BeanProvider 取是为了避开循环依赖）
+            if (group) {
+                BeanProvider.getBean(MessageService.class).connectNotice();
+            }
         }
         conversation.setLatestMessage(message);
         // 这里不能直接调用 save，因为这个方法存在的意义就是不破坏别名机制更新最新消息

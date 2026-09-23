@@ -23,4 +23,15 @@ public interface MessageRepository extends JpaRepository<Message, String>, JpaSp
      */
     Optional<Message> findFirstByOwnerOrderBySeqDesc(String owner);
 
+    /**
+     * 判断本地是否已经存过某条服务端消息。
+     *
+     * <p>判断同样按登入用户隔离：同一条服务端消息（例如群聊消息）可能被本机上的多个用户分别收到，
+     * 每个用户各存一份，与 {@code (owner, message_id)} 唯一约束保持一致。</p>
+     *
+     * @param owner     数据所有者，即当前登入用户的公钥
+     * @param messageId 服务端消息 ID
+     * @return 该用户下已存在返回 {@code true}
+     */
+    boolean existsByOwnerAndMessageId(String owner, String messageId);
 }

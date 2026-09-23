@@ -25,4 +25,9 @@ public final class Const {
      */
     public static final long MAX_MESSAGE_DIFF_MS = 60 * 1000L;
 
+    /**
+     * 拉取消息时每批的条数。
+     */
+    public static final int MESSAGE_PULL_BATCH_SIZE = 128;
+
 }
