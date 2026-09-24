@@ -8,6 +8,7 @@ import com.github.wrx886.e2echo.client.api.NoticeApi;
 import com.github.wrx886.e2echo.client.common.Const;
 import com.github.wrx886.e2echo.client.common.ReceiveMessageHandler;
 import com.github.wrx886.e2echo.client.config.MessageHandlerConfig;
+import com.github.wrx886.e2echo.client.dto.AesKeyDto;
 import com.github.wrx886.e2echo.client.entity.Message;
 import com.github.wrx886.e2echo.client.enums.ChannelEnum;
 import com.github.wrx886.e2echo.client.enums.SysParamEnum;
@@ -41,6 +42,9 @@ import static com.github.wrx886.e2echo.client.util.CommonUtil.currentOwner;
  *
  * <p>发送时把本地消息按通道加密、签名后交给服务端；接收时验证并解密服务端消息，先落库、再交给
  * 对应类型的处理器。消息按登入用户隔离、只插入不更新，序号用于排序与增量拉取。</p>
+ *
+ * <p>私聊消息用 ECC 加密，群聊消息用 AES 加密：群聊密文前面拼的是 16 位十六进制的密钥签发时间
+ * （密钥版本），解密方据此取到同一版本的密钥。</p>
  *
  * <p>除了定期拉取，登入后还会建立 notice 长连接：服务端发现变化时推送通知，客户端收到通知立刻
  * 拉取，见 {@link #connectNotice()}。</p>
@@ -309,23 +313,10 @@ public class MessageService {
             if (ChannelEnum.CHAT_PRIVATE_ECC.name().equals(message.getChannel())) {
                 eccMessage = Ecc.encrypt(eccMessage);
             } else {
-                boolean encrypted = false;
-                List<String> aesKeys = aesKeyService.get(
-                        eccMessage.getTo(),
-                        System.currentTimeMillis());
-                for (String aesKey : aesKeys) {
-                    try {
-                        eccMessage.setMessage(Ecc.encryptAes(eccMessage.getMessage(), aesKey));
-                        encrypted = true;
-                    } catch (Exception e) {
-                        // 忽略
-                    }
-                }
-
-                if (!encrypted) {
-                    throw new E2EchoException("消息加密失败!");
-                }
-
+                AesKeyDto aesKey = aesKeyService.getLast(eccMessage.getTo());
+                if (aesKey == null) throw new E2EchoException("找不到对应的 AES KEY");
+                // 群聊密文 = 16 位十六进制密钥签发时间（密钥版本）+ 密文，解密方按它取同一版本的密钥
+                eccMessage.setMessage(String.format("%016x", aesKey.publishTime()) + Ecc.encryptAes(eccMessage.getMessage(), aesKey.aesKey()));
                 // 签名
                 eccMessage = Ecc.sign(eccMessage);
             }
@@ -388,22 +379,12 @@ public class MessageService {
             if (ChannelEnum.CHAT_PRIVATE_ECC.name().equals(eccMessage.getChannel())) {
                 eccMessage = Ecc.decrypt(eccMessage);
             } else {
-                boolean decrypted = false;
-                List<String> aesKeys = aesKeyService.get(
-                        eccMessage.getTo(),
-                        IdUtil.getTimestampFromId(eccMessage.getId()));
-                for (String aesKey : aesKeys) {
-                    try {
-                        eccMessage.setMessage(Ecc.decryptAes(eccMessage.getMessage(), aesKey));
-                        decrypted = true;
-                    } catch (Exception e) {
-                        // 忽略
-                    }
-                }
-
-                if (!decrypted) {
-                    throw new E2EchoException("消息解密失败!");
-                }
+                // 密文前 16 位是加密时用的密钥签发时间，按“对象 + 签发时间”取对应版本的密钥
+                AesKeyDto aesKey = aesKeyService.getOne(eccMessage.getTo(),
+                        Long.parseLong(eccMessage.getMessage().substring(0, 16), 16)
+                );
+                if (aesKey == null) throw new E2EchoException("找不到对应的 AES KEY");
+                eccMessage.setMessage(Ecc.decryptAes(eccMessage.getMessage().substring(16), aesKey.aesKey()));
             }
         } catch (E2EchoException e) {
             throw e;

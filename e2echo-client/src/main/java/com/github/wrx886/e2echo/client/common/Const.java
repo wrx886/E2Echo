@@ -11,11 +11,6 @@ public final class Const {
     public static final long MAX_TIME_DIFF_MS = 5 * 1000L;
 
     /**
-     * AES 密钥的检索时间范围（毫秒）。
-     */
-    public static final long AES_FIND_TIME_RANGE_MS = 5 * 60 * 1000L;
-
-    /**
      * AUTH 票据的有效时间（毫秒）。
      */
     public static final long AUTH_EXPIRED_TIME_MS = 60 * 1000L;
