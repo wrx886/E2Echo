@@ -84,12 +84,17 @@ public class MessageService {
      * 十六进制时间戳，其字典序与时间顺序一致，因此无需额外按时间戳排序即可保证时间先后。
      * 升序即从老到新，降序即从新到老。</p>
      *
+     * <p>{@code startId}、{@code endId} 是分页游标，按排序方向选用：升序时把上一页最后一条的 ID
+     * 作为 {@code startId}（只取更大的），降序时作为 {@code endId}（只取更小的），这样翻页不会
+     * 取到已经取过的消息。</p>
+     *
      * @param fromList       发送者公钥列表，为空表示不过滤
      * @param toList         接收者信息列表，为空表示不过滤
      * @param channel        消息通道，为空表示不过滤
      * @param startTimestamp 起始时间戳（毫秒，含），为空表示不限制
      * @param endTimestamp   结束时间戳（毫秒，含），为空表示不限制
      * @param startId        起始消息 ID，仅返回 ID 大于该值的消息，为空表示不限制
+     * @param endId          结束消息 ID，仅返回 ID 小于该值的消息，为空表示不限制
      * @param order          排序方向，{@code asc} 从老到新（默认）、{@code desc} 从新到老
      * @param pageNum        页码，从 1 开始
      * @param pageSize       每页条数
@@ -103,6 +108,7 @@ public class MessageService {
             String startTimestamp,
             String endTimestamp,
             String startId,
+            String endId,
             String order,
             int pageNum,
             int pageSize
@@ -137,6 +143,9 @@ public class MessageService {
             }
             if (startId != null && !startId.isBlank()) {
                 predicates.add(cb.greaterThan(root.get("messageId"), startId));
+            }
+            if (endId != null && !endId.isBlank()) {
+                predicates.add(cb.lessThan(root.get("messageId"), endId));
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };

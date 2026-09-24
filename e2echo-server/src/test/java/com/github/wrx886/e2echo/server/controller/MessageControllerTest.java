@@ -173,6 +173,7 @@ class MessageControllerTest {
                 startTimestamp,
                 endTimestamp,
                 startId,
+                null,
                 order,
                 pageNum,
                 pageSize).data();
@@ -349,6 +350,7 @@ class MessageControllerTest {
                     null,
                     null,
                     null,
+                    null,
                     1,
                     10).data();
             assertThat(privatePage.getTotalElements()).isEqualTo(2);
@@ -403,6 +405,7 @@ class MessageControllerTest {
                     null,
                     null,
                     null,
+                    null,
                     "desc",
                     1,
                     1).data();
@@ -423,6 +426,54 @@ class MessageControllerTest {
             Page<EccMessage> oldest = list(USERINFO_CHANNEL, null, null, null, null, 1, 1);
             assertThat(oldest.getContent()).extracting(EccMessage::getId)
                     .containsExactly(first.getMessageId());
+        }
+
+        /**
+         * 校验降序翻页：把上一页最后一条的消息 ID 作为结束 ID，下一页接着取更早的消息；
+         * 起始 ID 与结束 ID 也可以同时使用，把结果限定在某一段消息内。
+         */
+        @Test
+        @DisplayName("降序翻页：结束 ID 作为游标继续取更早的消息")
+        void pagesBackwardWithEndId() {
+            long base = System.currentTimeMillis();
+            Message first = persistMessage(base, 1, PRIVATE_CHANNEL);
+            Message second = persistMessage(base + 1_000, 2, PRIVATE_CHANNEL);
+            Message third = persistMessage(base + 2_000, 3, PRIVATE_CHANNEL);
+
+            // 第一页：最新的两条，从新到老
+            Page<EccMessage> firstPage = list(PRIVATE_CHANNEL, null, null, null, "desc", 1, 2);
+            assertThat(firstPage.getContent()).extracting(EccMessage::getId)
+                    .containsExactly(third.getMessageId(), second.getMessageId());
+
+            // 第二页：以第一页最后一条为结束 ID，继续取更早的消息
+            Page<EccMessage> secondPage = messageController.list(
+                    null,
+                    List.of(receiverKeyPair.publicKeyHex()),
+                    PRIVATE_CHANNEL,
+                    null,
+                    null,
+                    null,
+                    second.getMessageId(),
+                    "desc",
+                    1,
+                    2).data();
+            assertThat(secondPage.getContent()).extracting(EccMessage::getId)
+                    .containsExactly(first.getMessageId());
+
+            // 两个游标可同时使用：只取 ID 位于 first 与 third 之间的消息
+            Page<EccMessage> window = messageController.list(
+                    null,
+                    List.of(receiverKeyPair.publicKeyHex()),
+                    PRIVATE_CHANNEL,
+                    null,
+                    null,
+                    first.getMessageId(),
+                    third.getMessageId(),
+                    "asc",
+                    1,
+                    10).data();
+            assertThat(window.getContent()).extracting(EccMessage::getId)
+                    .containsExactly(second.getMessageId());
         }
 
         /**
