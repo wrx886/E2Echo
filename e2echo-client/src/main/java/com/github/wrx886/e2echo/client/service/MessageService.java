@@ -229,6 +229,7 @@ public class MessageService {
                     lastPullTime,
                     null,
                     startId,
+                    null, // 降序才用 endId，这里按 ID 升序拉取、游标用 startId
                     "ASC",
                     1,
                     Const.MESSAGE_PULL_BATCH_SIZE
