@@ -17,6 +17,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
@@ -63,7 +64,8 @@ public class NoticeService implements MessageListener {
      * 建立 SSE 连接并订阅目标。
      *
      * <p>客户端 ID 会加上本实例 ID 前缀后作为键，注册成功即开始接收订阅目标的通知；注册时
-     * 同时把订阅关系写入 Redis，并登记连接关闭、出错、超时三种回调用于后续清理。</p>
+     * 同时把订阅关系写入 Redis，并登记连接关闭、出错、超时三种回调用于后续清理。注册完成后还会
+     * 立即向该连接推送一条通知，让客户端确认订阅已经生效并拉取一次数据。</p>
      *
      * @param clientOriginal 客户端原始 ID
      * @param tos            需要订阅的目标列表
@@ -102,9 +104,22 @@ public class NoticeService implements MessageListener {
             sseEmitter.onError((e) -> onEmitterClose(client, e));
             sseEmitter.onTimeout(() -> onEmitterClose(client, null));
 
-            // 注册
+            // 返回即完成注册
             return sseEmitter;
         });
+
+        // 注册完成后立即推一条通知（内容与数据变化的通知相同）：SSE 的响应头要等第一次写出才
+        // 提交，客户端在此之前收不到任何数据、无法确认订阅已经生效；这条通知既让它确认连接可用，
+        // 也会让它按通知语义立刻拉取一次数据
+        //
+        // 这时 emitter 还没交给 Spring MVC，send 只把数据缓冲下来，等框架接管后统一写出，写出
+        // 失败会被框架转成 onError 回调，订阅关系由回调清理，这里不需要另外处理
+        try {
+            sseEmitter.send("reflash");
+        } catch (IOException e) {
+            // send 声明的是受检异常，包装成非受检异常交给全局异常处理
+            throw new RuntimeException(e);
+        }
 
         return sseEmitter;
     }
@@ -179,8 +194,9 @@ public class NoticeService implements MessageListener {
         // 获取消息的基本信息
         String client = new String(message.getBody(), StandardCharsets.UTF_8);
 
-        // 处理消息：SseEmitter 不是线程安全的，用 computeIfPresent 保证同一客户端的推送与
-        // 连接关闭时的移除、清理互斥，因此这里不能改成 get 后再 send
+        // 处理消息：用 computeIfPresent 让推送与连接关闭时的移除、清理互斥，避免向已经关闭、
+        // 已从映射中移除的连接推送（complete 之后再 send 会抛 IllegalStateException）；同一个
+        // emitter 上的并发写入由 SseEmitter 内部的写锁串行化
         emitters.computeIfPresent(client, (k, emitter) -> {
             try {
                 emitter.send("reflash");

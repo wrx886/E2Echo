@@ -42,7 +42,8 @@ import com.github.wrx886.e2echo.server.service.NoticeService;
  * 通知功能的集成测试。
  *
  * <p>启动真实的 Web 容器后，用 HTTP 客户端建立真实的 SSE 长连接，验证通知从产生到送达客户端
- * 的完整链路：连接注册、Redis 中的订阅关系、通知发布、客户端收到推送。</p>
+ * 的完整链路：连接注册、Redis 中的订阅关系、建连推送、通知发布、客户端收到推送。建连推送与后续
+ * 通知的推送内容一致，因此判断通知是否送达时只看触发通知之后新增的内容。</p>
  *
  * <p>用例数据与线上一致：连接使用随机的客户端 ID 与订阅目标，保存消息时使用
  * {@link Ecc#generateKeyPair()} 生成的真实密钥对。用例结束后会关闭连接、删除 Redis 中的订阅
@@ -151,7 +152,7 @@ class NoticeIntegrationTest {
      * @param clientOriginal 客户端原始 ID
      * @param to             订阅的目标
      * @return 连接句柄
-     * @throws Exception 请求失败或等待订阅关系写入超时
+     * @throws Exception 请求失败，或等待订阅关系写入、建连推送到达超时
      */
     private SseConnection connect(String clientOriginal, String to) throws Exception {
         HttpRequest request = HttpRequest.newBuilder(
@@ -171,6 +172,11 @@ class NoticeIntegrationTest {
         createdKeys.add(RedisPrefix.CLIENT2TOS + client);
         createdKeys.add(RedisPrefix.TO2CLIENTS + to);
         connection.startReading();
+
+        // 等建连推送到达再返回：用例拿「已收内容长度」当界判断后续通知是否送达，这个界必须落在
+        // 建连推送之后，否则断言会被它满足；推送本身由「建立连接：客户端立即收到首条推送」验证
+        connection.awaitContent("reflash", TIMEOUT_MILLIS);
+
         return connection;
     }
 
@@ -194,16 +200,19 @@ class NoticeIntegrationTest {
     }
 
     /**
-     * 触发通知并等待客户端收到推送。
+     * 触发通知并等待客户端收到新的推送。
+     *
+     * <p>建连时服务端已经推过一条通知，因此以触发通知前的已收内容为界，只判断之后新增的内容。</p>
      *
      * @param to         通知目标
      * @param connection 期望收到推送的连接
      * @throws Exception 等待被中断
      */
     private void noticeAndAwait(String to, SseConnection connection) throws Exception {
+        int mark = connection.receivedSize();
         noticeService.notice(to);
 
-        assertThat(connection.awaitContent("reflash", TIMEOUT_MILLIS))
+        assertThat(connection.awaitContent("reflash", mark, TIMEOUT_MILLIS))
                 .as("客户端应收到推送，实际收到：%s", connection.received())
                 .isTrue();
     }
@@ -242,7 +251,20 @@ class NoticeIntegrationTest {
     }
 
     /**
-     * 推送通知的测试：通知订阅目标后，订阅它的客户端应通过 SSE 收到推送。
+     * 建连推送的测试：连接建立后不触发任何通知，客户端就应收到服务端在注册完成后立即推送的通知。
+     */
+    @Test
+    @DisplayName("建立连接：客户端立即收到首条推送")
+    void pushesNoticeOnConnect() throws Exception {
+        SseConnection connection = connect(uniqueClient(), uniqueTo());
+
+        assertThat(connection.awaitContent("reflash", TIMEOUT_MILLIS))
+                .as("建连后应立即收到首条推送，实际收到：%s", connection.received())
+                .isTrue();
+    }
+
+    /**
+     * 推送通知的测试：通知订阅目标后，订阅它的客户端应通过 SSE 收到新的推送。
      */
     @Test
     @DisplayName("通知订阅目标：客户端收到推送")
@@ -272,6 +294,9 @@ class NoticeIntegrationTest {
         String to = receiverKeyPair.publicKeyHex();
         SseConnection connection = connect(uniqueClient(), to);
 
+        // 建连时已经收到过一条推送，只判断保存消息之后新增的内容
+        int mark = connection.receivedSize();
+
         EccMessage plain = new EccMessage();
         plain.setFrom(senderKeyPair.publicKeyHex());
         plain.setTo(to);
@@ -285,7 +310,7 @@ class NoticeIntegrationTest {
 
         assertThat(messageController.save(message).code()).isEqualTo("0");
 
-        assertThat(connection.awaitContent("reflash", TIMEOUT_MILLIS))
+        assertThat(connection.awaitContent("reflash", mark, TIMEOUT_MILLIS))
                 .as("保存消息后订阅者应收到通知，实际收到：%s", connection.received())
                 .isTrue();
     }
@@ -376,16 +401,43 @@ class NoticeIntegrationTest {
          * @throws InterruptedException 等待被中断
          */
         boolean awaitContent(String content, long timeoutMillis) throws InterruptedException {
+            return awaitContent(content, 0, timeoutMillis);
+        }
+
+        /**
+         * 等待新收到包含指定内容的数据。
+         *
+         * <p>只在 {@code fromIndex} 之后的内容里查找：建连时服务端已经推过一条通知，判断后续通知
+         * 是否送达必须跳过这段已有内容，否则断言会被建连推送直接满足。</p>
+         *
+         * @param content       期望出现的内容
+         * @param fromIndex     从该偏移之后开始查找，取触发通知前的 {@link #receivedSize()}
+         * @param timeoutMillis 最长等待时间（毫秒）
+         * @return 收到返回 {@code true}，超时返回 {@code false}
+         * @throws InterruptedException 等待被中断
+         */
+        boolean awaitContent(String content, int fromIndex, long timeoutMillis) throws InterruptedException {
             long deadline = System.currentTimeMillis() + timeoutMillis;
             while (System.currentTimeMillis() < deadline) {
                 synchronized (received) {
-                    if (received.indexOf(content) >= 0) {
+                    if (received.indexOf(content, fromIndex) >= 0) {
                         return true;
                     }
                 }
                 Thread.sleep(20);
             }
             return false;
+        }
+
+        /**
+         * 获取已收内容的长度，作为「只看之后新增内容」的起点。
+         *
+         * @return 已收到的字符数
+         */
+        int receivedSize() {
+            synchronized (received) {
+                return received.length();
+            }
         }
 
         /**
