@@ -6,8 +6,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import com.github.wrx886.e2echo.client.api.MessageApi;
 import com.github.wrx886.e2echo.client.api.NoticeApi;
 import com.github.wrx886.e2echo.client.common.Const;
-import com.github.wrx886.e2echo.client.common.ReceiveMessageHandler;
-import com.github.wrx886.e2echo.client.config.MessageHandlerConfig;
+import com.github.wrx886.e2echo.client.common.MessageHandler;
+import com.github.wrx886.e2echo.client.config.MessageConfig;
 import com.github.wrx886.e2echo.client.dto.AesKeyDto;
 import com.github.wrx886.e2echo.client.entity.Message;
 import com.github.wrx886.e2echo.client.enums.ChannelEnum;
@@ -16,6 +16,7 @@ import com.github.wrx886.e2echo.client.exception.E2EchoException;
 import com.github.wrx886.e2echo.client.repository.MessageRepository;
 import com.github.wrx886.e2echo.client.result.PageData;
 import com.github.wrx886.e2echo.client.util.IdUtil;
+import com.github.wrx886.e2echo.client.vo.MessageVo;
 import com.github.wrx886.e2echo.ecc.Ecc;
 
 import com.github.wrx886.e2echo.ecc.EccMessage;
@@ -34,6 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import reactor.core.Disposable;
 import reactor.core.scheduler.Schedulers;
+import tools.jackson.databind.ObjectMapper;
 
 import static com.github.wrx886.e2echo.client.util.CommonUtil.currentOwner;
 
@@ -47,7 +49,9 @@ import static com.github.wrx886.e2echo.client.util.CommonUtil.currentOwner;
  * （密钥版本），解密方据此取到同一版本的密钥。</p>
  *
  * <p>除了定期拉取，登入后还会建立 notice 长连接：服务端发现变化时推送通知，客户端收到通知立刻
- * 拉取，见 {@link #connectNotice()}。</p>
+ * 拉取；订阅注册完成时服务端也会立即推一条，用来确认订阅已经生效并补上订阅之前到达的消息，见
+ * {@link #connectNotice()}。拉取结束后，客户端再通过 {@link NoticeService} 把“有变化”转告连上来的
+ * 前端。</p>
  */
 @Slf4j
 @Service
@@ -72,7 +76,7 @@ public class MessageService {
     /**
      * 消息处理器配置，用于按消息类型取处理器。
      */
-    private final MessageHandlerConfig messageHandlerConfig;
+    private final MessageConfig messageConfig;
 
     /**
      * AES 密钥业务逻辑对象，用于群聊消息的加解密。
@@ -95,6 +99,16 @@ public class MessageService {
     private final NoticeApi noticeApi;
 
     /**
+     * JSON 对象映射器，用于消息正文的序列化与反序列化。
+     */
+    private final ObjectMapper objectMapper;
+
+    /**
+     * 前端通知业务对象，拉取到新消息后通知连上来的前端刷新。
+     */
+    private final NoticeService noticeService;
+
+    /**
      * 当前的通知连接；为空表示还没有连接，重建连接时用它断开旧连接。
      */
     private Disposable disposable = null;
@@ -114,8 +128,8 @@ public class MessageService {
      *
      * <p>订阅目标会随会话变化（新加入群聊、群聊被停用等），所以每次调用都先断开旧连接，再按最新
      * 的目标重建。容器启动时由 {@link PostConstruct} 调用一次，会话变化时由
-     * {@link ConversationService} 调用。建连之后还会补一次拉取：建连之前到达的消息不会有通知，
-     * 只能靠这次拉取带回来。</p>
+     * {@link ConversationService} 调用。建连后服务端会立即推一条通知，断线期间到达的消息就靠它
+     * 触发的那次拉取带回，这里不需要另外补拉。</p>
      *
      * <p>回调里只登记一次拉取请求（{@link #requestPull()}），不直接拉取：拉取用的接口是阻塞式的
      * （{@code block()}），不能跑在 Reactor Netty 的事件循环线程上；而且通知经常挤在一起到达，
@@ -139,9 +153,6 @@ public class MessageService {
                         requestPull();
                     }
                 });
-
-        // 建连之前到达的消息不会有通知，这里补一次拉取
-        requestPull();
     }
 
     /**
@@ -273,6 +284,9 @@ public class MessageService {
         // 更新上次获取时间
         sysParamService.put(SysParamEnum.LAST_PULL_TIME, pullTime);
         log.info("更新上次接收时间为 {}", pullTime);
+
+        // 通知连上来的前端刷新（内容只是“数据可能变了”，这次没拉到新消息时同样会推）
+        noticeService.notice();
     }
 
     /**
@@ -331,6 +345,12 @@ public class MessageService {
         message.setMessageId(eccMessage.getId());
         if (save) {
             save(message);
+            // 更新会话信息
+            conversationService.updateLatestMessageByPeer(
+                    eccMessage.getTo(),
+                    ChannelEnum.CHAT_GROUP_AES.name().equals(eccMessage.getChannel()),
+                    message
+            );
         }
 
         // 发送消息
@@ -341,8 +361,9 @@ public class MessageService {
      * 接收并处理一条服务端消息：验签、检查时间与通道、去重，解密后入库，最后交给类型对应的处理器。
      *
      * @param eccMessage 服务端返回的消息
-     * @throws E2EchoException 尚未登入、验签失败、时间超限、通道不支持、消息已存在或解密失败
+     * @throws E2EchoException 尚未登入、验签失败、时间超限、通道不支持、消息已存在、解密失败或消息类型不支持
      */
+    @Transactional
     public void receive(EccMessage eccMessage) {
         final MessageService self = selfProvider.getObject();
 
@@ -405,12 +426,19 @@ public class MessageService {
 
         // 4. 填充seq并存储到数据库
         self.save(message);
+        // 更新会话信息
+        conversationService.updateLatestMessageByPeer(
+                eccMessage.getTo(),
+                ChannelEnum.CHAT_GROUP_AES.name().equals(eccMessage.getChannel()),
+                message
+        );
 
-        // 5. 对消息进行特殊处理（可以改变消息内容，但没有意义）
-        ReceiveMessageHandler receiveHandler = messageHandlerConfig.getReceiveHandler(message.getType());
-        if (receiveHandler != null) {
-            receiveHandler.receive(message);
+        // 5. 交给对应类型的处理器（消息已经入库，处理器对内容的修改没有意义）
+        MessageHandler messageHandler = messageConfig.getReceiveHandler(message.getType());
+        if (messageHandler == null) {
+            throw new E2EchoException("不支持的消息类型");
         }
+        messageHandler.receive(message);
     }
 
     /**
@@ -425,15 +453,19 @@ public class MessageService {
     }
 
     /**
-     * 查询当前用户与某个会话方的消息（收 + 发），按序号升序。
+     * 查询当前用户与某个会话方的消息（收 + 发），按序号 seq 倒序（最新的在前）。
      *
-     * @param peer    会话方，私聊时为对方公钥
-     * @param startId 仅返回ID大于该值的消息，传空表示全部
-     * @return 会话内的消息，按序号升序
+     * <p>消息正文是 JSON，这里按消息类型取处理器、用它的正文类型反序列化后再返回。</p>
+     *
+     * @param peer     会话方，私聊时为对方公钥、群聊时为群聊标识
+     * @param endSeq   倒序翻页的游标，仅返回序号小于该值的消息，传空表示从头开始
+     * @param pageNum  页码，从 1 开始
+     * @param pageSize 每页条数
+     * @return 会话内的消息，按序号倒序
      */
-    public Page<Message> findConversation(
+    public Page<MessageVo> findConversation(
             String peer,
-            String startId,
+            Long endSeq,
             int pageNum,
             int pageSize
     ) {
@@ -444,23 +476,40 @@ public class MessageService {
             predicates.add(criteriaBuilder.equal(root.get("owner"), currentOwner()));
 
             // from to
-            Predicate fromPredicate = root.get("from_").in(peer, currentOwner());
-            Predicate toPredicate = root.get("to_").in(peer, currentOwner());
+            Predicate fromPredicate = root.get("from").in(peer, currentOwner());
+            Predicate toPredicate = root.get("to").in(peer, currentOwner());
             predicates.add(criteriaBuilder.or(fromPredicate, toPredicate));
 
             // channel
             predicates.add(root.get("channel").in(ChannelEnum.CHAT_GROUP_AES.name(), ChannelEnum.CHAT_PRIVATE_ECC.name()));
 
-            // startId
-            if (StringUtils.hasLength(startId)) {
-                predicates.add(criteriaBuilder.greaterThan(root.get("id"), startId));
+            // endSeq
+            if (endSeq != null) {
+                predicates.add(criteriaBuilder.lessThan(root.get("seq"), endSeq));
             }
 
             return criteriaBuilder.and(predicates);
         };
 
-        Pageable pageable = PageRequest.of(pageNum - 1, pageSize, Sort.by(Sort.Direction.DESC, "id"));
-        return messageRepository.findAll(specification, pageable);
+        // 排序要和游标一致：游标是本地序号 seq，这里也按 seq 排（seq 严格递增，
+        // 而 id 是“时间戳 + 随机 UUID”，同一毫秒内的先后是随机的，不能当顺序用）
+        Pageable pageable = PageRequest.of(pageNum - 1, pageSize, Sort.by(Sort.Direction.DESC, "seq"));
+        return messageRepository.findAll(specification, pageable)
+                .map((message) -> {
+                    Class<?> type = Optional.ofNullable(messageConfig.getReceiveHandler(message.getType())).map(MessageHandler::getMessageType).orElse(null);
+                    return new MessageVo(
+                            message.getMessageId(),
+                            message.getFrom(),
+                            message.getTo(),
+                            type != null ?
+                                    objectMapper.readValue(message.getMessage(), type) :
+                                    message.getMessage(),
+                            message.getType(),
+                            message.getChannel(),
+                            message.getInfo(),
+                            message.getSeq()
+                    );
+                });
     }
 
     /**

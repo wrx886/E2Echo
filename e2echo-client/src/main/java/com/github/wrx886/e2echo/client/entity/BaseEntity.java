@@ -7,6 +7,7 @@ import org.springframework.data.annotation.CreatedBy;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 
@@ -52,7 +53,7 @@ public abstract class BaseEntity {
      */
     @PrePersist
     protected void prePersist() {
-        if (id == null) {
+        if (!StringUtils.hasLength(id)) {
             id = IdUtil.newId();
         }
     }

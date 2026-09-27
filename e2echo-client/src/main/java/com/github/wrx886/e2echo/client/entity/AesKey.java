@@ -35,7 +35,7 @@ public class AesKey extends BaseEntity implements Persistable<String> {
      * 密钥签发时间（毫秒），同时充当密钥版本，群聊密文的前缀就是它。
      */
     @Column(nullable = false)
-    private long publishTime;
+    private Long publishTime;
 
     /**
      * AES 密钥（HEX 格式）。

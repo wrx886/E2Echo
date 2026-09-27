@@ -1,11 +1,15 @@
 package com.github.wrx886.e2echo.client.exception;
 
 import com.github.wrx886.e2echo.client.result.Result;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.ConversionNotSupportedException;
 import org.springframework.beans.TypeMismatchException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.http.converter.HttpMessageNotWritableException;
+import org.springframework.validation.BindException;
+import org.springframework.validation.FieldError;
 import org.springframework.validation.method.MethodValidationException;
 import org.springframework.web.ErrorResponseException;
 import org.springframework.web.HttpMediaTypeNotAcceptableException;
@@ -24,6 +28,8 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+
+import java.util.stream.Collectors;
 
 /**
  * 全局异常处理器，统一将异常转换为 {@link Result} 返回。
@@ -67,9 +73,51 @@ public class GlobalExceptionHandler {
      * @param ex 框架异常
      * @return 失败结果，message 为异常信息
      */
-    @ExceptionHandler({HttpRequestMethodNotSupportedException.class, HttpMediaTypeNotSupportedException.class, HttpMediaTypeNotAcceptableException.class, MissingPathVariableException.class, MissingServletRequestParameterException.class, MissingServletRequestPartException.class, ServletRequestBindingException.class, MethodArgumentNotValidException.class, HandlerMethodValidationException.class, NoHandlerFoundException.class, NoResourceFoundException.class, AsyncRequestTimeoutException.class, ErrorResponseException.class, MaxUploadSizeExceededException.class, ConversionNotSupportedException.class, TypeMismatchException.class, HttpMessageNotReadableException.class, HttpMessageNotWritableException.class, MethodValidationException.class, AsyncRequestNotUsableException.class})
+    @ExceptionHandler({HttpRequestMethodNotSupportedException.class, HttpMediaTypeNotSupportedException.class, HttpMediaTypeNotAcceptableException.class, MissingPathVariableException.class, MissingServletRequestParameterException.class, MissingServletRequestPartException.class, ServletRequestBindingException.class, HandlerMethodValidationException.class, NoHandlerFoundException.class, NoResourceFoundException.class, AsyncRequestTimeoutException.class, ErrorResponseException.class, MaxUploadSizeExceededException.class, ConversionNotSupportedException.class, TypeMismatchException.class, HttpMessageNotReadableException.class, HttpMessageNotWritableException.class, MethodValidationException.class, AsyncRequestNotUsableException.class})
     public Result<Void> handleHttpException(Exception ex) {
         return Result.fail(ex.getMessage());
+    }
+
+    /**
+     * 处理 {@code @RequestBody} 参数校验失败。
+     *
+     * @param e 请求体参数校验异常
+     * @return 失败结果，message 为各字段的校验提示，用 {@code ; } 拼接
+     */
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public Result<Void> handleMethodArgumentNotValidException(MethodArgumentNotValidException e) {
+        String message = e.getBindingResult().getFieldErrors().stream()
+                .map(FieldError::getDefaultMessage)
+                .collect(Collectors.joining("; "));
+        return Result.fail(message);
+    }
+
+    /**
+     * 处理 {@code @RequestParam}、{@code @PathVariable} 等参数校验失败。
+     *
+     * @param e 参数校验异常
+     * @return 失败结果，message 为各参数的校验提示，用 {@code ; } 拼接
+     */
+    @ExceptionHandler(ConstraintViolationException.class)
+    public Result<Void> handleConstraintViolationException(ConstraintViolationException e) {
+        String message = e.getConstraintViolations().stream()
+                .map(ConstraintViolation::getMessage)
+                .collect(Collectors.joining("; "));
+        return Result.fail(message);
+    }
+
+    /**
+     * 处理表单、查询参数绑定失败。
+     *
+     * @param e 绑定异常
+     * @return 失败结果，message 为各字段的校验提示，用 {@code ; } 拼接
+     */
+    @ExceptionHandler(BindException.class)
+    public Result<Void> handleBindException(BindException e) {
+        String message = e.getBindingResult().getFieldErrors().stream()
+                .map(FieldError::getDefaultMessage)
+                .collect(Collectors.joining("; "));
+        return Result.fail(message);
     }
 
 }
