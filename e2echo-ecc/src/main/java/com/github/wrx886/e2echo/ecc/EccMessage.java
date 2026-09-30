@@ -1,5 +1,8 @@
 package com.github.wrx886.e2echo.ecc;
 
+import tools.jackson.databind.ObjectMapper;
+
+import java.util.LinkedHashMap;
 import java.util.Objects;
 
 /**
@@ -8,11 +11,22 @@ import java.util.Objects;
  * <p>{@code from} 始终是发送者公钥；正文的加密方式由 {@code channel} 决定，不同通道
  * 使用不同的加密方案，{@code to} 仅表示接收者信息。</p>
  *
- * <p>{@link #toStringWithoutSign()} 是签名与验签的原文：其中除 {@code sign} 外的所有字段
- * 共同参与签名。除 {@code sign} 外的任一字段被修改后，原有签名都会验签失败。加密时
- * {@code message} 保存密文；不加密时保存明文。</p>
+ * <p>消息对外有两种字符串形式，均为 JSON 对象，字段严格按 id、from、to、message、type、
+ * channel、info、sign 的顺序排列：{@link #toString()} 包含全部字段，用于日志输出与调试；
+ * {@link #toStringWithoutSign()} 不含 {@code sign} 字段，是签名与验签的原文。除
+ * {@code sign} 外的任一字段被修改后，原有签名都会验签失败。加密时 {@code message} 保存
+ * 密文；不加密时保存明文。</p>
+ *
+ * <p>由于序列化结果直接作为签名原文，字段顺序、分隔符与转义规则都必须稳定：本类始终使用
+ * 同一套序列化规则，其他语言或实现若要参与签名与验签，也必须生成字节完全一致的 JSON 文本。</p>
  */
 public class EccMessage {
+
+    /**
+     * 消息字符串化使用的 JSON 序列化器，{@link ObjectMapper} 是线程安全的，因此作为静态
+     * 字段复用，避免每次序列化都重新创建。
+     */
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
      * 消息 ID，由“16 位十六进制时间戳 + 32 位无连字符 UUID”组成，共 48 位。
@@ -228,42 +242,49 @@ public class EccMessage {
     }
 
     /**
-     * 返回包含全部字段（含签名）的字符串表示，主要用于日志输出。
+     * 返回包含全部字段（含签名）的 JSON 字符串，主要用于日志输出与调试查看。
      *
-     * @return 消息的字符串表示
+     * <p>字段顺序固定为 id、from、to、message、type、channel、info、sign，值为 {@code null}
+     * 的字段序列化为 JSON 的 {@code null}。该方法包含 {@code sign} 字段，不能作为签名原文。</p>
+     *
+     * @return 含 sign 字段的 JSON 字符串
      */
     @Override
     public String toString() {
-        return "EccMessage{" +
-                "id='" + id + '\'' +
-                ", from='" + from + '\'' +
-                ", to='" + to + '\'' +
-                ", message='" + message + '\'' +
-                ", type='" + type + '\'' +
-                ", channel='" + channel + '\'' +
-                ", info='" + info + '\'' +
-                ", sign='" + sign + '\'' +
-                '}';
+        // 使用 LinkedHashMap 固定字段顺序，保证同一消息每次序列化都得到完全相同的文本
+        LinkedHashMap<String, String> map = new LinkedHashMap<>();
+        map.put("id", id);
+        map.put("from", from);
+        map.put("to", to);
+        map.put("message", message);
+        map.put("type", type);
+        map.put("channel", channel);
+        map.put("info", info);
+        map.put("sign", sign);
+        return objectMapper.writeValueAsString(map);
     }
 
     /**
-     * 返回不包含签名字段的消息表示，作为签名与验签的原文。
+     * 返回不包含签名字段的消息 JSON 字符串，作为签名与验签的原文。
      *
-     * <p>签名、验签、传输前计算签名及接收后校验时都应使用该方法，避免把签名自身纳入
-     * 签名原文导致自引用。</p>
+     * <p>字段顺序固定为 id、from、to、message、type、channel、info，值为 {@code null}
+     * 的字段序列化为 JSON 的 {@code null}。发送方计算签名、接收方校验签名时都必须使用该
+     * 方法：既避免把签名自身纳入签名原文导致自引用，也保证双方对同一消息得到完全相同的
+     * 文本，从而可以通过验签。</p>
      *
-     * @return 不含 sign 字段的消息字符串
+     * @return 不含 sign 字段的 JSON 字符串
      */
     public String toStringWithoutSign() {
-        return "EccMessage{" +
-                "id='" + id + '\'' +
-                ", from='" + from + '\'' +
-                ", to='" + to + '\'' +
-                ", message='" + message + '\'' +
-                ", type='" + type + '\'' +
-                ", channel='" + channel + '\'' +
-                ", info='" + info + '\'' +
-                '}';
+        // 使用 LinkedHashMap 固定字段顺序，保证同一消息每次序列化都得到完全相同的文本
+        LinkedHashMap<String, String> map = new LinkedHashMap<>();
+        map.put("id", id);
+        map.put("from", from);
+        map.put("to", to);
+        map.put("message", message);
+        map.put("type", type);
+        map.put("channel", channel);
+        map.put("info", info);
+        return objectMapper.writeValueAsString(map);
     }
 
 }
