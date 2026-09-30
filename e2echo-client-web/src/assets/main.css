@@ -1,0 +1,35 @@
+/**
+ * 全局样式。
+ *
+ * <p>页面由 client 的容器在浏览器中提供，是整个视口的一块应用界面，所以这里让根节点撑满视口，
+ * 具体布局交给各个视图组件。</p>
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family:
+    Inter,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    'PingFang SC',
+    'Microsoft YaHei',
+    sans-serif;
+  font-size: 14px;
+  color: #303133;
+  background: #f5f7fa;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
