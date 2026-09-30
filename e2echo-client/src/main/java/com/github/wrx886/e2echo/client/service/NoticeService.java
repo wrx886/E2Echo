@@ -2,6 +2,8 @@ package com.github.wrx886.e2echo.client.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.event.ContextClosedEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -90,6 +92,54 @@ public class NoticeService {
                 log.error("通知失败", e);
             }
         });
+    }
+
+    /**
+     * 应用关闭时结束本实例持有的全部 SSE 连接，并等待关闭回调完成清理。
+     */
+    @SuppressWarnings("BusyWait")
+    @EventListener(ContextClosedEvent.class)
+    public void cleanUp() {
+        log.info("Shutting down, {} SSE connection(s) to close.", emitters.size());
+
+        emitters.forEach((emitter, v) -> {
+            try {
+                emitter.complete();
+            } catch (Exception e) {
+                // 单个连接结束失败不能影响其它连接与后续清理
+                log.warn("Failed to complete SSE connection for client: {}",
+                        emitter, e);
+            }
+        });
+
+        // 指数退避等待：休眠 1、2、4 …… 8192 毫秒，累计最长约 16 秒
+        long waited = 0;
+        boolean interrupted = false;
+        try {
+            long sleep = 1;
+            while (sleep < 10 * 1000L && !emitters.isEmpty()) {
+                log.info("Waiting {} ms for {} SSE connection(s) to close.", sleep, emitters.size());
+                Thread.sleep(sleep);
+                waited += sleep;
+                sleep *= 2;
+            }
+        } catch (InterruptedException e) {
+            // 这里只记下被中断过，不抛出、也不立即恢复中断标志：标志一旦恢复，后面的 Redis 调用
+            log.warn("Interrupted while waiting for SSE connections to close.", e);
+            interrupted = true;
+        }
+
+        // 等待结束后，仍留在映射里的连接直接同步清理，保证 Redis 不残留
+        if (!emitters.isEmpty()) {
+            log.warn("{} SSE connection(s) did not close within timeout, cleaning up directly.",
+                    emitters.size());
+        }
+        log.info("SSE connections closed, waited {} ms.", waited);
+
+        // 清理完成后再恢复中断标志，交由调用方处理
+        if (interrupted) {
+            Thread.currentThread().interrupt();
+        }
     }
 
 }

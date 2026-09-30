@@ -351,6 +351,8 @@ public class MessageService {
                     ChannelEnum.CHAT_GROUP_AES.name().equals(eccMessage.getChannel()),
                     message
             );
+            // 通知连上来的前端刷新（内容只是“数据可能变了”，这次没拉到新消息时同样会推）
+            noticeService.notice();
         }
 
         // 发送消息
@@ -427,9 +429,10 @@ public class MessageService {
         // 4. 填充seq并存储到数据库
         self.save(message);
         // 更新会话信息
+        boolean group = ChannelEnum.CHAT_GROUP_AES.name().equals(eccMessage.getChannel());
         conversationService.updateLatestMessageByPeer(
-                eccMessage.getTo(),
-                ChannelEnum.CHAT_GROUP_AES.name().equals(eccMessage.getChannel()),
+                group ? eccMessage.getTo() : eccMessage.getFrom(),
+                group,
                 message
         );
 
