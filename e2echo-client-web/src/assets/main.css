@@ -33,3 +33,26 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* 纵向滚动区域：会话列表、消息列表、设置页共用，滚动条统一收窄 */
+.scroll-y {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.scroll-y::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scroll-y::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  background: #d0d0d0;
+}
+
+.scroll-y::-webkit-scrollbar-thumb:hover {
+  background: #b5b5b5;
+}
+
+.scroll-y::-webkit-scrollbar-track {
+  background: transparent;
+}

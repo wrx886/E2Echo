@@ -20,14 +20,30 @@ E2Echo 客户端的网页部分，Vue 3 + TypeScript + Vite。
 ```
 src/
   api/            接口层：axios 实例、统一响应处理、各接口封装、SSE 通知
+  components/     布局与通用组件：功能栏、个人信息框、会话列表、消息气泡、输入区
   assets/         全局样式
-  router/         前端路由
-  views/          页面
+  router/         前端路由（hash 模式）
+  stores/         Pinia 状态：当前用户、会话列表、当前会话消息、通知通道
+  utils/          展示格式化与错误提示
+  views/          页面：聊天空状态、聊天页、会话设置页
   App.vue         根组件
   main.ts         入口：注册 Pinia、Router、Element Plus
 ```
 
 接口层是页面与客户端后端之间的唯一通道，页面不直接使用 axios。
+
+页面路由：
+
+```
+/                重定向到 /chat
+/chat            未选中会话时的空状态
+/chat/new        新增会话
+/chat/:peer      聊天页（:peer 是会话对方，已 URL 编码）
+/chat/:peer/settings  会话设置（修改）
+```
+
+路由用 hash 模式：客户端容器没有单页应用转发，直接访问或刷新子路径会被当成静态资源请求而返回
+错误 JSON，hash 变化不产生新的请求，刷新任意页面都能正常回到界面。
 
 ## 开发与调试
 
