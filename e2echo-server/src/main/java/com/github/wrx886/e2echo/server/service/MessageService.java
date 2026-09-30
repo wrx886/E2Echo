@@ -82,7 +82,8 @@ public class MessageService {
      *
      * <p>过滤条件均为可选，条件为空时不参与过滤。结果按消息 ID 排序：ID 前 16 位为定长的
      * 十六进制时间戳，其字典序与时间顺序一致，因此无需额外按时间戳排序即可保证时间先后。
-     * 升序即从老到新，降序即从新到老。</p>
+     * 升序即从老到新，降序即从新到老。消息 ID 之后还会按主键排序，保证是完整的全序、翻页时
+     * 每页边界稳定（消息 ID 已唯一，正常情况下不会并列，这里作为兜底）。</p>
      *
      * <p>{@code startId}、{@code endId} 是分页游标，按排序方向选用：升序时把上一页最后一条的 ID
      * 作为 {@code startId}（只取更大的），降序时作为 {@code endId}（只取更小的），这样翻页不会
@@ -150,7 +151,10 @@ public class MessageService {
             return cb.and(predicates.toArray(new Predicate[0]));
         };
 
-        Pageable pageable = PageRequest.of(pageNum - 1, pageSize, Sort.by(direction, "messageId"));
+        // 消息 ID 之后按主键再排一次：翻页靠 offset 定位，排序键唯一才能保证每页边界稳定；
+        // 消息 ID 本身已唯一，这里补上主键是兜底，排序键换成可能重复的列时也是一套全序
+        Sort sort = Sort.by(direction, "messageId").and(Sort.by(direction, "id"));
+        Pageable pageable = PageRequest.of(pageNum - 1, pageSize, sort);
         return messageRepository.findAll(specification, pageable).map(this::toView);
     }
 
