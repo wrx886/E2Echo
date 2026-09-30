@@ -475,13 +475,21 @@ public class MessageService {
             // owner
             predicates.add(criteriaBuilder.equal(root.get("owner"), currentOwner()));
 
-            // from to
-            Predicate fromPredicate = root.get("from").in(peer, currentOwner());
-            Predicate toPredicate = root.get("to").in(peer, currentOwner());
-            predicates.add(criteriaBuilder.or(fromPredicate, toPredicate));
-
             // channel
             predicates.add(root.get("channel").in(ChannelEnum.CHAT_GROUP_AES.name(), ChannelEnum.CHAT_PRIVATE_ECC.name()));
+
+            // 会话消息：私聊是两个方向的点对点消息，群聊是所有成员发往该群的消息
+            Predicate privateMessage = criteriaBuilder.or(
+                    criteriaBuilder.and(
+                            criteriaBuilder.equal(root.get("from"), currentOwner()),
+                            criteriaBuilder.equal(root.get("to"), peer)),
+                    criteriaBuilder.and(
+                            criteriaBuilder.equal(root.get("from"), peer),
+                            criteriaBuilder.equal(root.get("to"), currentOwner())));
+            Predicate groupMessage = criteriaBuilder.and(
+                    criteriaBuilder.equal(root.get("to"), peer),
+                    criteriaBuilder.equal(root.get("channel"), ChannelEnum.CHAT_GROUP_AES.name()));
+            predicates.add(criteriaBuilder.or(privateMessage, groupMessage));
 
             // endSeq
             if (endSeq != null) {
