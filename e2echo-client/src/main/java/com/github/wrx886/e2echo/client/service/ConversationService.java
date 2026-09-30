@@ -55,7 +55,7 @@ public class ConversationService {
      * @return 会话分页结果（DTO），已带出最新消息
      */
     public Page<ConversationDto> list(int pageNum, int pageSize) {
-        return conversationRepository.findAllByOwnerOrderByUpdateTimeDescId(
+        return conversationRepository.findAllByOwnerOrderByUpdateTimeDescIdDesc(
                 currentOwner(),
                 PageRequest.of(pageNum - 1, pageSize)
         ).map(ConversationDto::fromEntity);

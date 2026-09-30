@@ -492,8 +492,10 @@ public class MessageService {
         };
 
         // 排序要和游标一致：游标是本地序号 seq，这里也按 seq 排（seq 严格递增，
-        // 而 id 是“时间戳 + 随机 UUID”，同一毫秒内的先后是随机的，不能当顺序用）
-        Pageable pageable = PageRequest.of(pageNum - 1, pageSize, Sort.by(Sort.Direction.DESC, "seq"));
+        // 而 id 是“时间戳 + 随机 UUID”，同一毫秒内的先后是随机的，不能当顺序用）。
+        // 分页是无状态的，排序必须能唯一确定顺序：seq 在用户内已经唯一，再带上主键兜底
+        Pageable pageable = PageRequest.of(pageNum - 1, pageSize,
+                Sort.by(Sort.Direction.DESC, "seq").and(Sort.by(Sort.Direction.DESC, "id")));
         return messageRepository.findAll(specification, pageable)
                 .map((message) -> {
                     Class<?> type = Optional.ofNullable(messageConfig.getReceiveHandler(message.getType())).map(MessageHandler::getMessageType).orElse(null);
