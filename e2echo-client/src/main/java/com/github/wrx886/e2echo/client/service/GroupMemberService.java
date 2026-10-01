@@ -8,10 +8,12 @@ import com.github.wrx886.e2echo.client.handler.ChatGroupKeyMessageHandler;
 import com.github.wrx886.e2echo.client.repository.GroupMemberRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -21,12 +23,15 @@ import static com.github.wrx886.e2echo.client.util.CommonUtil.currentOwner;
  * 群成员业务逻辑层。
  *
  * <p>维护当前用户记录的群成员名单（群主用它决定把群密钥分发给谁）：新增成员时会顺带把最新的群密钥
- * 私聊发给该成员。数据按登入用户隔离，且只有群主（群标识以自己公钥开头）能改动名单。</p>
+ * 私聊发给该成员。数据按登入用户隔离，且只有群主（群标识以自己公钥开头）能改动名单；加人前会先
+ * 判断成员是否已经在名单里，重复添加直接报错。</p>
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class GroupMemberService {
+
+    private final ObjectProvider<GroupMemberService> selfProvider;
 
     /**
      * 群成员数据访问对象。
@@ -38,6 +43,7 @@ public class GroupMemberService {
      *
      * @param id 群成员记录的主键
      */
+    @Transactional
     public void deleteById(String id) {
         repository.deleteByOwnerAndId(currentOwner(), id);
     }
@@ -70,21 +76,30 @@ public class GroupMemberService {
     }
 
     /**
-     * 新增群成员（DTO 入口）。
+     * 新增群成员（DTO 入口）：转成实体后交给 {@link #save(GroupMember)}，通过代理调用保证事务生效。
      *
      * @param groupMemberDto 待新增的成员
      */
     public void save(GroupMemberDto groupMemberDto) {
-        save(groupMemberDto.toEntity());
+        final GroupMemberService self = selfProvider.getObject();
+        self.save(groupMemberDto.toEntity());
     }
 
     /**
-     * 新增群成员：只有群主能加人，加完把最新的群密钥私聊发给该成员。
+     * 新增群成员：成员已在名单里就报错，只有群主能加人，加完把最新的群密钥私聊发给该成员。
+     *
+     * <p>方法带事务：成员记录与后面的密钥分发在同一个事务里，密钥发不出去时新增也不会保留。</p>
      *
      * @param groupMember 待新增的成员
-     * @throws E2EchoException 自己不是群主
+     * @throws E2EchoException 成员已存在，或自己不是群主
      */
+    @Transactional
     public void save(GroupMember groupMember) {
+        // 群成员已存在
+        if (repository.existsByOwnerAndGroupAndMember(currentOwner(), groupMember.getGroup(), groupMember.getMember())) {
+            throw new E2EchoException("成员已存在！");
+        }
+
         // 判断是否为群主
         if (!currentOwner().equals(groupMember.getGroup().substring(0, currentOwner().length()))) {
             throw new E2EchoException("非群主，禁止管理！");

@@ -140,18 +140,22 @@ public class ConversationService {
     @Transactional
     public void updateLatestMessageByPeer(String peer, boolean group, Message message) {
         Conversation conversation = conversationRepository.findByOwnerAndPeer(currentOwner(), peer);
+        boolean notice = false;
         if (conversation == null) {
             conversation = createConversation(peer, group);
             // 会话新建，别名从无到有，之前可能缓存过“没有别名”，这里让它失效
             aliasMap.remove(currentOwner() + peer);
-            // 新加入的群聊要立刻订阅，重建通知连接（用 BeanProvider 取是为了避开循环依赖）
-            if (group) {
-                BeanProvider.getBean(MessageService.class).connectNotice();
-            }
+            notice = true;
         }
         conversation.setLatestMessage(message);
         // 这里不能直接调用 save，因为这个方法存在的意义就是不破坏别名机制更新最新消息
         conversationRepository.save(conversation);
+
+        // 新加入的群聊要立刻订阅，重建通知连接（用 BeanProvider 取是为了避开循环依赖）。
+        // 放在保存之后：订阅与拉取都按 listEnabledGroup() 过滤，会话先落库才订得上这个群
+        if (notice && group) {
+            BeanProvider.getBean(MessageService.class).connectNotice();
+        }
     }
 
     /**
@@ -196,6 +200,23 @@ public class ConversationService {
         conversation.setGroup(group);
         conversation.setEnabled(true);
         return conversation;
+    }
+
+    /**
+     * 确保某个会话存在：不存在就按会话对方新建一个（别名默认取对方末尾 5 位、置为启用）。
+     *
+     * <p>收到群密钥时用它：本地有会话记录（且启用）才会拉取、订阅该群的消息。会话已存在时不改动，
+     * 因此不会覆盖用户设置的别名。</p>
+     *
+     * @param peer  会话对方，私聊时为对方公钥、群聊时为群聊标识
+     * @param group 是否群聊
+     */
+    @Transactional
+    public void ensureExist(String peer, boolean group) {
+        Conversation conversation = conversationRepository.findByOwnerAndPeer(currentOwner(), peer);
+        if (conversation == null) {
+            save(createConversation(peer, group));
+        }
     }
 
 }

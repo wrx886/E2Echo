@@ -9,6 +9,7 @@ import com.github.wrx886.e2echo.client.enums.ChannelEnum;
 import com.github.wrx886.e2echo.client.enums.MessageTypeEnum;
 import com.github.wrx886.e2echo.client.exception.E2EchoException;
 import com.github.wrx886.e2echo.client.service.AesKeyService;
+import com.github.wrx886.e2echo.client.service.ConversationService;
 import com.github.wrx886.e2echo.client.service.GroupMemberService;
 import com.github.wrx886.e2echo.client.service.MessageService;
 import com.github.wrx886.e2echo.client.vo.ChatGroupKeyMessageVo;
@@ -27,11 +28,16 @@ import static com.github.wrx886.e2echo.client.util.CommonUtil.currentOwner;
  *
  * <p>群密钥通过私聊消息分发：正文是 {@link ChatGroupKeyMessageVo} 的 JSON。发送由群主发起，接收时
  * 会校验来源确实是群主（群标识以群主公钥开头），通过后把密钥写入本地，之后收发群聊消息就能用它
- * 加解密。</p>
+ * 加解密；同时确认群聊会话存在，保证这个群会被拉取和订阅。</p>
  */
 @Component
 @RequiredArgsConstructor
 public class ChatGroupKeyMessageHandler implements MessageHandler {
+
+    /**
+     * 会话业务对象，用于收到群密钥后确认群聊会话存在。
+     */
+    private final ConversationService conversationService;
 
     /**
      * 群成员业务对象，用于取密钥分发的目标成员。
@@ -54,7 +60,10 @@ public class ChatGroupKeyMessageHandler implements MessageHandler {
     private final ObjectMapper objectMapper;
 
     /**
-     * 接收群密钥消息：校验发送者是群主后，把密钥写入本地。
+     * 接收群密钥消息：校验发送者是群主后，把密钥写入本地，并确认对应的群聊会话存在。
+     *
+     * <p>确认会话存在这步不能省：群聊只有在本地有会话记录（且启用）时才会被拉取与订阅，否则密钥
+     * 到手了也收不到群里的消息。</p>
      *
      * @param message 收到的消息，正文是 {@link ChatGroupKeyMessageVo}
      * @throws E2EchoException 不是私聊通道，或来源不是群主
@@ -83,6 +92,9 @@ public class ChatGroupKeyMessageHandler implements MessageHandler {
         aesKey.setPublishTime(chatGroupKeyMessageVo.publishTime());
         aesKey.setAesKey(chatGroupKeyMessageVo.aesKey());
         aesKeyService.save(aesKey);
+
+        // 确定群聊会话存在
+        conversationService.ensureExist(chatGroupKeyMessageVo.group(), true);
     }
 
     /**

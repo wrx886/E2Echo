@@ -43,4 +43,15 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, String
      */
     void deleteByOwnerAndId(String owner, String id);
 
+    /**
+     * 判断某个成员是否已经在群里。
+     *
+     * <p>用来在加人前挡住重复添加；同一用户、同一个群的同一个成员有唯一约束，并发添加时也由它兜底。</p>
+     *
+     * @param owner  数据所有者，即当前登入用户的公钥
+     * @param group  群标识
+     * @param member 成员的公钥
+     * @return 已存在返回 {@code true}
+     */
+    boolean existsByOwnerAndGroupAndMember(String owner, String group, String member);
 }
