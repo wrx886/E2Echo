@@ -129,7 +129,13 @@ const avatar = computed(() =>
 }
 
 .bubble-row__tag {
+  /* 纵向 flex 容器里的子项默认会被拉伸到整列宽，标签要按内容宽度贴在自己这一侧 */
+  align-self: flex-start;
   margin-bottom: 4px;
+}
+
+.bubble-row--mine .bubble-row__tag {
+  align-self: flex-end;
 }
 
 .bubble {
