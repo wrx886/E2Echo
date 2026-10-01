@@ -6,8 +6,8 @@ import com.github.wrx886.e2echo.client.entity.Conversation;
 import com.github.wrx886.e2echo.client.entity.Message;
 import com.github.wrx886.e2echo.client.exception.E2EchoException;
 import com.github.wrx886.e2echo.client.repository.ConversationRepository;
+import com.github.wrx886.e2echo.client.util.BeanCopyUtils;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -86,17 +86,24 @@ public class ConversationService {
      */
     @Transactional
     public void save(Conversation conversation) {
+        Conversation db;
         if (StringUtils.hasLength(conversation.getId())) {
-            Conversation conversation1 = conversationRepository.findById(conversation.getId()).orElse(null);
-            if (conversation1 == null) {
+            db = conversationRepository.findById(conversation.getId()).orElse(null);
+            if (db == null) {
                 throw new E2EchoException("会话ID不存在，新增请留空！");
             }
-            if (!conversation1.getOwner().equals(currentOwner())) {
+            if (!db.getOwner().equals(currentOwner())) {
                 throw new E2EchoException("禁止修改其他用户的会话！");
             }
+        } else {
+            db = new Conversation();
         }
 
-        conversationRepository.save(conversation);
+        // 复制非空属性
+        BeanCopyUtils.copyNonNullProperties(conversation, db,
+                "owner", "createTime", "updateTime");
+
+        conversationRepository.save(db);
         aliasMap.remove(currentOwner() + conversation.getPeer());
         if (Boolean.TRUE.equals(conversation.getGroup())) {
             // 群聊是否启用决定了通知通道的订阅目标，所以群聊会话保存后要重建连接
@@ -170,7 +177,7 @@ public class ConversationService {
         final ConversationService self = selfProvider.getObject();
 
         Conversation conversation = new Conversation();
-        BeanUtils.copyProperties(conversationDto, conversation,
+        BeanCopyUtils.copyNonNullProperties(conversationDto, conversation,
                 "latestMessage", "owner", "createTime", "updateTime");
         self.save(conversation);
     }

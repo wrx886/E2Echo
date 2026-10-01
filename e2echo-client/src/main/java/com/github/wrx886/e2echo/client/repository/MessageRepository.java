@@ -1,18 +1,19 @@
 package com.github.wrx886.e2echo.client.repository;
 
-import java.util.List;
 import java.util.Optional;
 
 import com.github.wrx886.e2echo.client.entity.Message;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.stereotype.Repository;
 
 /**
  * 消息数据访问层。
  *
  * <p>消息按登入用户隔离，查询都带上 {@code owner}（当前登入用户的公钥）。</p>
  */
+@Repository
 public interface MessageRepository extends JpaRepository<Message, String>, JpaSpecificationExecutor<Message> {
 
     /**
