@@ -34,6 +34,26 @@ public class ClientApplication {
     private static boolean skipLogin = false;
 
     /**
+     * 按登入用户派生会话 cookie 名。
+     *
+     * <p>cookie 只按“域名 + 路径”保存、不区分端口，所以多个客户端实例都用默认名（{@code JSESSIONID}）
+     * 时，浏览器只会存一份，后登入的实例会把前面实例的会话挤掉；而用随机名又会在浏览器里越积越多
+     * （每次重启多一个）。这里改成按公钥派生：{@code E2ECHO_SESSION_<公钥前 8 位>} —— 同一个用户重启
+     * 用同一个名字（不再累积），不同用户的名字不同（互不干扰）。</p>
+     *
+     * <p>必须在容器启动之前调用：会话 cookie 名是容器启动时读取的；未登入时保持
+     * {@code application.yml} 里的配置不变。</p>
+     */
+    public static void configureSessionCookieName() {
+        String publicKey = Ecc.getPublicKey();
+        if (!StringUtils.hasLength(publicKey)) {
+            return;
+        }
+        System.setProperty("server.servlet.session.cookie.name",
+                "E2ECHO_SESSION_" + publicKey.substring(0, 8));
+    }
+
+    /**
      * 客户端入口。
      *
      * @param args 命令行参数，原样交给 JavaFX 与后续的 Spring Boot
@@ -43,6 +63,7 @@ public class ClientApplication {
             if (!StringUtils.hasLength(Ecc.getPublicKey())) {
                 throw new E2EchoException("未登入！");
             }
+            configureSessionCookieName();
             SpringApplication.run(ClientApplication.class, args);
         } else {
             Application.launch(MainApplication.class, args);

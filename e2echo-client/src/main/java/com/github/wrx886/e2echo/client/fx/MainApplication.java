@@ -78,6 +78,8 @@ public class MainApplication extends Application {
         }
 
         // 启动容器：服务器地址与密钥对已由登入界面准备好
+        // 会话 cookie 名按登入用户派生（cookie 不区分端口，随机名又会在浏览器里越积越多）
+        ClientApplication.configureSessionCookieName();
         SpringApplication.run(ClientApplication.class, getParameters().getRaw().toArray(String[]::new));
 
         // 当前用户是否被使用

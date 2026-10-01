@@ -7,9 +7,8 @@ server:
       cookie:
         same-site: strict
         http-only: true
-        # 每个实例一个独立的 cookie 名：cookie 不区分端口，多个实例都跑在 localhost 上时，
-        # 同名的会话 cookie 会互相覆盖，导致后登入的实例把前面实例的会话挤掉
-        name: E2ECHO_SESSION_${random.uuid}
+        # 名字不写死在这里：由 ClientApplication#configureSessionCookieName 按登入用户派生，
+        # 保证“同一用户重启用同一个名字、不同用户不同名字”（cookie 不区分端口，同名会互相覆盖）
 
 spring:
   threads:
