@@ -2,6 +2,7 @@ package com.github.wrx886.e2echo.client.config;
 
 import com.github.wrx886.e2echo.client.common.MessageHandler;
 import com.github.wrx886.e2echo.client.enums.MessageTypeEnum;
+import com.github.wrx886.e2echo.client.handler.ChatGroupKeyMessageHandler;
 import com.github.wrx886.e2echo.client.handler.ChatTextMessageHandler;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -40,10 +41,11 @@ public class MessageConfig {
      */
     @Bean
     public MessageHandlerInit addMessageHandler(
-            ChatTextMessageHandler chatTextMessageHandler
+            ChatTextMessageHandler chatTextMessageHandler,
+            ChatGroupKeyMessageHandler chatGroupKeyMessageHandler
     ) {
         messageHandlerMap.put(MessageTypeEnum.CHAT_TEXT.name(), chatTextMessageHandler);
-
+        messageHandlerMap.put(MessageTypeEnum.CHAT_GROUP_KEY.name(), chatGroupKeyMessageHandler);
         return new MessageHandlerInit();
     }
 
