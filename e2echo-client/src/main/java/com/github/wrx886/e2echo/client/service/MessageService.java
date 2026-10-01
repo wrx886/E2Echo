@@ -46,7 +46,8 @@ import static com.github.wrx886.e2echo.client.util.CommonUtil.currentOwner;
  * 对应类型的处理器。消息按登入用户隔离、只插入不更新，序号用于排序与增量拉取。</p>
  *
  * <p>私聊消息用 ECC 加密，群聊消息用 AES 加密：群聊密文前面拼的是 16 位十六进制的密钥签发时间
- * （密钥版本），解密方据此取到同一版本的密钥。</p>
+ * （密钥版本），解密方据此取到同一版本的密钥；密钥会轮换，换掉之后还在用旧密钥的消息会被拒收
+ * （见 {@code receive} 里的密钥过期判断）。</p>
  *
  * <p>除了定期拉取，登入后还会建立 notice 长连接：服务端发现变化时推送通知，客户端收到通知立刻
  * 拉取；订阅注册完成时服务端也会立即推一条，用来确认订阅已经生效并补上订阅之前到达的消息，见
@@ -363,7 +364,7 @@ public class MessageService {
      * 接收并处理一条服务端消息：验签、检查时间与通道、去重，解密后入库，最后交给类型对应的处理器。
      *
      * @param eccMessage 服务端返回的消息
-     * @throws E2EchoException 尚未登入、验签失败、时间超限、通道不支持、消息已存在、解密失败或消息类型不支持
+     * @throws E2EchoException 尚未登入、验签失败、时间超限、通道不支持、消息已存在、密钥过期、解密失败或消息类型不支持
      */
     @Transactional
     public void receive(EccMessage eccMessage) {
@@ -408,6 +409,14 @@ public class MessageService {
                         Long.parseLong(eccMessage.getMessage().substring(0, 16), 16)
                 );
                 if (aesKey == null) throw new E2EchoException("找不到对应的 AES KEY");
+
+                // 密钥过期：消息用的不是当前最新密钥时，只容忍一小段时间（加密方还在用旧密钥、
+                // 通知和拉取也有延迟），超过就不再接受——否则换掉的旧密钥可以无限期地继续加密消息
+                AesKeyDto last = aesKeyService.getLast(eccMessage.getTo());
+                if (!last.equals(aesKey) && Math.abs(last.publishTime() - aesKey.publishTime()) > Const.AES_KEY_EXPIRED_TIME_MS) {
+                    throw new E2EchoException("密钥已过期");
+                }
+
                 eccMessage.setMessage(Ecc.decryptAes(eccMessage.getMessage().substring(16), aesKey.aesKey()));
             }
         } catch (E2EchoException e) {
