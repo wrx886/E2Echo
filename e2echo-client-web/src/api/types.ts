@@ -44,6 +44,9 @@ export const CHANNEL_CHAT_GROUP_AES = 'CHAT_GROUP_AES'
 /** 消息类型：文字聊天消息。 */
 export const MESSAGE_TYPE_CHAT_TEXT = 'CHAT_TEXT'
 
+/** 消息类型：群聊密钥消息，正文是 {@link ChatGroupKeyMessageVo}。 */
+export const MESSAGE_TYPE_CHAT_GROUP_KEY = 'CHAT_GROUP_KEY'
+
 /**
  * 分页结果，对应 Spring Data 的 {@code Page} 序列化后的 JSON。
  *
@@ -74,6 +77,21 @@ export interface Page<T> {
 export interface ChatTextMessageVo {
   /** 消息正文。 */
   text: string
+}
+
+/**
+ * 群聊密钥消息的正文，对应 {@code ChatGroupKeyMessageVo}。
+ *
+ * <p>群主把群密钥通过私聊逐条发给成员时用的消息类型：收到后密钥会写入本地，之后就能收发该群的
+ * 消息。密钥本身不在界面上展示。</p>
+ */
+export interface ChatGroupKeyMessageVo {
+  /** 群标识。 */
+  group: string
+  /** 密钥签发时间（毫秒），同时充当密钥版本。 */
+  publishTime: number
+  /** AES 密钥（HEX 格式）。 */
+  aesKey: string
 }
 
 /**
@@ -154,8 +172,29 @@ export interface ConversationDto {
   group: boolean
   /** 会话是否启用。 */
   enabled: boolean
-  /** 最新一条消息，还没有消息时为 null。 */
-  latestMessage?: Message | null
+    /** 最新一条消息，还没有消息时为 null。 */
+    latestMessage?: Message | null
+}
+
+/**
+ * 群成员，对应 {@code GroupMemberDto}。
+ *
+ * <p>群主用它决定把群密钥分发给谁；成员按登入用户隔离，同一用户的同一个群、同一个成员只有一条
+ * 记录。</p>
+ */
+export interface GroupMemberDto {
+  /** 主键 ID，删除成员时用它。 */
+  id?: string
+  /** 数据所有者，即登入用户的公钥。 */
+  owner?: string
+  /** 创建时间（成员加入时间）。 */
+  createTime?: string
+  /** 修改时间。 */
+  updateTime?: string
+  /** 群标识。 */
+  group: string
+  /** 成员的公钥。 */
+  member: string
 }
 
 /**

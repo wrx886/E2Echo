@@ -25,6 +25,12 @@ const router = createRouter({
       component: () => import('@/views/ConversationSettingsView.vue'),
     },
     {
+      // 群聊管理：和 /chat/new 一样要排在 /chat/:peer 之前
+      path: '/chat/:peer/members',
+      name: 'group-members',
+      component: () => import('@/views/GroupMembersView.vue'),
+    },
+    {
       path: '/chat/:peer',
       name: 'chat',
       component: () => import('@/views/ChatView.vue'),

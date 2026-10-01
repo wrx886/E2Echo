@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { listConversations, saveConversation } from '@/api'
+import { getConversationAlias, listConversations, saveConversation } from '@/api'
 import type { ConversationDto } from '@/api'
 
 /** 会话列表每页条数。 */
@@ -34,6 +34,52 @@ export const useConversationStore = defineStore('conversation', () => {
   /** 当前选中的会话。 */
   const current = computed(() =>
     list.value.find((item) => item.peer === currentPeer.value) ?? null)
+
+  /**
+   * 会话对方 -> 别名缓存。
+   *
+   * <p>别名存在会话记录上，展示消息里的群名、群成员名称时都要用它。值为 null 表示查过但没有，
+   * 免得反复请求；请求失败不缓存，下次还能重试。</p>
+   */
+  const aliasCache = ref(new Map<string, string | null>())
+
+  /**
+   * 取会话对方的别名：先看缓存，再看已经加载的会话列表，最后按公钥单独查一次。
+   *
+   * @param peer 会话对方：私聊时为对方公钥、群聊时为群聊标识
+   * @returns 别名，没有对应会话或没有别名时返回 null
+   */
+  async function resolveAlias(peer: string): Promise<string | null> {
+    if (aliasCache.value.has(peer)) {
+      return aliasCache.value.get(peer) ?? null
+    }
+    const conversation = list.value.find((item) => item.peer === peer)
+    if (conversation) {
+      aliasCache.value.set(peer, conversation.alias)
+      return conversation.alias
+    }
+    try {
+      const alias = await getConversationAlias(peer)
+      aliasCache.value.set(peer, alias)
+      return alias
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * 同步取会话对方的别名，供模板直接使用。
+   *
+   * @param peer 会话对方
+   * @returns 别名，缓存与已加载的会话里都没有时返回 null
+   */
+  function aliasOf(peer: string): string | null {
+    const cached = aliasCache.value.get(peer)
+    if (cached) {
+      return cached
+    }
+    return list.value.find((item) => item.peer === peer)?.alias ?? null
+  }
 
   /**
    * 取某一页并写入列表。
@@ -94,6 +140,8 @@ export const useConversationStore = defineStore('conversation', () => {
    */
   async function save(conversation: ConversationDto): Promise<void> {
     await saveConversation(conversation)
+    // 别名可能改了，缓存跟着更新，免得消息里的群名、成员名还是旧的
+    aliasCache.value.set(conversation.peer, conversation.alias)
     await refresh()
   }
 
@@ -108,6 +156,7 @@ export const useConversationStore = defineStore('conversation', () => {
 
   return {
     list, loading, hasMore, loaded, currentPeer, current,
+    aliasCache, aliasOf, resolveAlias,
     loadIfNeeded, refresh, loadMore, save, select,
   }
 })

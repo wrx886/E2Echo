@@ -1,6 +1,7 @@
 import { get, post } from './http'
-import { MESSAGE_TYPE_CHAT_TEXT } from './types'
-import type { ChatTextMessageVo, ConversationDto, Page } from './types'
+import { isTrustedGroupKey } from './message'
+import { MESSAGE_TYPE_CHAT_GROUP_KEY, MESSAGE_TYPE_CHAT_TEXT } from './types'
+import type { ChatGroupKeyMessageVo, ChatTextMessageVo, ConversationDto, Page } from './types'
 
 /**
  * 会话接口，对应 {@code ConversationController}。
@@ -58,7 +59,21 @@ export function getConversationAlias(peer: string): Promise<string | null> {
  */
 export function latestMessagePreview(conversation: ConversationDto): string {
   const latest = conversation.latestMessage
-  if (!latest || latest.type !== MESSAGE_TYPE_CHAT_TEXT) {
+  if (!latest) {
+    return ''
+  }
+  if (latest.type === MESSAGE_TYPE_CHAT_GROUP_KEY) {
+    // 密钥消息也按“群标识必须是发送者（群主）开的”校验一次，不可信的在预览里就标出来
+    try {
+      const body = JSON.parse(latest.message) as ChatGroupKeyMessageVo
+      const trusted = typeof body.group === 'string'
+        && isTrustedGroupKey(body.group, latest.from, latest.channel)
+      return trusted ? '[群聊密钥]' : '[可疑的群聊密钥]'
+    } catch {
+      return '[可疑的群聊密钥]'
+    }
+  }
+  if (latest.type !== MESSAGE_TYPE_CHAT_TEXT) {
     return ''
   }
   try {

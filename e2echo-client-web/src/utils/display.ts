@@ -38,11 +38,12 @@ function toDate(value: string | number | Date): Date {
 /**
  * 补零到两位。
  *
- * @param value 待补零的数字
+ * @param value  待补零的数字
+ * @param length 目标位数
  * @returns 补零后的字符串
  */
-function pad(value: number): string {
-  return value.toString().padStart(2, '0')
+function pad(value: number, length = 2): string {
+  return value.toString().padStart(length, '0')
 }
 
 /**
@@ -93,6 +94,25 @@ export function formatTime(value: string | number | Date): string {
  */
 export function shortKey(value: string, length = 6): string {
   return value.length <= length ? value : value.slice(value.length - length)
+}
+
+/**
+ * 格式化为完整时间：{@code YYYY-MM-DD HH:mm:ss.SSS}。
+ *
+ * <p>和 {@link formatTime} 的区别是不做“今天/昨天”的省略，并且精确到毫秒——密钥版本用的就是它：
+ * 版本号是密钥的签发时间戳，同一秒内轮换两次也只靠毫秒区分，省略了就分不出来了。</p>
+ *
+ * @param value 时间值，可以是 LocalDateTime 字符串、毫秒时间戳或 Date
+ * @returns 格式化后的时间；无法解析时返回空串
+ */
+export function formatFullTime(value: string | number | Date): string {
+  const date = toDate(value)
+  if (Number.isNaN(date.getTime())) {
+    return ''
+  }
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} `
+    + `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+    + `.${pad(date.getMilliseconds(), 3)}`
 }
 
 /**

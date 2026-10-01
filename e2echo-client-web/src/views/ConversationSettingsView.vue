@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft } from '@element-plus/icons-vue'
+import { ArrowLeft, Setting } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
-import { getConversation } from '@/api'
+import { generateGroupId, getConversation } from '@/api'
 import { useConversationStore } from '@/stores/conversation'
+import { useUserStore } from '@/stores/user'
 import { showError } from '@/utils/feedback'
 
 /**
@@ -17,6 +18,7 @@ import { showError } from '@/utils/feedback'
 const route = useRoute()
 const router = useRouter()
 const conversationStore = useConversationStore()
+const userStore = useUserStore()
 
 /** 是否新增模式。 */
 const isCreate = computed(() => route.name === 'conversation-create')
@@ -32,6 +34,9 @@ const loading = ref(false)
 
 /** 是否正在保存。 */
 const saving = ref(false)
+
+/** 是否正在生成群标识。 */
+const generating = ref(false)
 
 /** 会话不存在。 */
 const missing = ref(false)
@@ -53,6 +58,12 @@ const rules: FormRules = {
   peer: [{ required: true, message: '请填写会话对方', trigger: 'blur' }],
   alias: [{ required: true, message: '请填写会话名称', trigger: 'blur' }],
 }
+
+/** 自己是不是这个群的群主：群标识以群主公钥开头。 */
+const isOwner = computed(() =>
+  form.value.peer.length > 0
+  && userStore.publicKey.length > 0
+  && form.value.peer.startsWith(userStore.publicKey))
 
 // 新增时，会话名称默认取会话对方的末 5 位（与后端自动建会话的规则一致），手工改过之后不再覆盖
 watch(() => form.value.peer, (value) => {
@@ -76,6 +87,8 @@ watch(() => `${String(route.name ?? '')}|${peer.value}`, async () => {
   form.value = { id: '', peer: '', alias: '', group: false, enabled: true }
   aliasEdited.value = false
   missing.value = false
+  // 判断群主身份要用自己的公钥
+  void userStore.ensureLoaded().catch(() => {})
 
   if (isCreate.value) {
     return
@@ -116,6 +129,28 @@ function onBack(): void {
 }
 
 /**
+ * 生成群标识：以当前用户公钥开头，即当前用户是这个群的群主。
+ */
+async function onGenerateGroupId(): Promise<void> {
+  generating.value = true
+  try {
+    form.value.peer = await generateGroupId()
+    ElMessage.success('已生成群标识，可以按需修改会话名称')
+  } catch (error) {
+    showError(error, '生成群标识失败')
+  } finally {
+    generating.value = false
+  }
+}
+
+/**
+ * 进入群聊管理页。
+ */
+function toGroupMembers(): void {
+  void router.push({ name: 'group-members', params: { peer: form.value.peer } })
+}
+
+/**
  * 保存会话。
  */
 async function onSubmit(): Promise<void> {
@@ -144,7 +179,13 @@ async function onSubmit(): Promise<void> {
     } else {
       await conversationStore.save({ id: form.value.id, ...payload })
     }
-    ElMessage.success('已保存')
+    if (isCreate.value && payload.group) {
+      // 新建的群聊还没有群密钥，先提醒一次，否则添加成员会失败
+      ElMessage.success('群聊已创建')
+      ElMessage.warning('群聊还没有群密钥，请到「会话设置 → 群聊管理」更新一次密钥后再添加成员')
+    } else {
+      ElMessage.success('已保存')
+    }
     void router.push({ name: 'chat', params: { peer: payload.peer } })
   } catch (error) {
     showError(error, '保存失败')
@@ -177,12 +218,21 @@ async function onSubmit(): Promise<void> {
         class="settings__form"
       >
         <el-form-item label="会话对方" prop="peer">
-          <el-input
-            v-model="form.peer"
-            :disabled="!isCreate"
-            placeholder="私聊填对方公钥，群聊填群聊标识"
-            clearable
-          />
+          <div class="settings__peer">
+            <el-input
+              v-model="form.peer"
+              :disabled="!isCreate"
+              placeholder="私聊填对方公钥，群聊填群聊标识"
+              clearable
+            />
+            <el-button
+              v-if="isCreate && form.group"
+              :loading="generating"
+              @click="onGenerateGroupId"
+            >
+              生成群标识
+            </el-button>
+          </div>
           <div v-if="!isCreate" class="settings__hint">会话对方是会话的身份，不可修改。</div>
         </el-form-item>
 
@@ -201,6 +251,18 @@ async function onSubmit(): Promise<void> {
             <el-radio :value="true">群聊</el-radio>
           </el-radio-group>
           <div v-if="!isCreate" class="settings__hint">会话类型决定消息的加解密方式，不可修改。</div>
+        </el-form-item>
+
+        <el-form-item v-if="!isCreate && form.group" label="群聊管理">
+          <el-button v-if="isOwner" :icon="Setting" @click="toGroupMembers">
+            管理群成员与密钥
+          </el-button>
+          <div class="settings__hint">
+            <template v-if="isOwner">
+              你是该群群主，可以添加、删除成员，以及更新或重发群密钥。
+            </template>
+            <template v-else>你不是该群群主，不能管理群成员与密钥。</template>
+          </div>
         </el-form-item>
 
         <el-form-item label="启用">
@@ -258,5 +320,11 @@ async function onSubmit(): Promise<void> {
   font-size: 12px;
   line-height: 1.6;
   color: #909399;
+}
+
+.settings__peer {
+  display: flex;
+  gap: 8px;
+  width: 100%;
 }
 </style>
