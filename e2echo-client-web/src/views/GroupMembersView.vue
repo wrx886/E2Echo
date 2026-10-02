@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, Delete, DocumentCopy, Plus, Refresh } from '@element-plus/icons-vue'
+import { ArrowLeft, Delete, DocumentCopy, Plus, Refresh, User } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   addGroupMember,
@@ -12,10 +12,11 @@ import {
   updateGroupKey,
 } from '@/api'
 import type { ConversationDto, GroupMemberDto } from '@/api'
+import ConversationPicker from '@/components/ConversationPicker.vue'
 import { useConversationStore } from '@/stores/conversation'
 import { useUserStore } from '@/stores/user'
 import { copyText } from '@/utils/clipboard'
-import { formatTime } from '@/utils/display'
+import { formatTime, shortKey } from '@/utils/display'
 import { showError } from '@/utils/feedback'
 
 /**
@@ -81,6 +82,26 @@ const updating = ref(false)
 
 /** 是否正在重发群密钥。 */
 const resending = ref(false)
+
+/** 是否显示「从会话选择」弹窗。 */
+const pickerVisible = ref(false)
+
+/** 从会话里选中的人：公钥与展示名称，用于输入框下方的提示。 */
+const pickedPeer = ref('')
+const pickedLabel = ref('')
+
+/**
+ * 是否显示「已选择」提示。
+ *
+ * <p>只有输入框里还是刚选中的那个人时才显示：手工改动输入框后提示自动消失，免得选了 A 又改成 B
+ * 时提示对不上。</p>
+ */
+const showPickedHint = computed(() =>
+  pickedPeer.value.length > 0 && newMember.value.trim() === pickedPeer.value)
+
+/** 「已选择」提示的文案。 */
+const pickedHint = computed(() =>
+  `已选择：${pickedLabel.value}（公钥末 ${shortKey(pickedPeer.value, 8)}）`)
 
 /** 删了成员但还没更新密钥：此时旧成员仍持有密钥，离开前必须再提示一次。 */
 const pendingKeyUpdate = ref(false)
@@ -162,6 +183,24 @@ async function onPageChange(page: number): Promise<void> {
 }
 
 /**
+ * 打开「从会话选择」弹窗。
+ */
+function onOpenPicker(): void {
+  pickerVisible.value = true
+}
+
+/**
+ * 从选取弹窗里选中一个人：回填公钥，并记下名字用于提示。
+ *
+ * @param payload 选中会话的公钥与展示名称
+ */
+function onPick(payload: { peer: string; label: string }): void {
+  newMember.value = payload.peer
+  pickedPeer.value = payload.peer
+  pickedLabel.value = payload.label
+}
+
+/**
  * 添加成员。
  */
 async function onAdd(): Promise<void> {
@@ -174,11 +213,9 @@ async function onAdd(): Promise<void> {
     ElMessage.warning('不能把自己加为群成员')
     return
   }
-  if (members.value.some((item) => item.member === member)) {
-    ElMessage.warning('该成员已经在群聊中')
-    return
-  }
 
+  // 这里不判断「成员是否已存在」：成员列表是分页的，当前页没有不代表名单里没有，
+  // 交给后端统一判断并返回结果
   adding.value = true
   try {
     await addGroupMember(group.value, member)
@@ -448,8 +485,10 @@ onUnmounted(() => {
               clearable
               @keydown.enter.exact="onAdd"
             />
+            <el-button :icon="User" @click="onOpenPicker">从会话选择</el-button>
             <el-button type="primary" :icon="Plus" :loading="adding" @click="onAdd">添加</el-button>
           </div>
+          <div v-if="showPickedHint" class="members__hint">{{ pickedHint }}</div>
           <div class="members__hint">
             添加后会立刻把当前群密钥私聊发给该成员；群还没有密钥时会添加失败，请先在「群密钥」里
             生成一次密钥再加人。
@@ -506,6 +545,8 @@ onUnmounted(() => {
         </div>
       </template>
     </div>
+
+    <ConversationPicker v-model:visible="pickerVisible" @pick="onPick" />
   </section>
 </template>
 
