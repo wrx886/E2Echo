@@ -3,9 +3,11 @@ package com.github.wrx886.e2echo.client.fx;
 import com.github.wrx886.e2echo.client.ClientApplication;
 import com.github.wrx886.e2echo.client.api.TimestampApi;
 import com.github.wrx886.e2echo.client.common.BeanProvider;
+import com.github.wrx886.e2echo.client.common.ContextClosedEventHandler;
 import com.github.wrx886.e2echo.client.enums.SysParamEnum;
 import com.github.wrx886.e2echo.client.service.AuthService;
 
+import com.github.wrx886.e2echo.client.service.MessageService;
 import com.github.wrx886.e2echo.client.service.SysParamService;
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -13,6 +15,7 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.stage.Stage;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.SpringApplication;
 import org.springframework.core.env.Environment;
 
@@ -30,6 +33,7 @@ import org.springframework.core.env.Environment;
  *     <li>打开主窗口，并负责退出程序。</li>
  * </ol>
  */
+@Slf4j
 public class MainApplication extends Application {
 
     /**
@@ -82,19 +86,6 @@ public class MainApplication extends Application {
         ClientApplication.configureSessionCookieName();
         SpringApplication.run(ClientApplication.class, getParameters().getRaw().toArray(String[]::new));
 
-        // 当前用户是否被使用
-        Platform.runLater(() -> {
-            SysParamService sysParamService = BeanProvider.getBean(SysParamService.class);
-            try {
-                sysParamService.putIfAbsent(SysParamEnum.IS_USED, Boolean.TRUE.toString());
-            } catch (Exception e) {
-                FxSupport.alert(Alert.AlertType.ERROR, "该用户已登入！").showAndWait();
-                // 这里不能使用 exit 退出，那里有一些清理逻辑
-                Platform.exit();
-                SpringApplication.exit(BeanProvider.getApplicationContext());
-            }
-        });
-
         // 主界面：需要的容器 Bean 在这里取出来交给界面，界面本身不再依赖 BeanProvider
         MainPane mainPane = new MainPane(this::exit, getHostServices(),
                 BeanProvider.getBean(Environment.class),
@@ -105,6 +96,27 @@ public class MainApplication extends Application {
         // 隐式退出已关闭，直接关闭主窗口也要结束容器，否则进程会留在后台
         stage.setOnCloseRequest(e -> exit());
         stage.show();
+
+        // 占用当前用户：放在窗口显示之后（界面已经出来，出错再弹窗）；
+        // 释放占用的清理任务注册到容器关闭事件上，命令行关闭也能执行
+        Platform.runLater(() -> {
+            SysParamService sysParamService = BeanProvider.getBean(SysParamService.class);
+            MessageService messageService = BeanProvider.getBean(MessageService.class);
+            ContextClosedEventHandler contextClosedEventHandler = BeanProvider.getBean(ContextClosedEventHandler.class);
+            try {
+                sysParamService.putIfAbsent(SysParamEnum.IS_USED, Boolean.TRUE.toString());
+                contextClosedEventHandler.addCleanTask(() -> {
+                    // 移除对当前用户的占用（注册在占用成功之后，失败退出时不会误删别人的占用）
+                    sysParamService.remove(SysParamEnum.IS_USED);
+                });
+                // 确认用户可用之后才建立通知通道
+                messageService.connectNotice(); // 这里要确保允许登入才可以拉拉取消息
+            } catch (Exception e) {
+                log.error("占用登入状态失败，可能是该用户已在运行。", e);
+                FxSupport.alert(Alert.AlertType.ERROR, "该用户已登入！").showAndWait();
+                exit();
+            }
+        });
     }
 
     /**
@@ -115,11 +127,6 @@ public class MainApplication extends Application {
      */
     private void exit() {
         Platform.exit();
-
-        // 移除对当前用户的占用
-        SysParamService sysParamService = BeanProvider.getBean(SysParamService.class);
-        sysParamService.remove(SysParamEnum.IS_USED);
-
         SpringApplication.exit(BeanProvider.getApplicationContext());
     }
 

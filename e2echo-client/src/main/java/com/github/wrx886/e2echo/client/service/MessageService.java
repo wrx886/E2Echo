@@ -20,7 +20,6 @@ import com.github.wrx886.e2echo.client.vo.MessageVo;
 import com.github.wrx886.e2echo.ecc.Ecc;
 
 import com.github.wrx886.e2echo.ecc.EccMessage;
-import jakarta.annotation.PostConstruct;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,7 +29,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.Disposable;
@@ -128,15 +126,14 @@ public class MessageService {
      * 建立通知通道并自动接收消息：订阅“当前用户 + 已启用的群聊”，收到通知就拉取消息。
      *
      * <p>订阅目标会随会话变化（新加入群聊、群聊被停用等），所以每次调用都先断开旧连接，再按最新
-     * 的目标重建。容器启动时由 {@link PostConstruct} 调用一次，会话变化时由
-     * {@link ConversationService} 调用。建连后服务端会立即推一条通知，断线期间到达的消息就靠它
-     * 触发的那次拉取带回，这里不需要另外补拉。</p>
+     * 的目标重建。登入并确认用户可用后由 {@code MainApplication} 调用一次（不能放在启动时自动执行，
+     * 否则"该用户已登入"时会先把通道建起来），会话变化时由 {@link ConversationService} 调用。建连后
+     * 服务端会立即推一条通知，断线期间到达的消息就靠它触发的那次拉取带回，这里不需要另外补拉。</p>
      *
      * <p>回调里只登记一次拉取请求（{@link #requestPull()}），不直接拉取：拉取用的接口是阻塞式的
      * （{@code block()}），不能跑在 Reactor Netty 的事件循环线程上；而且通知经常挤在一起到达，
      * 交给 {@code requestPull} 合并后在 boundedElastic 线程上串行执行更划算。</p>
      */
-    @PostConstruct
     public synchronized void connectNotice() {
         // 先断开旧连接，避免重复订阅
         if (disposable != null) {

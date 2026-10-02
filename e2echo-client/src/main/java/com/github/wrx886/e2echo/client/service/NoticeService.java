@@ -1,9 +1,9 @@
 package com.github.wrx886.e2echo.client.service;
 
+import com.github.wrx886.e2echo.client.common.ContextClosedEventHandler;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.event.ContextClosedEvent;
-import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -22,6 +22,11 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 @RequiredArgsConstructor
 public class NoticeService {
+
+    /**
+     * 容器关闭事件收集器：本实例的 SSE 清理挂到它上面，保证命令行关闭时也会执行。
+     */
+    private final ContextClosedEventHandler contextClosedEventHandler;
 
     /**
      * 已经连上来的前端连接：键是 SSE 连接本身（按对象身份区分），值用 {@code Optional} 占位，
@@ -95,10 +100,20 @@ public class NoticeService {
     }
 
     /**
+     * 把本实例的 SSE 清理注册到容器关闭事件上。
+     */
+    @PostConstruct
+    public void cleanUpInit() {
+        contextClosedEventHandler.addCleanTask(this::cleanUp);
+    }
+
+    /**
      * 应用关闭时结束本实例持有的全部 SSE 连接，并等待关闭回调完成清理。
+     *
+     * <p>由 {@link ContextClosedEventHandler} 在容器关闭时调用，不直接用 {@code @EventListener}，
+     * 这样清理任务集中在一处、顺序与容错也统一处理。</p>
      */
     @SuppressWarnings("BusyWait")
-    @EventListener(ContextClosedEvent.class)
     public void cleanUp() {
         log.info("Shutting down, {} SSE connection(s) to close.", emitters.size());
 
@@ -129,7 +144,7 @@ public class NoticeService {
             interrupted = true;
         }
 
-        // 等待结束后，仍留在映射里的连接直接同步清理，保证 Redis 不残留
+        // 等待结束后还没关闭的连接就不再等了：应用马上就要退出，映射随进程一起消失
         if (!emitters.isEmpty()) {
             log.warn("{} SSE connection(s) did not close within timeout, cleaning up directly.",
                     emitters.size());
