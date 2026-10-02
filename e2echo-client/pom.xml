@@ -13,8 +13,20 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <skipTests>false</skipTests>
     </properties>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <mainClass>com.github.wrx886.e2echo.client.ClientApplication</mainClass>
+                    <skip>false</skip> <!-- 默认不执行 -->
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 
     <dependencies>
 
