@@ -15,6 +15,13 @@ spring:
     virtual:
       enabled: true
 
+  servlet:
+    multipart:
+      # 前端上传待发送的文件走客户端自己的接口；上限比应用内的 25MB 略大，
+      # 让应用自己的大小检查先给出友好提示，这里只兜住明显超大的请求
+      max-file-size: 30MB
+      max-request-size: 31MB
+
   datasource:
     url: jdbc:h2:file:./data/e2echo_db;AUTO_SERVER=TRUE
     driver-class-name: org.h2.Driver

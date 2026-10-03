@@ -14,10 +14,15 @@ import com.github.wrx886.e2echo.ecc.Ecc;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 import tools.jackson.databind.ObjectMapper;
 
 import java.io.File;
+import java.io.InputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 
 /**
  * 聊天文件消息处理器。
@@ -67,66 +72,92 @@ public class ChatFileMessageHandler implements MessageHandler {
     /**
      * 发送文件消息：加密文件本体并上传，然后发出带对象键与密钥的消息。
      *
+     * <p>文件来自调用方的上传（浏览器只能给出文件内容，给不出真实路径），这里先落到临时目录再加密。
+     * 临时文件用 {@code try-finally} 兜住：不论是保存、加密、上传还是发消息哪一步失败，方法退出前都会
+     * 把临时文件删掉，避免 {@code temp} 目录越积越多。</p>
+     *
      * @param to    接收者，私聊时为对方公钥、群聊时为群聊标识
      * @param group 是否群聊
-     * @param path  待发送文件的本地路径
-     * @throws E2EchoException 路径不是文件、文件超过大小上限、加密或上传失败
+     * @param file  待发送的文件
+     * @throws E2EchoException 文件为空、超过大小上限，或保存、加密、上传失败
      */
-    public void send(String to, boolean group, String path) {
-        // 待发送的文件必须是真实存在的文件（目录、不存在的路径都要拦下）
-        File file = new File(path);
-        if (!file.exists() || !file.isFile()) {
-            throw new E2EchoException("非文件或文件不存在");
-        }
-
+    public void send(String to, boolean group, MultipartFile file) {
         // 文件大小
-        if (file.length() > Const.FILE_MAX_SIZE_BYTE) {
+        if (file == null || file.isEmpty()) {
+            throw new E2EchoException("文件为空！");
+        }
+        if (file.getSize() > Const.FILE_MAX_SIZE_BYTE) {
             throw new E2EchoException(Const.FILE_MAX_SIZE_MESSAGE);
         }
 
-        // 文件加密
-        File encryptedFile = Path.of(".", "temp", IdUtil.newId() + ".encrypted").toFile();
-        // 临时目录可能还不存在，先建出来，否则写密文会直接失败
-        encryptedFile.getParentFile().mkdirs();
-        String aesKey;
-        try {
-            aesKey = Ecc.generateAesKeyAsHex();
-        } catch (Exception e) {
-            log.error("AES KEY 生成失败！", e);
-            throw new E2EchoException("AES KEY 生成失败！");
-        }
-        try {
-            Ecc.encryptAesFile(file.getAbsolutePath(), encryptedFile.getAbsolutePath(), aesKey);
-        } catch (Exception e) {
-            log.error("文件加密失败！", e);
-            throw new E2EchoException("文件加密失败！");
-        }
+        // 临时文件：加解密接口按文件路径工作，所以先把上传内容落到临时目录；
+        // 下面整个流程（保存、加密、上传、发消息）无论在哪一步失败，最后都会删掉这两个文件
+        File tempDir = Path.of(".", "temp").toFile();
+        File sourceFile;
+        File encryptedFile;
+        // 临时文件用随机 ID 命名：万一这个 ID 已经被占用（例如上次异常留下的残留文件），
+        // 就换一个；连续几次都撞上说明临时目录不正常，直接报错而不是覆盖别人的文件
+        int retry = 0;
+        do {
+            if (retry++ > 3) {
+                throw new E2EchoException("临时文件冲突，请稍后重试！");
+            }
+            String id = IdUtil.newId();
+            sourceFile = new File(tempDir, id + ".upload");
+            encryptedFile = new File(tempDir, id + ".encrypted");
+        } while (sourceFile.exists() || encryptedFile.exists());
 
-        // 上传加密文件
-        String objectKey;
         try {
-            objectKey = fileApi.upload(encryptedFile, FileApi.LIFECYCLE_DEFAULT);
+            // 保存上传的文件
+            tempDir.mkdirs();
+            try (InputStream inputStream = file.getInputStream()) {
+                Files.copy(inputStream, sourceFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            } catch (Exception e) {
+                log.error("文件保存失败！", e);
+                throw new E2EchoException("文件保存失败！");
+            }
+
+            // 文件加密
+            String aesKey;
+            try {
+                aesKey = Ecc.generateAesKeyAsHex();
+            } catch (Exception e) {
+                log.error("AES KEY 生成失败！", e);
+                throw new E2EchoException("AES KEY 生成失败！");
+            }
+            try {
+                Ecc.encryptAesFile(sourceFile.getAbsolutePath(), encryptedFile.getAbsolutePath(), aesKey);
+            } catch (Exception e) {
+                log.error("文件加密失败！", e);
+                throw new E2EchoException("文件加密失败！");
+            }
+
+            // 上传加密文件
+            String objectKey = fileApi.upload(encryptedFile, FileApi.LIFECYCLE_DEFAULT);
+
+            // 构建消息
+            String filename = StringUtils.hasText(file.getOriginalFilename())
+                    ? file.getOriginalFilename() : "未命名文件";
+            ChatFileMessageVo chatFileMessageVo = new ChatFileMessageVo(
+                    filename,
+                    aesKey,
+                    objectKey
+            );
+
+            // 发送消息
+            Message message = new Message();
+            message.setFrom(Ecc.getPublicKey());
+            message.setTo(to);
+            message.setMessage(objectMapper.writeValueAsString(chatFileMessageVo));
+            message.setType(MessageTypeEnum.CHAT_FILE.name());
+            message.setChannel(group ? ChannelEnum.CHAT_GROUP_AES.name() : ChannelEnum.CHAT_PRIVATE_ECC.name());
+            message.setInfo("{}");
+            messageService.send(message, !group);
         } finally {
-            // 上传成功与否，临时密文都不再需要，直接删掉，避免 temp 目录越积越多
+            // 成功或失败都删掉临时文件，避免 temp 目录越积越多
+            sourceFile.delete();
             encryptedFile.delete();
         }
-
-        // 构建消息
-        ChatFileMessageVo chatFileMessageVo = new ChatFileMessageVo(
-                file.getName(),
-                aesKey,
-                objectKey
-        );
-
-        // 发送消息
-        Message message = new Message();
-        message.setFrom(Ecc.getPublicKey());
-        message.setTo(to);
-        message.setMessage(objectMapper.writeValueAsString(chatFileMessageVo));
-        message.setType(MessageTypeEnum.CHAT_FILE.name());
-        message.setChannel(group ? ChannelEnum.CHAT_GROUP_AES.name() : ChannelEnum.CHAT_PRIVATE_ECC.name());
-        message.setInfo("{}");
-        messageService.send(message, !group);
     }
 
 }

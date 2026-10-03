@@ -6,7 +6,6 @@ import com.github.wrx886.e2echo.client.handler.ChatTextMessageHandler;
 import com.github.wrx886.e2echo.client.result.Result;
 import com.github.wrx886.e2echo.client.service.MessageService;
 import com.github.wrx886.e2echo.client.vo.message.MessageVo;
-import com.github.wrx886.e2echo.client.vo.req.SendFileMessageReqVo;
 import com.github.wrx886.e2echo.client.vo.req.SendTestMessageReqVo;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -16,6 +15,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * 消息接口。
@@ -86,12 +86,21 @@ public class MessageController {
     /**
      * 发送文件消息：文件本体加密后上传到对象存储，消息里只带文件名、密钥与对象键。
      *
-     * @param sendFileMessageReqVo 接收者、是否群聊与待发送文件的本地路径
+     * <p>文件由调用方（前端）以 multipart 形式上传：浏览器拿不到本地文件的真实路径，只能把文件内容
+     * 交给客户端，所以这里收的是文件本身，不是路径。</p>
+     *
+     * @param to    接收者，私聊时为对方公钥、群聊时为群聊标识
+     * @param group 是否群聊
+     * @param file  待发送的文件
      * @return 空结果
      */
     @PostMapping("sendFileMessage")
-    public Result<Void> sendFileMessage(@Valid @RequestBody SendFileMessageReqVo sendFileMessageReqVo) {
-        chatFileMessageHandler.send(sendFileMessageReqVo.to(), sendFileMessageReqVo.group(), sendFileMessageReqVo.path());
+    public Result<Void> sendFileMessage(
+            @NotBlank String to,
+            @NotNull Boolean group,
+            @NotNull MultipartFile file
+    ) {
+        chatFileMessageHandler.send(to, group, file);
         return Result.ok();
     }
 
