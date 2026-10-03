@@ -16,8 +16,8 @@ import java.nio.file.Path;
 /**
  * 文件业务逻辑层。
  *
- * <p>负责聊天文件的取回：按消息里的对象键从对象存储下载密文、解密后落盘复用（同一个文件只下载解密
- * 一次），再把解密后的文件交给调用方。</p>
+ * <p>负责聊天文件的取回：按消息里的对象键从对象存储下载密文、解密后缓存在 {@code data/download}
+ * 下（同一个文件只下载解密一次），再把解密后的文件交给调用方；下载用的密文是用完即删的临时文件。</p>
  */
 @Slf4j
 @Service
@@ -37,21 +37,28 @@ public class FileService {
      * @throws E2EchoException 下载或解密失败
      */
     public Resource getChatFile(ChatFileMessageVo chatFileMessageVo) {
-        // 构建文件
-        File file = Path.of(".", "download", chatFileMessageVo.objectKey() + ".encrypted" + ".decrypted").toFile();
+        // 构建文件（和本地数据库一样放在 data 目录下）
+        File file = Path.of(".", "data", "download",
+                chatFileMessageVo.objectKey() + ".encrypted" + ".decrypted").toFile();
 
         // 文件不存在，则下载
         if (!file.exists()) {
             // 下载目录可能还不存在，先建出来
             file.getParentFile().mkdirs();
             // 下载文件
-            File downloadFile = Path.of(".", "download", chatFileMessageVo.objectKey() + ".encrypted").toFile();
-            fileApi.download(chatFileMessageVo.objectKey(), downloadFile);
+            File downloadFile = Path.of(".", "data", "download",
+                    chatFileMessageVo.objectKey() + ".encrypted").toFile();
             try {
+                fileApi.download(chatFileMessageVo.objectKey(), downloadFile);
                 Ecc.decryptAesFile(downloadFile.getAbsolutePath(), file.getAbsolutePath(), chatFileMessageVo.aesKey());
+            } catch (E2EchoException e) {
+                throw e;
             } catch (Exception e) {
                 log.error("文件解密失败！", e);
                 throw new E2EchoException("文件解密失败！");
+            } finally {
+                // 解密完成后密文就没用了，删掉免得同目录下留两份
+                downloadFile.delete();
             }
         }
 

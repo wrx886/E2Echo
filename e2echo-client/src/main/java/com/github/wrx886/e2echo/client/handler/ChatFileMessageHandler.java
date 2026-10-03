@@ -72,9 +72,9 @@ public class ChatFileMessageHandler implements MessageHandler {
     /**
      * 发送文件消息：加密文件本体并上传，然后发出带对象键与密钥的消息。
      *
-     * <p>文件来自调用方的上传（浏览器只能给出文件内容，给不出真实路径），这里先落到临时目录再加密。
-     * 临时文件用 {@code try-finally} 兜住：不论是保存、加密、上传还是发消息哪一步失败，方法退出前都会
-     * 把临时文件删掉，避免 {@code temp} 目录越积越多。</p>
+     * <p>文件来自调用方的上传（浏览器只能给出文件内容，给不出真实路径），这里先落到 {@code data/temp}
+     * 下的临时文件再加密。临时文件用 {@code try-finally} 兜住：不论是保存、加密、上传还是发消息哪一步
+     * 失败，方法退出前都会把临时文件删掉，避免目录越积越多。</p>
      *
      * @param to    接收者，私聊时为对方公钥、群聊时为群聊标识
      * @param group 是否群聊
@@ -90,9 +90,9 @@ public class ChatFileMessageHandler implements MessageHandler {
             throw new E2EchoException(Const.FILE_MAX_SIZE_MESSAGE);
         }
 
-        // 临时文件：加解密接口按文件路径工作，所以先把上传内容落到临时目录；
+        // 临时文件：加解密接口按文件路径工作，所以先把上传内容落到 data 下的临时目录；
         // 下面整个流程（保存、加密、上传、发消息）无论在哪一步失败，最后都会删掉这两个文件
-        File tempDir = Path.of(".", "temp").toFile();
+        File tempDir = Path.of(".", "data", "temp").toFile();
         File sourceFile;
         File encryptedFile;
         // 临时文件用随机 ID 命名：万一这个 ID 已经被占用（例如上次异常留下的残留文件），
