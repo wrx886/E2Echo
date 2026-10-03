@@ -1,4 +1,4 @@
-package com.github.wrx886.e2echo.client.vo;
+package com.github.wrx886.e2echo.client.vo.message;
 
 /**
  * 会话消息的返回结构。

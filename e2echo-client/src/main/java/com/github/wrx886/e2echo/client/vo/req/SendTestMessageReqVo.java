@@ -1,4 +1,4 @@
-package com.github.wrx886.e2echo.client.vo;
+package com.github.wrx886.e2echo.client.vo.req;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

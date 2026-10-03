@@ -33,4 +33,16 @@ public final class Const {
      */
     public static final int MESSAGE_PULL_BATCH_SIZE = 128;
 
+    /**
+     * 聊天文件的大小上限（字节）。
+     *
+     * <p>文件本体加密后上传到对象存储，这里限制的是上传前的明文大小。</p>
+     */
+    public static final long FILE_MAX_SIZE_BYTE = 25L * 1024 * 1024;
+
+    /**
+     * 文件大小超限时的提示文案，供各处校验统一使用。
+     */
+    public static final String FILE_MAX_SIZE_MESSAGE = "文件大小应小于 " + FILE_MAX_SIZE_BYTE / 1024 / 1024 + "M";
+
 }

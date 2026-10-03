@@ -16,7 +16,7 @@ import com.github.wrx886.e2echo.client.exception.E2EchoException;
 import com.github.wrx886.e2echo.client.repository.MessageRepository;
 import com.github.wrx886.e2echo.client.result.PageData;
 import com.github.wrx886.e2echo.client.util.IdUtil;
-import com.github.wrx886.e2echo.client.vo.MessageVo;
+import com.github.wrx886.e2echo.client.vo.message.MessageVo;
 import com.github.wrx886.e2echo.ecc.Ecc;
 
 import com.github.wrx886.e2echo.ecc.EccMessage;

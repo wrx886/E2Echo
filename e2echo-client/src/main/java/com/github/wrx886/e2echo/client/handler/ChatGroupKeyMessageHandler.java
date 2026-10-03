@@ -12,7 +12,7 @@ import com.github.wrx886.e2echo.client.service.AesKeyService;
 import com.github.wrx886.e2echo.client.service.ConversationService;
 import com.github.wrx886.e2echo.client.service.GroupMemberService;
 import com.github.wrx886.e2echo.client.service.MessageService;
-import com.github.wrx886.e2echo.client.vo.ChatGroupKeyMessageVo;
+import com.github.wrx886.e2echo.client.vo.message.ChatGroupKeyMessageVo;
 import com.github.wrx886.e2echo.ecc.Ecc;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;

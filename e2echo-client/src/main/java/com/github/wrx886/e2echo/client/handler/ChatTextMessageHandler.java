@@ -5,7 +5,7 @@ import com.github.wrx886.e2echo.client.entity.Message;
 import com.github.wrx886.e2echo.client.enums.ChannelEnum;
 import com.github.wrx886.e2echo.client.enums.MessageTypeEnum;
 import com.github.wrx886.e2echo.client.service.MessageService;
-import com.github.wrx886.e2echo.client.vo.ChatTextMessageVo;
+import com.github.wrx886.e2echo.client.vo.message.ChatTextMessageVo;
 import com.github.wrx886.e2echo.ecc.Ecc;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;

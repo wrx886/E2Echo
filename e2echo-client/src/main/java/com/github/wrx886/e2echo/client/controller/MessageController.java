@@ -1,11 +1,13 @@
 package com.github.wrx886.e2echo.client.controller;
 
 import com.github.wrx886.e2echo.client.exception.E2EchoException;
+import com.github.wrx886.e2echo.client.handler.ChatFileMessageHandler;
 import com.github.wrx886.e2echo.client.handler.ChatTextMessageHandler;
 import com.github.wrx886.e2echo.client.result.Result;
 import com.github.wrx886.e2echo.client.service.MessageService;
-import com.github.wrx886.e2echo.client.vo.MessageVo;
-import com.github.wrx886.e2echo.client.vo.SendTestMessageReqVo;
+import com.github.wrx886.e2echo.client.vo.message.MessageVo;
+import com.github.wrx886.e2echo.client.vo.req.SendFileMessageReqVo;
+import com.github.wrx886.e2echo.client.vo.req.SendTestMessageReqVo;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -35,6 +37,11 @@ public class MessageController {
      * 文字聊天消息处理器。
      */
     private final ChatTextMessageHandler chatTextMessageHandler;
+
+    /**
+     * 文件消息处理器，用于发送文件。
+     */
+    private final ChatFileMessageHandler chatFileMessageHandler;
 
     /**
      * 分页查询某个会话的消息（收 + 发），最新的在前。
@@ -73,6 +80,18 @@ public class MessageController {
     @PostMapping("sendTextMessage")
     public Result<Void> sendTextMessage(@Valid @RequestBody SendTestMessageReqVo sendTestMessageReqVo) {
         chatTextMessageHandler.send(sendTestMessageReqVo.to(), sendTestMessageReqVo.group(), sendTestMessageReqVo.text());
+        return Result.ok();
+    }
+
+    /**
+     * 发送文件消息：文件本体加密后上传到对象存储，消息里只带文件名、密钥与对象键。
+     *
+     * @param sendFileMessageReqVo 接收者、是否群聊与待发送文件的本地路径
+     * @return 空结果
+     */
+    @PostMapping("sendFileMessage")
+    public Result<Void> sendFileMessage(@Valid @RequestBody SendFileMessageReqVo sendFileMessageReqVo) {
+        chatFileMessageHandler.send(sendFileMessageReqVo.to(), sendFileMessageReqVo.group(), sendFileMessageReqVo.path());
         return Result.ok();
     }
 

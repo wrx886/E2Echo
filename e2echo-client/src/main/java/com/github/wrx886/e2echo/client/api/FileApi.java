@@ -2,7 +2,9 @@ package com.github.wrx886.e2echo.client.api;
 
 import java.io.File;
 import java.util.Optional;
+import java.util.OptionalLong;
 
+import com.github.wrx886.e2echo.client.common.Const;
 import com.github.wrx886.e2echo.client.exception.E2EchoException;
 import com.github.wrx886.e2echo.client.result.Result;
 import com.github.wrx886.e2echo.client.util.ApiUtil;
@@ -56,13 +58,24 @@ public class FileApi {
     /**
      * 上传文件。
      *
+     * <p>上传前先校验文件大小，超过 {@link Const#FILE_MAX_SIZE_BYTE} 的文件直接拒收，不发起请求。</p>
+     *
      * @param file      待上传的文件，内容应为加密后的密文
      * @param lifecycle 生命周期，取 {@link #LIFECYCLE_DEFAULT} 或 {@link #LIFECYCLE_FOREVER}，
      *                  为空时按短期存储处理
      * @return 对象键，形如 {@code default/文件 ID}，下载时原样传回
-     * @throws E2EchoException 请求失败，或服务端返回失败状态（例如文件为空、生命周期非法）
+     * @throws E2EchoException 文件不存在、超过大小上限，请求失败，或服务端返回失败状态
+     *                         （例如文件为空、生命周期非法）
      */
     public String upload(File file, String lifecycle) {
+        // 文件大小校验：超限的直接拒收，避免白白上传一遍
+        if (file == null || !file.isFile()) {
+            throw new E2EchoException("非文件或文件不存在");
+        }
+        if (file.length() > Const.FILE_MAX_SIZE_BYTE) {
+            throw new E2EchoException(Const.FILE_MAX_SIZE_MESSAGE);
+        }
+
         timestampApi.checkTime();
 
         MultiValueMap<String, Object> parts = new LinkedMultiValueMap<>();
@@ -86,10 +99,14 @@ public class FileApi {
      *
      * <p>内容以流的方式写入目标文件；中途失败可能留下不完整的文件，由调用方决定是否删除。</p>
      *
+     * <p>下载前先按响应头里的 {@code Content-Length} 校验大小：拿不到长度、或者超过
+     * {@link Const#FILE_MAX_SIZE_BYTE} 的直接拒收，一个字节都不写（拿不到长度时不冒险下载，
+     * 免得白下载一个超大文件）。</p>
+     *
      * @param lifecycle 生命周期前缀，与上传时一致
      * @param id        文件 ID
      * @param target    保存到的文件
-     * @throws E2EchoException 请求失败，或服务端返回失败状态（例如文件不存在）
+     * @throws E2EchoException 文件超过大小上限，请求失败，或服务端返回失败状态（例如文件不存在）
      */
     public void download(String lifecycle, String id, File target) {
         timestampApi.checkTime();
@@ -106,6 +123,11 @@ public class FileApi {
                     if (response.statusCode().isError()) {
                         return Mono.error(new E2EchoException("服务器状态异常！"));
                     }
+                    // 大小校验：服务端会带上 Content-Length；拿不到长度或超限都直接拒收，一个字节都不写
+                    OptionalLong contentLength = response.headers().contentLength();
+                    if (contentLength.isEmpty() || contentLength.getAsLong() > Const.FILE_MAX_SIZE_BYTE) {
+                        return Mono.error(new E2EchoException(Const.FILE_MAX_SIZE_MESSAGE));
+                    }
                     return DataBufferUtils.write(response.bodyToFlux(DataBuffer.class), target.toPath());
                 })
                 .block());
@@ -116,7 +138,7 @@ public class FileApi {
      *
      * @param objectKey 上传时返回的对象键，形如 {@code default/文件 ID}
      * @param target    保存到的文件
-     * @throws E2EchoException 对象键格式错误、请求失败，或服务端返回失败状态
+     * @throws E2EchoException 对象键格式错误、文件超过大小上限、请求失败，或服务端返回失败状态
      */
     public void download(String objectKey, File target) {
 
