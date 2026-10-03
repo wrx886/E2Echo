@@ -1,8 +1,14 @@
 <script setup lang="ts">
+import { ref } from 'vue'
+import { Paperclip } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
+import { FILE_MAX_SIZE_BYTE, FILE_MAX_SIZE_MESSAGE } from '@/api'
+
 /**
  * 消息输入区。
  *
- * <p>Enter 发送、Shift + Enter 换行；正文由父组件持有（v-model），发送成功后由父组件清空。</p>
+ * <p>Enter 发送、Shift + Enter 换行；正文由父组件持有（v-model），发送成功后由父组件清空。文件也
+ * 在这里选：选中后交给父组件上传发送，本组件只负责选文件与显示进度。</p>
  */
 
 defineProps<{
@@ -10,12 +16,53 @@ defineProps<{
   modelValue: string
   /** 是否正在发送。 */
   sending: boolean
+  /** 是否正在发送文件。 */
+  sendingFile: boolean
+  /** 文件上传进度，0-100。 */
+  filePercent: number
 }>()
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]
   'submit': []
+  'submitFile': [file: File]
 }>()
+
+/** 隐藏的文件选择框。 */
+const fileInput = ref<HTMLInputElement>()
+
+/** 正在发送的文件名，用于进度提示。 */
+const pendingName = ref('')
+
+/**
+ * 打开文件选择框。
+ */
+function onPickFile(): void {
+  fileInput.value?.click()
+}
+
+/**
+ * 选中文件后交给父组件发送。
+ *
+ * <p>选完把输入框清空，这样连续选同一个文件也能再次触发 change。超过大小上限的直接拦下来，
+ * 不进入上传流程。</p>
+ *
+ * @param event 选择框的 change 事件
+ */
+function onFileChange(event: Event): void {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) {
+    return
+  }
+  if (file.size > FILE_MAX_SIZE_BYTE) {
+    ElMessage.warning(FILE_MAX_SIZE_MESSAGE)
+    return
+  }
+  pendingName.value = file.name
+  emit('submitFile', file)
+}
 
 /**
  * 回车发送。
@@ -49,16 +96,36 @@ function onEnter(event: KeyboardEvent): void {
     />
 
     <div class="composer__bar">
-      <span class="composer__hint">Enter 发送 · Shift + Enter 换行</span>
-      <el-button
-        type="primary"
-        :loading="sending"
-        :disabled="modelValue.trim().length === 0"
-        @click="emit('submit')"
-      >
-        发送
-      </el-button>
+      <!-- 特殊类型内容的发送按钮都放左边：文件、后续的图片等 -->
+      <div class="composer__tools">
+        <el-button
+          :icon="Paperclip"
+          :loading="sendingFile"
+          title="发送文件"
+          @click="onPickFile"
+        />
+      </div>
+
+      <!-- 提示与发送按钮放右边 -->
+      <div class="composer__actions">
+        <span class="composer__hint">
+          <template v-if="sendingFile">
+            正在发送 {{ pendingName }}<template v-if="filePercent > 0">（{{ filePercent }}%）</template>
+          </template>
+          <template v-else>Enter 发送 · Shift + Enter 换行</template>
+        </span>
+        <el-button
+          type="primary"
+          :loading="sending"
+          :disabled="modelValue.trim().length === 0"
+          @click="emit('submit')"
+        >
+          发送
+        </el-button>
+      </div>
     </div>
+
+    <input ref="fileInput" class="composer__file" type="file" @change="onFileChange" />
   </div>
 </template>
 
@@ -76,12 +143,26 @@ function onEnter(event: KeyboardEvent): void {
   margin-top: 8px;
 }
 
+.composer__tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.composer__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
 .composer__hint {
   font-size: 12px;
   color: #a8abb2;
 }
 
-.composer__bar .el-button {
-  margin-left: auto;
+.composer__file {
+  display: none;
 }
+
 </style>

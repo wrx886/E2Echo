@@ -47,6 +47,9 @@ export const MESSAGE_TYPE_CHAT_TEXT = 'CHAT_TEXT'
 /** 消息类型：群聊密钥消息，正文是 {@link ChatGroupKeyMessageVo}。 */
 export const MESSAGE_TYPE_CHAT_GROUP_KEY = 'CHAT_GROUP_KEY'
 
+/** 消息类型：聊天文件消息，正文是 {@link ChatFileMessageVo}。 */
+export const MESSAGE_TYPE_CHAT_FILE = 'CHAT_FILE'
+
 /**
  * 分页结果，对应 Spring Data 的 {@code Page} 序列化后的 JSON。
  *
@@ -92,6 +95,21 @@ export interface ChatGroupKeyMessageVo {
   publishTime: number
   /** AES 密钥（HEX 格式）。 */
   aesKey: string
+}
+
+/**
+ * 聊天文件消息的正文，对应 {@code ChatFileMessageVo}。
+ *
+ * <p>文件本体加密后放在对象存储里，正文只带取回并解密它所需的信息；下载时把这份正文原样提交给
+ * client，由 client 下载密文、解密后返回文件流。</p>
+ */
+export interface ChatFileMessageVo {
+  /** 文件名，用于展示与下载时命名。 */
+  filename: string
+  /** 文件加密用的一次性 AES 密钥（HEX 格式）。 */
+  aesKey: string
+  /** 对象存储里的对象键，形如 {@code default/文件 ID}。 */
+  objectKey: string
 }
 
 /**

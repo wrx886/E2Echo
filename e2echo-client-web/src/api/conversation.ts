@@ -1,7 +1,13 @@
 import { get, post } from './http'
 import { isTrustedGroupKey } from './message'
-import { MESSAGE_TYPE_CHAT_GROUP_KEY, MESSAGE_TYPE_CHAT_TEXT } from './types'
-import type { ChatGroupKeyMessageVo, ChatTextMessageVo, ConversationDto, Page } from './types'
+import { MESSAGE_TYPE_CHAT_FILE, MESSAGE_TYPE_CHAT_GROUP_KEY, MESSAGE_TYPE_CHAT_TEXT } from './types'
+import type {
+  ChatFileMessageVo,
+  ChatGroupKeyMessageVo,
+  ChatTextMessageVo,
+  ConversationDto,
+  Page,
+} from './types'
 
 /**
  * 会话接口，对应 {@code ConversationController}。
@@ -71,6 +77,16 @@ export function latestMessagePreview(conversation: ConversationDto): string {
       return trusted ? '[群聊密钥]' : '[可疑的群聊密钥]'
     } catch {
       return '[可疑的群聊密钥]'
+    }
+  }
+  if (latest.type === MESSAGE_TYPE_CHAT_FILE) {
+    // 会话里的最新消息是实体，正文还是 JSON 字符串，取文件名时解析一次
+    try {
+      const body = JSON.parse(latest.message) as ChatFileMessageVo
+      const name = typeof body.filename === 'string' ? body.filename.trim() : ''
+      return name.length > 0 ? `[文件] ${name}` : '[文件]'
+    } catch {
+      return '[文件]'
     }
   }
   if (latest.type !== MESSAGE_TYPE_CHAT_TEXT) {

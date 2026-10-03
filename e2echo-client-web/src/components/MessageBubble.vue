@@ -1,8 +1,18 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { chatTextOf, groupKeyOf, isTrustedGroupKey } from '@/api'
+import { computed, ref } from 'vue'
+import { Document, Download } from '@element-plus/icons-vue'
+import {
+  MESSAGE_TYPE_CHAT_FILE,
+  chatTextOf,
+  downloadChatFile,
+  fileMessageOf,
+  groupKeyOf,
+  isTrustedGroupKey,
+} from '@/api'
 import type { MessageVo } from '@/api'
 import GroupKeyMessage from '@/components/GroupKeyMessage.vue'
+import { saveBlob } from '@/utils/download'
+import { showError } from '@/utils/feedback'
 import { shortKey } from '@/utils/display'
 
 /**
@@ -29,6 +39,16 @@ const text = computed(() => chatTextOf(props.message))
 /** 群聊密钥消息的正文，不是这类消息时为空。 */
 const groupKey = computed(() => groupKeyOf(props.message))
 
+/** 文件消息的正文，不是这类消息时为空。 */
+const fileBody = computed(() => fileMessageOf(props.message))
+
+/** 是文件消息但正文解析不出来（例如发送方给的内容不合法）。 */
+const fileBroken = computed(() =>
+  props.message.type === MESSAGE_TYPE_CHAT_FILE && fileBody.value === null)
+
+/** 是否正在下载。 */
+const downloading = ref(false)
+
 /**
  * 群聊密钥消息的来源是否可信。
  *
@@ -43,6 +63,25 @@ const keyTrusted = computed(() => {
 /** 头像文字：自己的消息用自己的名称，对方的按公钥末几位。 */
 const avatar = computed(() =>
   props.mine && props.mineAvatar ? props.mineAvatar : shortKey(props.message.from, 2))
+
+/**
+ * 下载文件消息：取回解密后的内容，再交给浏览器保存。
+ */
+async function onDownloadFile(): Promise<void> {
+  const file = fileBody.value
+  if (!file) {
+    return
+  }
+  downloading.value = true
+  try {
+    const blob = await downloadChatFile(file)
+    saveBlob(blob, file.filename)
+  } catch (error) {
+    showError(error, '文件下载失败')
+  } finally {
+    downloading.value = false
+  }
+}
 </script>
 
 <template>
@@ -83,6 +122,25 @@ const avatar = computed(() =>
       <div v-if="groupKey" class="bubble" :class="{ 'bubble--untrusted': !keyTrusted }">
         <GroupKeyMessage :group="groupKey.group" :publish-time="groupKey.publishTime" />
       </div>
+
+      <!-- 聊天文件：正文只带文件名与下载信息，文件本体由客户端取回解密后再交给浏览器保存 -->
+      <div v-else-if="fileBody" class="bubble">
+        <div class="file">
+          <el-icon class="file__icon" :size="22"><Document /></el-icon>
+          <span class="file__name" :title="fileBody.filename">{{ fileBody.filename }}</span>
+          <el-button
+            size="small"
+            type="primary"
+            :icon="Download"
+            :loading="downloading"
+            @click="onDownloadFile"
+          >
+            下载
+          </el-button>
+        </div>
+      </div>
+
+      <div v-else-if="fileBroken" class="bubble">[文件消息异常]</div>
 
       <div v-else class="bubble">{{ text ?? '[暂不支持的消息类型]' }}</div>
     </div>
@@ -151,6 +209,28 @@ const avatar = computed(() =>
 
 .bubble-row--mine .bubble {
   background: #95ec69;
+}
+
+.file {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 200px;
+  max-width: 100%;
+}
+
+.file__icon {
+  flex: none;
+  color: #409eff;
+}
+
+.file__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 /* 来源没通过校验的密钥消息：红框突出，避免被当成真的群密钥 */

@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
-import { findConversationMessages, sendTextMessage } from '@/api'
+import { findConversationMessages, sendFileMessage, sendTextMessage } from '@/api'
 import type { MessageVo } from '@/api'
 
 /** 每次加载的消息条数。 */
@@ -30,6 +30,12 @@ export const useMessageStore = defineStore('message', () => {
 
   /** 是否正在发送。 */
   const sending = ref(false)
+
+  /** 是否正在发送文件。 */
+  const sendingFile = ref(false)
+
+  /** 文件上传进度，0-100。 */
+  const fileProgress = ref(0)
 
   /**
    * 会话切换标记：异步请求返回时用它判断结果是否还属于当前会话，避免旧请求写回新会话的消息列表。
@@ -153,6 +159,33 @@ export const useMessageStore = defineStore('message', () => {
   }
 
   /**
+   * 发送文件消息，并把结果合并回列表。
+   *
+   * <p>文件内容先上传给 client，由 client 加密、上传对象存储后发消息；私聊发送时 client 会落本地，
+   * 群聊要等通知触发拉取后才出现，和文字消息一致。</p>
+   *
+   * @param file  待发送的文件
+   * @param group 是否群聊会话
+   */
+  async function sendFile(file: File, group: boolean): Promise<void> {
+    const to = peer.value
+    if (!to) {
+      return
+    }
+    sendingFile.value = true
+    fileProgress.value = 0
+    try {
+      await sendFileMessage(to, group, file, (percent) => {
+        fileProgress.value = percent
+      })
+      await refreshLatest()
+    } finally {
+      sendingFile.value = false
+      fileProgress.value = 0
+    }
+  }
+
+  /**
    * 清空当前会话的消息。
    */
   function reset(): void {
@@ -165,7 +198,7 @@ export const useMessageStore = defineStore('message', () => {
   }
 
   return {
-    peer, messages, loading, loadingOlder, hasMore, sending,
-    open, loadOlder, refreshLatest, send, reset,
+    peer, messages, loading, loadingOlder, hasMore, sending, sendingFile, fileProgress,
+    open, loadOlder, refreshLatest, send, sendFile, reset,
   }
 })

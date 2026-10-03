@@ -1,10 +1,12 @@
-import { get, post } from './http'
+import { get, post, request } from './http'
 import {
   CHANNEL_CHAT_PRIVATE_ECC,
+  MESSAGE_TYPE_CHAT_FILE,
   MESSAGE_TYPE_CHAT_GROUP_KEY,
   MESSAGE_TYPE_CHAT_TEXT,
 } from './types'
 import type {
+  ChatFileMessageVo,
   ChatGroupKeyMessageVo,
   ChatTextMessageVo,
   MessageVo,
@@ -55,6 +57,73 @@ export function sendTextMessage(req: SendTextMessageReq): Promise<void> {
 }
 
 /**
+ * 发送文件的大小上限（字节）。
+ *
+ * <p>与 client 的 {@code Const.FILE_MAX_SIZE_BYTE} 保持一致：超限的文件在 client 侧本来就会被拒收，
+ * 前端先拦一道，省得白白把文件传一遍。client 调整上限时这里要跟着改。</p>
+ */
+export const FILE_MAX_SIZE_BYTE = 25 * 1024 * 1024
+
+/** 文件超限时的提示，与 client 的 {@code Const.FILE_MAX_SIZE_MESSAGE} 文案一致。 */
+export const FILE_MAX_SIZE_MESSAGE = `文件大小应小于 ${FILE_MAX_SIZE_BYTE / 1024 / 1024}M`
+
+/**
+ * 发送文件消息。
+ *
+ * <p>文件内容用 multipart 上传给 client，由 client 负责加密、上传对象存储，再把带对象键与密钥的
+ * 消息发出去；群聊没有密钥、文件为空、超过大小上限等失败原因都由 client 返回。</p>
+ *
+ * @param to         接收者：私聊时为对方公钥、群聊时为群聊标识
+ * @param group      是否群聊
+ * @param file       待发送的文件
+ * @param onProgress 上传进度回调，参数是 0-100 的百分比
+ */
+export function sendFileMessage(
+  to: string,
+  group: boolean,
+  file: File,
+  onProgress?: (percent: number) => void,
+): Promise<void> {
+  const form = new FormData()
+  form.append('to', to)
+  form.append('group', String(group))
+  form.append('file', file, file.name)
+
+  return request<void>({
+    method: 'POST',
+    url: '/api/message/sendFileMessage',
+    data: form,
+    onUploadProgress: (event) => {
+      if (!onProgress || !event.total) {
+        return
+      }
+      onProgress(Math.round((event.loaded / event.total) * 100))
+    },
+  })
+}
+
+/**
+ * 把消息正文规整成对象。
+ *
+ * <p>client 是按消息类型注册处理器、再用处理器的类型反序列化正文的；没有注册处理器的类型会原样
+ * 返回 JSON 字符串（文件消息目前就是这样），所以两种形态都要接。</p>
+ *
+ * @param value 消息正文
+ * @returns 正文对象，不是对象或字符串也解析不出来时返回 null
+ */
+function toMessageBody(value: unknown): Record<string, unknown> | null {
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value) as unknown
+      return parsed !== null && typeof parsed === 'object' ? parsed as Record<string, unknown> : null
+    } catch {
+      return null
+    }
+  }
+  return value !== null && typeof value === 'object' ? value as Record<string, unknown> : null
+}
+
+/**
  * 取文字聊天消息的正文。
  *
  * @param message 会话消息
@@ -64,7 +133,7 @@ export function chatTextOf(message: MessageVo): string | null {
   if (message.type !== MESSAGE_TYPE_CHAT_TEXT) {
     return null
   }
-  const body = message.message as ChatTextMessageVo | null
+  const body = toMessageBody(message.message) as ChatTextMessageVo | null
   return body && typeof body.text === 'string' ? body.text : null
 }
 
@@ -78,8 +147,28 @@ export function groupKeyOf(message: MessageVo): ChatGroupKeyMessageVo | null {
   if (message.type !== MESSAGE_TYPE_CHAT_GROUP_KEY) {
     return null
   }
-  const body = message.message as ChatGroupKeyMessageVo | null
+  const body = toMessageBody(message.message) as ChatGroupKeyMessageVo | null
   return body && typeof body.group === 'string' ? body : null
+}
+
+/**
+ * 取聊天文件消息的正文。
+ *
+ * @param message 会话消息
+ * @returns 文件名、密钥与对象键；不是文件消息或正文结构异常时返回 null
+ */
+export function fileMessageOf(message: MessageVo): ChatFileMessageVo | null {
+  if (message.type !== MESSAGE_TYPE_CHAT_FILE) {
+    return null
+  }
+  const body = toMessageBody(message.message)
+  if (!body
+    || typeof body.filename !== 'string'
+    || typeof body.aesKey !== 'string'
+    || typeof body.objectKey !== 'string') {
+    return null
+  }
+  return { filename: body.filename, aesKey: body.aesKey, objectKey: body.objectKey }
 }
 
 /**

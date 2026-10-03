@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { AxiosError, AxiosRequestConfig } from 'axios'
+import type { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios'
 import { AUTH_FAILED_MESSAGE, RESULT_CODE_FAIL, RESULT_CODE_OK } from './types'
 import type { Result } from './types'
 
@@ -130,6 +130,10 @@ export const http = axios.create({
 // 响应拦截：剥掉统一响应的外壳，成功直接把 data 交给调用方，失败一律抛 ApiError
 http.interceptors.response.use(
   (response) => {
+    // 文件下载：成功时返回二进制流，失败时返回的仍是统一响应 JSON
+    if (response.data instanceof Blob) {
+      return unwrapBlob(response) as never
+    }
     if (!isResult(response.data)) {
       throw new ApiError('服务器状态异常！', String(response.status))
     }
@@ -142,6 +146,41 @@ http.interceptors.response.use(
   },
   (error: AxiosError) => Promise.reject(toTransportError(error)),
 )
+
+/**
+ * 处理二进制响应（文件下载）。
+ *
+ * <p>下载成功的响应是文件流，失败时服务端返回的仍是统一响应 JSON，所以这里按内容类型区分：JSON
+ * 就按文本读出来走统一的失败处理（认证失效也在其中），否则原样把二进制交给调用方。少了这一步，
+ * 下载失败会被误报成「服务器状态异常！」。</p>
+ *
+ * @param response 响应
+ * @returns 文件内容
+ */
+async function unwrapBlob(response: AxiosResponse<Blob>): Promise<Blob> {
+  const contentType = String(response.headers['content-type'] ?? '')
+  if (!contentType.includes('json')) {
+    return response.data
+  }
+
+  const text = await response.data.text()
+  let body: unknown = null
+  try {
+    body = JSON.parse(text)
+  } catch {
+    body = null
+  }
+
+  if (!isResult(body)) {
+    throw new ApiError('服务器状态异常！', String(response.status))
+  }
+  if (body.code !== RESULT_CODE_OK) {
+    throw toApiError(body)
+  }
+  // 下载成功不会返回 JSON，走到这里说明服务端行为异常
+  authFailedNotified = false
+  throw new ApiError('服务器状态异常！', String(response.status))
+}
 
 /**
  * 发起请求并返回统一响应中的业务数据。

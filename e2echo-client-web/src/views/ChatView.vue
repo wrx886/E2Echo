@@ -207,6 +207,20 @@ async function onSend(): Promise<void> {
   }
 }
 
+/**
+ * 发送文件：交给 client 加密、上传并发出，成功后刷新当前会话。
+ *
+ * @param file 待发送的文件
+ */
+async function onSendFile(file: File): Promise<void> {
+  try {
+    await messageStore.sendFile(file, group.value)
+    await scrollToBottom()
+  } catch (error) {
+    showError(error, '文件发送失败')
+  }
+}
+
 // 消息变化（收到通知、发送成功）时，贴着底部才自动滚到底
 watch(() => messageStore.messages, () => {
   if (restoring.value) {
@@ -289,7 +303,14 @@ watch(peer, async (value) => {
         </div>
       </div>
 
-      <MessageComposer v-model="draft" :sending="messageStore.sending" @submit="onSend" />
+      <MessageComposer
+        v-model="draft"
+        :sending="messageStore.sending"
+        :sending-file="messageStore.sendingFile"
+        :file-percent="messageStore.fileProgress"
+        @submit="onSend"
+        @submit-file="onSendFile"
+      />
     </template>
   </section>
 </template>
