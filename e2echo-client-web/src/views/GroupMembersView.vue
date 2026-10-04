@@ -173,6 +173,21 @@ function aliasOf(member: string): string {
 }
 
 /**
+ * 刷新会话列表。
+ *
+ * <p>群密钥是以私聊消息逐条发给成员的，所以加成员、更新密钥、重发密钥都会在私聊通道留下一条消息、
+ * 改变对应会话的最新消息。而服务端只通知消息的接收者，发送者（也就是现在的群主）自己收不到通知，
+ * 前端不会自动收到 reflash，只能在这几步做完后自己把列表刷新一遍。</p>
+ */
+async function refreshConversations(): Promise<void> {
+  try {
+    await conversationStore.refresh()
+  } catch (error) {
+    showError(error, '刷新会话列表失败')
+  }
+}
+
+/**
  * 切换页码。
  *
  * @param page 目标页码，从 1 开始
@@ -222,6 +237,8 @@ async function onAdd(): Promise<void> {
     newMember.value = ''
     ElMessage.success('已添加，并把当前群密钥私发给了该成员')
     await reloadMembers()
+    // 密钥是私聊发给该成员的，对应的私聊会话最新消息变了
+    await refreshConversations()
   } catch (error) {
     // 添加与密钥分发在同一个事务里，失败时成员不会写入，界面不用刷新
     showError(error, '添加成员失败')
@@ -302,6 +319,8 @@ async function doUpdateKey(): Promise<boolean> {
     await updateGroupKey(group.value)
     pendingKeyUpdate.value = false
     ElMessage.success('已更新群密钥，并分发给全部成员')
+    // 密钥是私聊逐条发给成员的，每个成员的私聊会话最新消息都变了
+    await refreshConversations()
     return true
   } catch (error) {
     showError(error, '更新群密钥失败')
@@ -347,6 +366,8 @@ async function onResendKey(): Promise<void> {
   try {
     await resendGroupKey(group.value)
     ElMessage.success('已重发群密钥')
+    // 同上：重发也会在私聊通道留下消息
+    await refreshConversations()
   } catch (error) {
     showError(error, '重发群密钥失败')
   } finally {

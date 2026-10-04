@@ -334,6 +334,10 @@ watch(peer, async (value) => {
   try {
     if (messageStore.peer !== value) {
       await messageStore.open(value)
+    } else {
+      // 回到同一个会话：可能是从别的页面回来的，期间收到过消息（例如群密钥分发会私聊发密钥），
+      // 补拉一次最新消息，免得看到的是离开前的旧内容
+      await messageStore.refreshLatest()
     }
     await scrollToBottom()
   } catch (error) {
