@@ -30,12 +30,13 @@ public class GroupMember extends BaseEntity implements Persistable<String> {
     /**
      * 群标识，由群主创建时生成（以群主公钥开头）。
      */
-    @Column(name = "group_")
+    @Column(name = "group_", nullable = false)
     private String group;
 
     /**
      * 成员的公钥。
      */
+    @Column(nullable = false)
     private String member;
 
     /**
