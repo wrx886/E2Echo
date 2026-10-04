@@ -24,6 +24,12 @@ public enum MessageTypeEnum {
     /**
      * 聊天文件消息，正文是 {@link ChatFileMessageVo} 的 JSON：只带文件信息，文件本体放在对象存储里。
      */
-    CHAT_FILE
+    CHAT_FILE,
+
+    /**
+     * 聊天图片消息：正文与文件消息相同（都是 {@link ChatFileMessageVo} 的 JSON），单独分一个类型是
+     * 为了前端能把图片直接渲染出来，而不是显示成文件。
+     */
+    CHAT_FILE_IMAGE
 
 }

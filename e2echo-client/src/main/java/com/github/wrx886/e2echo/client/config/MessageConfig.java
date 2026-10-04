@@ -49,6 +49,7 @@ public class MessageConfig {
         messageHandlerMap.put(MessageTypeEnum.CHAT_TEXT.name(), chatTextMessageHandler);
         messageHandlerMap.put(MessageTypeEnum.CHAT_GROUP_KEY.name(), chatGroupKeyMessageHandler);
         messageHandlerMap.put(MessageTypeEnum.CHAT_FILE.name(), chatFileMessageHandler);
+        messageHandlerMap.put(MessageTypeEnum.CHAT_FILE_IMAGE.name(), chatFileMessageHandler);
         return new MessageHandlerInit();
     }
 

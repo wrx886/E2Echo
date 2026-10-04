@@ -76,12 +76,13 @@ public class ChatFileMessageHandler implements MessageHandler {
      * 下的临时文件再加密。临时文件用 {@code try-finally} 兜住：不论是保存、加密、上传还是发消息哪一步
      * 失败，方法退出前都会把临时文件删掉，避免目录越积越多。</p>
      *
-     * @param to    接收者，私聊时为对方公钥、群聊时为群聊标识
-     * @param group 是否群聊
-     * @param file  待发送的文件
+     * @param to              接收者，私聊时为对方公钥、群聊时为群聊标识
+     * @param group           是否群聊
+     * @param file            待发送的文件
+     * @param messageTypeEnum 消息类型，区分文件与图片（正文结构相同，只是类型不同）
      * @throws E2EchoException 文件为空、超过大小上限，或保存、加密、上传失败
      */
-    public void send(String to, boolean group, MultipartFile file) {
+    public void send(String to, boolean group, MultipartFile file, MessageTypeEnum messageTypeEnum) {
         // 文件大小
         if (file == null || file.isEmpty()) {
             throw new E2EchoException("文件为空！");
@@ -149,7 +150,7 @@ public class ChatFileMessageHandler implements MessageHandler {
             message.setFrom(Ecc.getPublicKey());
             message.setTo(to);
             message.setMessage(objectMapper.writeValueAsString(chatFileMessageVo));
-            message.setType(MessageTypeEnum.CHAT_FILE.name());
+            message.setType(messageTypeEnum.name());
             message.setChannel(group ? ChannelEnum.CHAT_GROUP_AES.name() : ChannelEnum.CHAT_PRIVATE_ECC.name());
             message.setInfo("{}");
             messageService.send(message, !group);

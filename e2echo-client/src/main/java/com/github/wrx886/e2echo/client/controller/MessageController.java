@@ -1,5 +1,6 @@
 package com.github.wrx886.e2echo.client.controller;
 
+import com.github.wrx886.e2echo.client.enums.MessageTypeEnum;
 import com.github.wrx886.e2echo.client.exception.E2EchoException;
 import com.github.wrx886.e2echo.client.handler.ChatFileMessageHandler;
 import com.github.wrx886.e2echo.client.handler.ChatTextMessageHandler;
@@ -100,7 +101,25 @@ public class MessageController {
             @NotNull Boolean group,
             @NotNull MultipartFile file
     ) {
-        chatFileMessageHandler.send(to, group, file);
+        chatFileMessageHandler.send(to, group, file, MessageTypeEnum.CHAT_FILE);
+        return Result.ok();
+    }
+
+    /**
+     * 发送图片消息：与发送文件消息完全一样，只是消息类型用图片，前端据此直接渲染图片。
+     *
+     * @param to    接收者，私聊时为对方公钥、群聊时为群聊标识
+     * @param group 是否群聊
+     * @param file  待发送的图片
+     * @return 空结果
+     */
+    @PostMapping("sendImageMessage")
+    public Result<Void> sendImageMessage(
+            @NotBlank String to,
+            @NotNull Boolean group,
+            @NotNull MultipartFile file
+    ) {
+        chatFileMessageHandler.send(to, group, file, MessageTypeEnum.CHAT_FILE_IMAGE);
         return Result.ok();
     }
 
