@@ -1,6 +1,11 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
-import { findConversationMessages, sendFileMessage, sendTextMessage } from '@/api'
+import {
+  findConversationMessages,
+  sendFileMessage,
+  sendImageMessage,
+  sendTextMessage,
+} from '@/api'
 import type { MessageVo } from '@/api'
 
 /** 每次加载的消息条数。 */
@@ -159,15 +164,25 @@ export const useMessageStore = defineStore('message', () => {
   }
 
   /**
-   * 发送文件消息，并把结果合并回列表。
+   * 发送带附件的消息：文件与图片的上传流程相同，只是调用的接口不同。
    *
-   * <p>文件内容先上传给 client，由 client 加密、上传对象存储后发消息；私聊发送时 client 会落本地，
+   * <p>内容先上传给 client，由 client 加密、上传对象存储后发消息；私聊发送时 client 会落本地，
    * 群聊要等通知触发拉取后才出现，和文字消息一致。</p>
    *
-   * @param file  待发送的文件
-   * @param group 是否群聊会话
+   * @param file    待发送的文件
+   * @param group   是否群聊会话
+   * @param request 实际调用的发送接口
    */
-  async function sendFile(file: File, group: boolean): Promise<void> {
+  async function sendAttachment(
+    file: File,
+    group: boolean,
+    request: (
+      to: string,
+      group: boolean,
+      file: File,
+      onProgress: (percent: number) => void,
+    ) => Promise<void>,
+  ): Promise<void> {
     const to = peer.value
     if (!to) {
       return
@@ -175,7 +190,7 @@ export const useMessageStore = defineStore('message', () => {
     sendingFile.value = true
     fileProgress.value = 0
     try {
-      await sendFileMessage(to, group, file, (percent) => {
+      await request(to, group, file, (percent) => {
         fileProgress.value = percent
       })
       await refreshLatest()
@@ -183,6 +198,26 @@ export const useMessageStore = defineStore('message', () => {
       sendingFile.value = false
       fileProgress.value = 0
     }
+  }
+
+  /**
+   * 发送文件消息。
+   *
+   * @param file  待发送的文件
+   * @param group 是否群聊会话
+   */
+  async function sendFile(file: File, group: boolean): Promise<void> {
+    await sendAttachment(file, group, sendFileMessage)
+  }
+
+  /**
+   * 发送图片消息：流程与文件相同，client 会把类型标成图片消息，前端直接渲染。
+   *
+   * @param file  待发送的图片
+   * @param group 是否群聊会话
+   */
+  async function sendImage(file: File, group: boolean): Promise<void> {
+    await sendAttachment(file, group, sendImageMessage)
   }
 
   /**
@@ -199,6 +234,6 @@ export const useMessageStore = defineStore('message', () => {
 
   return {
     peer, messages, loading, loadingOlder, hasMore, sending, sendingFile, fileProgress,
-    open, loadOlder, refreshLatest, send, sendFile, reset,
+    open, loadOlder, refreshLatest, send, sendFile, sendImage, reset,
   }
 })

@@ -2,6 +2,7 @@ import { get, post, request } from './http'
 import {
   CHANNEL_CHAT_PRIVATE_ECC,
   MESSAGE_TYPE_CHAT_FILE,
+  MESSAGE_TYPE_CHAT_FILE_IMAGE,
   MESSAGE_TYPE_CHAT_GROUP_KEY,
   MESSAGE_TYPE_CHAT_TEXT,
 } from './types'
@@ -84,6 +85,44 @@ export function sendFileMessage(
   file: File,
   onProgress?: (percent: number) => void,
 ): Promise<void> {
+  return sendFileForm('/api/message/sendFileMessage', to, group, file, onProgress)
+}
+
+/**
+ * 发送图片消息。
+ *
+ * <p>和文件消息走同一套流程，只是消息类型不同：client 会把类型标成图片消息，前端据此直接渲染。</p>
+ *
+ * @param to         接收者：私聊时为对方公钥、群聊时为群聊标识
+ * @param group      是否群聊
+ * @param file       待发送的图片
+ * @param onProgress 上传进度回调，参数是 0-100 的百分比
+ */
+export function sendImageMessage(
+  to: string,
+  group: boolean,
+  file: File,
+  onProgress?: (percent: number) => void,
+): Promise<void> {
+  return sendFileForm('/api/message/sendImageMessage', to, group, file, onProgress)
+}
+
+/**
+ * 用 multipart 把文件内容提交给 client（文件与图片共用）。
+ *
+ * @param url        接口地址
+ * @param to         接收者
+ * @param group      是否群聊
+ * @param file       待发送的文件
+ * @param onProgress 上传进度回调
+ */
+function sendFileForm(
+  url: string,
+  to: string,
+  group: boolean,
+  file: File,
+  onProgress?: (percent: number) => void,
+): Promise<void> {
   const form = new FormData()
   form.append('to', to)
   form.append('group', String(group))
@@ -91,7 +130,7 @@ export function sendFileMessage(
 
   return request<void>({
     method: 'POST',
-    url: '/api/message/sendFileMessage',
+    url,
     data: form,
     onUploadProgress: (event) => {
       if (!onProgress || !event.total) {
@@ -158,7 +197,28 @@ export function groupKeyOf(message: MessageVo): ChatGroupKeyMessageVo | null {
  * @returns 文件名、密钥与对象键；不是文件消息或正文结构异常时返回 null
  */
 export function fileMessageOf(message: MessageVo): ChatFileMessageVo | null {
-  if (message.type !== MESSAGE_TYPE_CHAT_FILE) {
+  return fileBodyOf(message, MESSAGE_TYPE_CHAT_FILE)
+}
+
+/**
+ * 取聊天图片消息的正文。
+ *
+ * @param message 会话消息
+ * @returns 文件名、密钥与对象键；不是图片消息或正文结构异常时返回 null
+ */
+export function imageMessageOf(message: MessageVo): ChatFileMessageVo | null {
+  return fileBodyOf(message, MESSAGE_TYPE_CHAT_FILE_IMAGE)
+}
+
+/**
+ * 取文件类消息（文件、图片）的正文：两种类型的正文结构相同，只按类型区分。
+ *
+ * @param message 会话消息
+ * @param type    期望的消息类型
+ * @returns 正文，类型不符或结构异常时返回 null
+ */
+function fileBodyOf(message: MessageVo, type: string): ChatFileMessageVo | null {
+  if (message.type !== type) {
     return null
   }
   const body = toMessageBody(message.message)

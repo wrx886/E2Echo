@@ -1,6 +1,11 @@
 import { get, post } from './http'
 import { isTrustedGroupKey } from './message'
-import { MESSAGE_TYPE_CHAT_FILE, MESSAGE_TYPE_CHAT_GROUP_KEY, MESSAGE_TYPE_CHAT_TEXT } from './types'
+import {
+  MESSAGE_TYPE_CHAT_FILE,
+  MESSAGE_TYPE_CHAT_FILE_IMAGE,
+  MESSAGE_TYPE_CHAT_GROUP_KEY,
+  MESSAGE_TYPE_CHAT_TEXT,
+} from './types'
 import type {
   ChatFileMessageVo,
   ChatGroupKeyMessageVo,
@@ -88,6 +93,9 @@ export function latestMessagePreview(conversation: ConversationDto): string {
     } catch {
       return '[文件]'
     }
+  }
+  if (latest.type === MESSAGE_TYPE_CHAT_FILE_IMAGE) {
+    return '[图片]'
   }
   if (latest.type !== MESSAGE_TYPE_CHAT_TEXT) {
     return ''

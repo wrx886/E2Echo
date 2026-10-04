@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onUnmounted, provide, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Setting } from '@element-plus/icons-vue'
 import { getConversation } from '@/api'
@@ -10,6 +10,7 @@ import { useConversationStore } from '@/stores/conversation'
 import { useMessageStore } from '@/stores/message'
 import { useUserStore } from '@/stores/user'
 import { conversationTitle, formatTime, timestampFromId } from '@/utils/display'
+import { CHAT_PIN_TO_BOTTOM } from '@/utils/chatScroll'
 import { showError } from '@/utils/feedback'
 
 /**
@@ -39,6 +40,9 @@ const peer = computed(() => String(route.params.peer ?? ''))
 /** 消息滚动容器。 */
 const listEl = ref<HTMLDivElement>()
 
+/** 消息内容容器，用来观察内容高度变化。 */
+const contentEl = ref<HTMLDivElement>()
+
 /** 输入框内容。 */
 const draft = ref('')
 
@@ -50,6 +54,17 @@ const missing = ref(false)
 
 /** 正在恢复滚动位置，期间不触发自动滚到底部。 */
 const restoring = ref(false)
+
+/**
+ * 是否贴着底部。
+ *
+ * <p>贴底时内容变高要跟着滚到底——最典型的就是图片：图片是进入视野后才去取的，取回前只有占位，
+ * 取回后气泡变高，不处理的话刚打开的会话就会停在中途，而不是最新一条消息。</p>
+ */
+let stickyBottom = true
+
+/** 内容高度观察器。 */
+let contentObserver: ResizeObserver | null = null
 
 /** 当前会话：优先用列表里的，列表里没有时用单独查到的。 */
 const conversation = computed(() =>
@@ -129,6 +144,7 @@ function isNearBottom(): boolean {
  * 滚动到底部。
  */
 async function scrollToBottom(): Promise<void> {
+  stickyBottom = true
   await nextTick()
   const el = scroller()
   if (el) {
@@ -184,10 +200,66 @@ async function loadOlder(): Promise<void> {
  */
 function onScroll(): void {
   const el = scroller()
-  if (el && el.scrollTop <= NEAR_TOP) {
+  if (!el) {
+    return
+  }
+  stickyBottom = isNearBottom()
+  if (el.scrollTop <= NEAR_TOP) {
     void loadOlder()
   }
 }
+
+/**
+ * 观察消息内容的高度：内容变高（图片取回、文字换行等）且此前贴着底部时，继续贴到底部。
+ *
+ * <p>向上翻历史时 {@link stickyBottom} 已经是 false，prepend 更早的消息不会把视图拽回底部。</p>
+ *
+ * @param content 内容容器
+ */
+function observeContent(content: HTMLDivElement): void {
+  if (typeof ResizeObserver === 'undefined') {
+    return
+  }
+  contentObserver = new ResizeObserver(() => {
+    if (restoring.value) {
+      return
+    }
+    pinToBottomIfSticky()
+  })
+  contentObserver.observe(content)
+}
+
+/**
+ * 把视图贴回底部：只在用户没有主动往上翻的时候动。
+ *
+ * <p>提供给下层的内容组件（例如消息里的图片）在布局完成后调用，作为 ResizeObserver 之外的第二条
+ * 通路——图片来源不同、取回时机也不同，只靠观察内容高度容易漏掉「最后一次长高」。</p>
+ */
+function pinToBottomIfSticky(): void {
+  if (!stickyBottom) {
+    return
+  }
+  const el = scroller()
+  if (el) {
+    el.scrollTop = el.scrollHeight
+  }
+}
+
+provide(CHAT_PIN_TO_BOTTOM, pinToBottomIfSticky)
+
+// 用 ref 的 watch 而不是 onMounted：会话从「不存在」切到正常会话时，列表容器是后出现的
+watch(contentEl, (element) => {
+  contentObserver?.disconnect()
+  contentObserver = null
+  if (element) {
+    observeContent(element)
+  }
+}, { flush: 'post' })
+
+onUnmounted(() => {
+  contentObserver?.disconnect()
+  contentObserver = null
+})
 
 /**
  * 发送输入框中的消息。
@@ -218,6 +290,20 @@ async function onSendFile(file: File): Promise<void> {
     await scrollToBottom()
   } catch (error) {
     showError(error, '文件发送失败')
+  }
+}
+
+/**
+ * 发送图片：与文件同一套流程，成功后刷新当前会话。
+ *
+ * @param file 待发送的图片
+ */
+async function onSendImage(file: File): Promise<void> {
+  try {
+    await messageStore.sendImage(file, group.value)
+    await scrollToBottom()
+  } catch (error) {
+    showError(error, '图片发送失败')
   }
 }
 
@@ -278,7 +364,7 @@ watch(peer, async (value) => {
       </header>
 
       <div ref="listEl" class="chat__messages scroll-y" @scroll="onScroll">
-        <div class="chat__list">
+        <div ref="contentEl" class="chat__list">
           <el-skeleton v-if="messageStore.loading" :rows="6" animated />
 
           <template v-else>
@@ -310,6 +396,7 @@ watch(peer, async (value) => {
         :file-percent="messageStore.fileProgress"
         @submit="onSend"
         @submit-file="onSendFile"
+        @submit-image="onSendImage"
       />
     </template>
   </section>

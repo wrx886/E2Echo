@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { Paperclip } from '@element-plus/icons-vue'
+import { Paperclip, Picture } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { FILE_MAX_SIZE_BYTE, FILE_MAX_SIZE_MESSAGE } from '@/api'
 
@@ -26,10 +26,14 @@ const emit = defineEmits<{
   'update:modelValue': [value: string]
   'submit': []
   'submitFile': [file: File]
+  'submitImage': [file: File]
 }>()
 
-/** 隐藏的文件选择框。 */
+/** 隐藏的文件选择框（任意文件）。 */
 const fileInput = ref<HTMLInputElement>()
+
+/** 隐藏的图片选择框。 */
+const imageInput = ref<HTMLInputElement>()
 
 /** 正在发送的文件名，用于进度提示。 */
 const pendingName = ref('')
@@ -42,10 +46,16 @@ function onPickFile(): void {
 }
 
 /**
+ * 打开图片选择框。
+ */
+function onPickImage(): void {
+  imageInput.value?.click()
+}
+
+/**
  * 选中文件后交给父组件发送。
  *
- * <p>选完把输入框清空，这样连续选同一个文件也能再次触发 change。超过大小上限的直接拦下来，
- * 不进入上传流程。</p>
+ * <p>选完把输入框清空，这样连续选同一个文件也能再次触发 change。</p>
  *
  * @param event 选择框的 change 事件
  */
@@ -53,6 +63,28 @@ function onFileChange(event: Event): void {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
   input.value = ''
+  submitAttachment(file, 'submitFile')
+}
+
+/**
+ * 选中图片后交给父组件发送。
+ *
+ * @param event 选择框的 change 事件
+ */
+function onImageChange(event: Event): void {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  submitAttachment(file, 'submitImage')
+}
+
+/**
+ * 附件发送前的统一处理：超过大小上限的直接拦下来，不进入上传流程。
+ *
+ * @param file  选中的文件，可能为空（用户取消选择）
+ * @param event 交给父组件的哪个事件
+ */
+function submitAttachment(file: File | undefined, event: 'submitFile' | 'submitImage'): void {
   if (!file) {
     return
   }
@@ -61,7 +93,11 @@ function onFileChange(event: Event): void {
     return
   }
   pendingName.value = file.name
-  emit('submitFile', file)
+  if (event === 'submitImage') {
+    emit('submitImage', file)
+  } else {
+    emit('submitFile', file)
+  }
 }
 
 /**
@@ -99,8 +135,16 @@ function onEnter(event: KeyboardEvent): void {
       <!-- 特殊类型内容的发送按钮都放左边：文件、后续的图片等 -->
       <div class="composer__tools">
         <el-button
+          :icon="Picture"
+          :loading="sendingFile"
+          :disabled="sendingFile"
+          title="发送图片"
+          @click="onPickImage"
+        />
+        <el-button
           :icon="Paperclip"
           :loading="sendingFile"
+          :disabled="sendingFile"
           title="发送文件"
           @click="onPickFile"
         />
@@ -126,6 +170,13 @@ function onEnter(event: KeyboardEvent): void {
     </div>
 
     <input ref="fileInput" class="composer__file" type="file" @change="onFileChange" />
+    <input
+      ref="imageInput"
+      class="composer__file"
+      type="file"
+      accept="image/*"
+      @change="onImageChange"
+    />
   </div>
 </template>
 

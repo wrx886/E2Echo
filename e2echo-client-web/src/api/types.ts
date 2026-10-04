@@ -51,6 +51,13 @@ export const MESSAGE_TYPE_CHAT_GROUP_KEY = 'CHAT_GROUP_KEY'
 export const MESSAGE_TYPE_CHAT_FILE = 'CHAT_FILE'
 
 /**
+ * 消息类型：聊天图片消息，正文同样是 {@link ChatFileMessageVo}。
+ *
+ * <p>正文结构与文件消息完全一样，单独分一个类型是为了让前端把图片直接渲染出来，而不是显示成文件。</p>
+ */
+export const MESSAGE_TYPE_CHAT_FILE_IMAGE = 'CHAT_FILE_IMAGE'
+
+/**
  * 分页结果，对应 Spring Data 的 {@code Page} 序列化后的 JSON。
  *
  * @param T 当前页的数据类型

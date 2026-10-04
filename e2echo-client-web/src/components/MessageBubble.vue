@@ -3,13 +3,16 @@ import { computed, ref } from 'vue'
 import { Document, Download } from '@element-plus/icons-vue'
 import {
   MESSAGE_TYPE_CHAT_FILE,
+  MESSAGE_TYPE_CHAT_FILE_IMAGE,
   chatTextOf,
   downloadChatFile,
   fileMessageOf,
   groupKeyOf,
+  imageMessageOf,
   isTrustedGroupKey,
 } from '@/api'
 import type { MessageVo } from '@/api'
+import ImageMessage from '@/components/ImageMessage.vue'
 import GroupKeyMessage from '@/components/GroupKeyMessage.vue'
 import { saveBlob } from '@/utils/download'
 import { showError } from '@/utils/feedback'
@@ -42,9 +45,24 @@ const groupKey = computed(() => groupKeyOf(props.message))
 /** 文件消息的正文，不是这类消息时为空。 */
 const fileBody = computed(() => fileMessageOf(props.message))
 
-/** 是文件消息但正文解析不出来（例如发送方给的内容不合法）。 */
-const fileBroken = computed(() =>
-  props.message.type === MESSAGE_TYPE_CHAT_FILE && fileBody.value === null)
+/** 图片消息的正文，不是这类消息时为空。 */
+const imageBody = computed(() => imageMessageOf(props.message))
+
+/**
+ * 是文件类消息（文件、图片）但正文解析不出来时给的提示，不是这类消息时为空。
+ */
+const attachmentBroken = computed(() => {
+  if (imageBody.value !== null || fileBody.value !== null) {
+    return ''
+  }
+  if (props.message.type === MESSAGE_TYPE_CHAT_FILE_IMAGE) {
+    return '[图片消息异常]'
+  }
+  if (props.message.type === MESSAGE_TYPE_CHAT_FILE) {
+    return '[文件消息异常]'
+  }
+  return ''
+})
 
 /** 是否正在下载。 */
 const downloading = ref(false)
@@ -123,6 +141,11 @@ async function onDownloadFile(): Promise<void> {
         <GroupKeyMessage :group="groupKey.group" :publish-time="groupKey.publishTime" />
       </div>
 
+      <!-- 聊天图片：正文与文件相同，只是直接渲染出来 -->
+      <div v-else-if="imageBody" class="bubble bubble--image">
+        <ImageMessage :file="imageBody" />
+      </div>
+
       <!-- 聊天文件：正文只带文件名与下载信息，文件本体由客户端取回解密后再交给浏览器保存 -->
       <div v-else-if="fileBody" class="bubble">
         <div class="file">
@@ -140,7 +163,7 @@ async function onDownloadFile(): Promise<void> {
         </div>
       </div>
 
-      <div v-else-if="fileBroken" class="bubble">[文件消息异常]</div>
+      <div v-else-if="attachmentBroken" class="bubble">{{ attachmentBroken }}</div>
 
       <div v-else class="bubble">{{ text ?? '[暂不支持的消息类型]' }}</div>
     </div>
@@ -173,6 +196,7 @@ async function onDownloadFile(): Promise<void> {
 .bubble-row__body {
   display: flex;
   flex-direction: column;
+  /* 消息最多占聊天区宽度的 70%，再宽阅读体验会变差 */
   max-width: min(70%, 560px);
 }
 
@@ -215,8 +239,16 @@ async function onDownloadFile(): Promise<void> {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-width: 200px;
+  /* 卡片不设最小宽度：聊天区很窄时也要能跟着收缩，否则会顶出边界 */
+  min-width: 0;
   max-width: 100%;
+}
+
+/* 图片气泡：不留底色与阴影，只留一点内边距，让图片本身成为气泡 */
+.bubble.bubble--image {
+  padding: 4px;
+  background: transparent;
+  box-shadow: none;
 }
 
 .file__icon {
