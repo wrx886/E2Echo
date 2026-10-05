@@ -50,6 +50,8 @@ public class MessageConfig {
         messageHandlerMap.put(MessageTypeEnum.CHAT_GROUP_KEY.name(), chatGroupKeyMessageHandler);
         messageHandlerMap.put(MessageTypeEnum.CHAT_FILE.name(), chatFileMessageHandler);
         messageHandlerMap.put(MessageTypeEnum.CHAT_FILE_IMAGE.name(), chatFileMessageHandler);
+        messageHandlerMap.put(MessageTypeEnum.CHAT_FILE_VIDEO.name(), chatFileMessageHandler);
+        messageHandlerMap.put(MessageTypeEnum.CHAT_FILE_AUDIO.name(), chatFileMessageHandler);
         return new MessageHandlerInit();
     }
 

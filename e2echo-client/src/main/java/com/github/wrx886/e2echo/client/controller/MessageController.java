@@ -123,4 +123,40 @@ public class MessageController {
         return Result.ok();
     }
 
+    /**
+     * 发送视频消息：与发送文件消息完全一样，只是消息类型用视频，前端据此用播放器展示。
+     *
+     * @param to    接收者，私聊时为对方公钥、群聊时为群聊标识
+     * @param group 是否群聊
+     * @param file  待发送的视频
+     * @return 空结果
+     */
+    @PostMapping("sendVideoMessage")
+    public Result<Void> sendVideoMessage(
+            @NotBlank String to,
+            @NotNull Boolean group,
+            @NotNull MultipartFile file
+    ) {
+        chatFileMessageHandler.send(to, group, file, MessageTypeEnum.CHAT_FILE_VIDEO);
+        return Result.ok();
+    }
+
+    /**
+     * 发送音频消息：与发送文件消息完全一样，只是消息类型用音频，前端据此用播放器展示。
+     *
+     * @param to    接收者，私聊时为对方公钥、群聊时为群聊标识
+     * @param group 是否群聊
+     * @param file  待发送的音频
+     * @return 空结果
+     */
+    @PostMapping("sendAudioMessage")
+    public Result<Void> sendAudioMessage(
+            @NotBlank String to,
+            @NotNull Boolean group,
+            @NotNull MultipartFile file
+    ) {
+        chatFileMessageHandler.send(to, group, file, MessageTypeEnum.CHAT_FILE_AUDIO);
+        return Result.ok();
+    }
+
 }

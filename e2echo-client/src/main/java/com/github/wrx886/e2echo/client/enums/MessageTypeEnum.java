@@ -30,6 +30,18 @@ public enum MessageTypeEnum {
      * 聊天图片消息：正文与文件消息相同（都是 {@link ChatFileMessageVo} 的 JSON），单独分一个类型是
      * 为了前端能把图片直接渲染出来，而不是显示成文件。
      */
-    CHAT_FILE_IMAGE
+    CHAT_FILE_IMAGE,
+
+    /**
+     * 聊天视频消息：正文与文件消息相同（都是 {@link ChatFileMessageVo} 的 JSON），单独分一个类型是
+     * 为了前端用播放器展示，而不是显示成文件。
+     */
+    CHAT_FILE_VIDEO,
+
+    /**
+     * 聊天音频消息：正文与文件消息相同（都是 {@link ChatFileMessageVo} 的 JSON），单独分一个类型是
+     * 为了前端用播放器展示，而不是显示成文件。
+     */
+    CHAT_FILE_AUDIO
 
 }
