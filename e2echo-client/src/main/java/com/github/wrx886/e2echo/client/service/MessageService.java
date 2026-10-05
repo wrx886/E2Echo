@@ -16,6 +16,7 @@ import com.github.wrx886.e2echo.client.exception.E2EchoException;
 import com.github.wrx886.e2echo.client.repository.MessageRepository;
 import com.github.wrx886.e2echo.client.result.PageData;
 import com.github.wrx886.e2echo.client.util.IdUtil;
+import com.github.wrx886.e2echo.client.vo.req.MessageListReqVo;
 import com.github.wrx886.e2echo.client.vo.message.MessageVo;
 import com.github.wrx886.e2echo.ecc.Ecc;
 
@@ -230,19 +231,20 @@ public class MessageService {
                 break;
             }
 
-            // 拉取消息
-            pageData = messageApi.list(
-                    null,
-                    toList,
+            // 拉取消息：不限发送者与消息类型，只要“到期之后、按消息 ID 升序”的这一批
+            pageData = messageApi.list(new MessageListReqVo(
+                    null,                          // fromList：不限发送者
+                    toList,                        // 接收者：自己 / 自己订阅的群聊
                     channel.name(),
-                    lastPullTime,
-                    null,
-                    startId,
-                    null, // 降序才用 endId，这里按 ID 升序拉取、游标用 startId
+                    null,                          // type：文件、图片、视频、音频都要拉
+                    lastPullTime,                  // startTimestamp：上次拉取时间之前的不再要
+                    null,                          // endTimestamp：不限
+                    startId,                       // startId：升序拉取的游标
+                    null,                          // endId：升序拉取不用
                     "ASC",
                     1,
                     Const.MESSAGE_PULL_BATCH_SIZE
-            );
+            ));
             log.info("接收到 {} 条消息", pageData.content().size());
 
             // 排序

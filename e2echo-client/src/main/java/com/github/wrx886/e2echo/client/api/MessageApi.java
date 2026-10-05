@@ -1,19 +1,16 @@
 package com.github.wrx886.e2echo.client.api;
 
-import java.util.Collection;
-import java.util.List;
-
 import com.github.wrx886.e2echo.client.exception.E2EchoException;
 import com.github.wrx886.e2echo.client.result.PageData;
 import com.github.wrx886.e2echo.client.result.Result;
 import com.github.wrx886.e2echo.client.util.ApiUtil;
+import com.github.wrx886.e2echo.client.vo.req.MessageListReqVo;
 import com.github.wrx886.e2echo.ecc.EccMessage;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.util.UriBuilder;
 
 /**
  * 消息接口。
@@ -81,62 +78,23 @@ public class MessageApi {
      * 从新到老。翻页时按排序方向选游标：升序用 {@code startId}（只取更大的），降序用 {@code endId}
      * （只取更小的）。</p>
      *
-     * @param fromList       发送者公钥列表，为空表示不过滤
-     * @param toList         接收者信息列表，为空表示不过滤
-     * @param channel        消息通道，为空表示不过滤
-     * @param startTimestamp 起始时间戳（毫秒，含），为空表示不限制
-     * @param endTimestamp   结束时间戳（毫秒，含），为空表示不限制
-     * @param startId        起始消息 ID，仅返回 ID 大于该值的消息，为空表示不限制
-     * @param endId          结束消息 ID，仅返回 ID 小于该值的消息，降序翻页时作为游标，为空表示不限制
-     * @param order          排序方向，{@code asc} 从老到新、{@code desc} 从新到老，为空时从老到新
-     * @param pageNum        页码，从 1 开始
-     * @param pageSize       每页条数
+     * <p>查询条件较多，所以服务端用请求体接收、以 POST 提交（条件里的公钥列表可能很长，放查询串会超
+     * 出地址长度限制）。分页深度也有限制：每页不超过 256 条、页码不超过 16，要取更深的数据请用游标
+     * 翻页。</p>
+     *
+     * @param reqVo 分页查询参数
      * @return 分页消息列表
-     * @throws E2EchoException 请求失败，或服务端返回失败状态（例如页码或排序方向非法）
+     * @throws E2EchoException 请求失败，或服务端返回失败状态（例如页码、每页条数或排序方向非法）
      */
-    public PageData<EccMessage> list(List<String> fromList, List<String> toList, String channel,
-                                     String startTimestamp, String endTimestamp, String startId, String endId,
-                                     String order, int pageNum, int pageSize) {
+    public PageData<EccMessage> list(MessageListReqVo reqVo) {
         timestampApi.checkTime();
-        return ApiUtil.apiGet(() -> webClient.get()
-                .uri(builder -> {
-                    builder.path("message");
-                    addParam(builder, "fromList", fromList);
-                    addParam(builder, "toList", toList);
-                    addParam(builder, "channel", channel);
-                    addParam(builder, "startTimestamp", startTimestamp);
-                    addParam(builder, "endTimestamp", endTimestamp);
-                    addParam(builder, "startId", startId);
-                    addParam(builder, "endId", endId);
-                    addParam(builder, "order", order);
-                    builder.queryParam("pageNum", pageNum);
-                    builder.queryParam("pageSize", pageSize);
-                    return builder.build();
-                })
+        return ApiUtil.apiGet(() -> webClient.post()
+                .uri("message/list")
+                .bodyValue(reqVo)
                 .retrieve()
                 .bodyToMono(new ParameterizedTypeReference<Result<PageData<EccMessage>>>() {
                 })
                 .block());
-    }
-
-    /**
-     * 添加查询参数，空白字符串与空集合不参与查询。
-     *
-     * @param builder 地址构造器
-     * @param name    参数名
-     * @param value   参数值，字符串或集合
-     */
-    private static void addParam(UriBuilder builder, String name, Object value) {
-
-        if (value instanceof Collection<?> values) {
-            if (!values.isEmpty()) {
-                builder.queryParam(name, values.toArray());
-            }
-        } else if (value instanceof String text) {
-            if (!text.isBlank()) {
-                builder.queryParam(name, text);
-            }
-        }
     }
 
 }
