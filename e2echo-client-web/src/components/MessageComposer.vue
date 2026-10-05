@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { nextTick, ref } from 'vue'
-import { Microphone, Paperclip, Picture, VideoCamera } from '@element-plus/icons-vue'
+import { Headset, Paperclip, Picture, VideoCamera } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import type { InputInstance } from 'element-plus'
 import { FILE_MAX_SIZE_BYTE, FILE_MAX_SIZE_MESSAGE } from '@/api'
@@ -257,7 +257,7 @@ function onEnter(event: KeyboardEvent): void {
           @click="onPickVideo"
         />
         <el-button
-          :icon="Microphone"
+          :icon="Headset"
           :loading="sendingFile"
           :disabled="sendingFile"
           title="发送音频"
