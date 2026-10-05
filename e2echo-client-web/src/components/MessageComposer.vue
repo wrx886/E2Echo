@@ -1,17 +1,26 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { nextTick, ref } from 'vue'
 import { Microphone, Paperclip, Picture, VideoCamera } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import type { InputInstance } from 'element-plus'
 import { FILE_MAX_SIZE_BYTE, FILE_MAX_SIZE_MESSAGE } from '@/api'
+import EmojiPicker from '@/components/EmojiPicker.vue'
 
 /**
  * 消息输入区。
  *
  * <p>Enter 发送、Shift + Enter 换行；正文由父组件持有（v-model），发送成功后由父组件清空。文件也
- * 在这里选：选中后交给父组件上传发送，本组件只负责选文件与显示进度。</p>
+ * 在这里选：选中后交给父组件上传发送，本组件只负责选文件与显示进度。表情同样是本组件负责插到
+ * 输入框里。</p>
  */
 
-defineProps<{
+/** 输入框允许的最大长度，与模板上的 maxlength 保持一致。 */
+const MAX_LENGTH = 2000
+
+/** 输入框长度达到上限时的提示。 */
+const MAX_LENGTH_MESSAGE = '消息长度已达上限'
+
+const props = defineProps<{
   /** 输入框内容。 */
   modelValue: string
   /** 是否正在发送。 */
@@ -21,6 +30,9 @@ defineProps<{
   /** 文件上传进度，0-100。 */
   filePercent: number
 }>()
+
+/** 输入框实例：插表情时要拿它里面的原生输入框取光标位置。 */
+const inputRef = ref<InputInstance>()
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]
@@ -72,6 +84,49 @@ function onPickVideo(): void {
  */
 function onPickAudio(): void {
   audioInput.value?.click()
+}
+
+/**
+ * 选中表情：插到光标处，光标停在表情后面。
+ *
+ * @param emoji 表情
+ */
+function onPickEmoji(emoji: string): void {
+  const textarea = inputRef.value?.textarea
+  if (!textarea) {
+    // 拿不到原生输入框（实际不会发生）就退化成追加到末尾
+    appendEmoji(emoji)
+    return
+  }
+
+  const start = textarea.selectionStart ?? props.modelValue.length
+  const end = textarea.selectionEnd ?? start
+  const value = props.modelValue.slice(0, start) + emoji + props.modelValue.slice(end)
+  if (value.length > MAX_LENGTH) {
+    ElMessage.warning(MAX_LENGTH_MESSAGE)
+    return
+  }
+
+  emit('update:modelValue', value)
+  // 等父组件把新值写回输入框之后，再把光标放到插入内容之后并保持焦点
+  void nextTick(() => {
+    const caret = start + emoji.length
+    textarea.setSelectionRange(caret, caret)
+    textarea.focus()
+  })
+}
+
+/**
+ * 追加表情，用于拿不到原生输入框时兜底。
+ *
+ * @param emoji 表情
+ */
+function appendEmoji(emoji: string): void {
+  if (props.modelValue.length + emoji.length > MAX_LENGTH) {
+    ElMessage.warning(MAX_LENGTH_MESSAGE)
+    return
+  }
+  emit('update:modelValue', props.modelValue + emoji)
 }
 
 /**
@@ -173,11 +228,12 @@ function onEnter(event: KeyboardEvent): void {
 <template>
   <div class="composer">
     <el-input
+      ref="inputRef"
       :model-value="modelValue"
       type="textarea"
       :rows="3"
       resize="none"
-      maxlength="2000"
+      :maxlength="MAX_LENGTH"
       placeholder="输入消息，Enter 发送，Shift + Enter 换行"
       @update:model-value="emit('update:modelValue', $event)"
       @keydown.enter.exact="onEnter"
@@ -224,6 +280,7 @@ function onEnter(event: KeyboardEvent): void {
           </template>
           <template v-else>Enter 发送 · Shift + Enter 换行</template>
         </span>
+        <EmojiPicker @pick="onPickEmoji" />
         <el-button
           type="primary"
           :loading="sending"
