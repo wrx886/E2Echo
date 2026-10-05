@@ -24,6 +24,7 @@ import com.github.wrx886.e2echo.server.entity.Message;
 import com.github.wrx886.e2echo.server.exception.E2EchoException;
 import com.github.wrx886.e2echo.server.repository.MessageRepository;
 import com.github.wrx886.e2echo.server.result.Result;
+import com.github.wrx886.e2echo.server.vo.req.MessageListReqVo;
 
 /**
  * {@link MessageController} 的测试。
@@ -49,6 +50,11 @@ class MessageControllerTest {
      * 用户信息消息的通道，用于验证「取某个用户最新用户信息」的场景。
      */
     private static final String USERINFO_CHANNEL = "USERINFO";
+
+    /**
+     * 另一种消息类型，用于验证按类型过滤。
+     */
+    private static final String FILE_TYPE = "file";
 
     /**
      * 待测控制器。
@@ -132,6 +138,19 @@ class MessageControllerTest {
      * @return 写入数据库的消息实体
      */
     private Message persistMessage(long timestamp, int sequence, String channel) {
+        return persistMessage(timestamp, sequence, channel, "text");
+    }
+
+    /**
+     * 直接向数据库写入一条指定类型的消息，用于构造查询用例所需的、时间可控的数据。
+     *
+     * @param timestamp 消息时间戳（毫秒）
+     * @param sequence  同一次测试内的序号，用于保证 ID 有序且不重复
+     * @param channel   消息通道
+     * @param type      消息类型
+     * @return 写入数据库的消息实体
+     */
+    private Message persistMessage(long timestamp, int sequence, String channel, String type) {
         // ID 前 16 位是十六进制时间戳，后 32 位保证同一次测试内不重复，且序号部分保证 ID 有序
         String id = String.format("%016x", timestamp)
                 + UUID.randomUUID().toString().replace("-", "").substring(0, 24)
@@ -142,7 +161,7 @@ class MessageControllerTest {
         message.setFrom(senderKeyPair.publicKeyHex());
         message.setTo(receiverKeyPair.publicKeyHex());
         message.setMessage("cipher-text");
-        message.setType("text");
+        message.setType(type);
         message.setChannel(channel);
         message.setInfo("extra-info");
         message.setSign("sign");
@@ -166,17 +185,18 @@ class MessageControllerTest {
      */
     private Page<EccMessage> list(String channel, String startTimestamp, String endTimestamp,
             String startId, String order, int pageNum, int pageSize) {
-        return messageController.list(
-                null,
-                List.of(receiverKeyPair.publicKeyHex()),
+        return messageController.list(new MessageListReqVo(
+                null,                                     // fromList
+                List.of(receiverKeyPair.publicKeyHex()),  // toList
                 channel,
+                null,                                     // type
                 startTimestamp,
                 endTimestamp,
                 startId,
-                null,
+                null,                                     // endId
                 order,
                 pageNum,
-                pageSize).data();
+                pageSize)).data();
     }
 
     /**
@@ -342,23 +362,53 @@ class MessageControllerTest {
             persistMessage(base, 2, PRIVATE_CHANNEL);
             persistMessage(base, 3, "group");
 
-            Page<EccMessage> privatePage = messageController.list(
-                    List.of(senderKeyPair.publicKeyHex()),
-                    List.of(receiverKeyPair.publicKeyHex()),
-                    PRIVATE_CHANNEL,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    1,
-                    10).data();
+            Page<EccMessage> privatePage = messageController.list(new MessageListReqVo(
+                    List.of(senderKeyPair.publicKeyHex()),    // fromList
+                    List.of(receiverKeyPair.publicKeyHex()),  // toList
+                    PRIVATE_CHANNEL,                          // channel
+                    null,                                     // type
+                    null,                                     // startTimestamp
+                    null,                                     // endTimestamp
+                    null,                                     // startId
+                    null,                                     // endId
+                    null,                                     // order
+                    1,                                        // pageNum
+                    10                                        // pageSize
+            )).data();
             assertThat(privatePage.getTotalElements()).isEqualTo(2);
             assertThat(privatePage.getContent())
                     .allSatisfy(eccMessage -> assertThat(eccMessage.getChannel()).isEqualTo(PRIVATE_CHANNEL));
 
             Page<EccMessage> groupPage = list("group", null, null, null, null, 1, 10);
             assertThat(groupPage.getTotalElements()).isEqualTo(1);
+        }
+
+        /**
+         * 校验消息类型过滤：只有类型匹配的消息会被返回。
+         */
+        @Test
+        @DisplayName("按类型过滤")
+        void filtersByType() {
+            long base = System.currentTimeMillis();
+            persistMessage(base, 1, PRIVATE_CHANNEL);
+            persistMessage(base, 2, PRIVATE_CHANNEL, FILE_TYPE);
+
+            Page<EccMessage> page = messageController.list(new MessageListReqVo(
+                    null,                                     // fromList
+                    List.of(receiverKeyPair.publicKeyHex()),  // toList
+                    PRIVATE_CHANNEL,                          // channel
+                    FILE_TYPE,                                // type
+                    null,                                     // startTimestamp
+                    null,                                     // endTimestamp
+                    null,                                     // startId
+                    null,                                     // endId
+                    null,                                     // order
+                    1,                                        // pageNum
+                    10                                        // pageSize
+            )).data();
+
+            assertThat(page.getTotalElements()).isEqualTo(1);
+            assertThat(page.getContent()).extracting(EccMessage::getType).containsExactly(FILE_TYPE);
         }
 
         /**
@@ -398,17 +448,19 @@ class MessageControllerTest {
             Message third = persistMessage(base + 2_000, 3, USERINFO_CHANNEL);
 
             // 倒序取第一条即最新一条
-            Page<EccMessage> latest = messageController.list(
-                    List.of(senderKeyPair.publicKeyHex()),
-                    null,
-                    USERINFO_CHANNEL,
-                    null,
-                    null,
-                    null,
-                    null,
-                    "desc",
-                    1,
-                    1).data();
+            Page<EccMessage> latest = messageController.list(new MessageListReqVo(
+                    List.of(senderKeyPair.publicKeyHex()),  // fromList
+                    null,                                   // toList
+                    USERINFO_CHANNEL,                       // channel
+                    null,                                   // type
+                    null,                                   // startTimestamp
+                    null,                                   // endTimestamp
+                    null,                                   // startId
+                    null,                                   // endId
+                    "desc",                                 // order
+                    1,                                      // pageNum
+                    1                                       // pageSize
+            )).data();
             assertThat(latest.getContent()).extracting(EccMessage::getId)
                     .containsExactly(third.getMessageId());
 
@@ -446,32 +498,36 @@ class MessageControllerTest {
                     .containsExactly(third.getMessageId(), second.getMessageId());
 
             // 第二页：以第一页最后一条为结束 ID，继续取更早的消息
-            Page<EccMessage> secondPage = messageController.list(
-                    null,
-                    List.of(receiverKeyPair.publicKeyHex()),
-                    PRIVATE_CHANNEL,
-                    null,
-                    null,
-                    null,
-                    second.getMessageId(),
-                    "desc",
-                    1,
-                    2).data();
+            Page<EccMessage> secondPage = messageController.list(new MessageListReqVo(
+                    null,                                     // fromList
+                    List.of(receiverKeyPair.publicKeyHex()),  // toList
+                    PRIVATE_CHANNEL,                          // channel
+                    null,                                     // type
+                    null,                                     // startTimestamp
+                    null,                                     // endTimestamp
+                    null,                                     // startId
+                    second.getMessageId(),                    // endId：上一页最后一条
+                    "desc",                                   // order
+                    1,                                        // pageNum
+                    2                                         // pageSize
+            )).data();
             assertThat(secondPage.getContent()).extracting(EccMessage::getId)
                     .containsExactly(first.getMessageId());
 
             // 两个游标可同时使用：只取 ID 位于 first 与 third 之间的消息
-            Page<EccMessage> window = messageController.list(
-                    null,
-                    List.of(receiverKeyPair.publicKeyHex()),
-                    PRIVATE_CHANNEL,
-                    null,
-                    null,
-                    first.getMessageId(),
-                    third.getMessageId(),
-                    "asc",
-                    1,
-                    10).data();
+            Page<EccMessage> window = messageController.list(new MessageListReqVo(
+                    null,                                     // fromList
+                    List.of(receiverKeyPair.publicKeyHex()),  // toList
+                    PRIVATE_CHANNEL,                          // channel
+                    null,                                     // type
+                    null,                                     // startTimestamp
+                    null,                                     // endTimestamp
+                    first.getMessageId(),                     // startId
+                    third.getMessageId(),                     // endId
+                    "asc",                                    // order
+                    1,                                        // pageNum
+                    10                                        // pageSize
+            )).data();
             assertThat(window.getContent()).extracting(EccMessage::getId)
                     .containsExactly(second.getMessageId());
         }
@@ -501,7 +557,7 @@ class MessageControllerTest {
         }
 
         /**
-         * 校验非法的分页参数与时间戳参数。
+         * 校验非法的分页参数、时间戳参数，以及分页深度限制的边界值。
          */
         @Test
         @DisplayName("参数非法：抛出业务异常")
@@ -513,6 +569,18 @@ class MessageControllerTest {
             assertThatThrownBy(() -> list(null, null, null, null, null, 1, 0))
                     .isInstanceOf(E2EchoException.class)
                     .hasMessage("每页条数必须大于等于 1！");
+
+            // 分页深度限制：页码不超过 16、每页条数不超过 256
+            assertThatThrownBy(() -> list(null, null, null, null, null, 17, 10))
+                    .isInstanceOf(E2EchoException.class)
+                    .hasMessage("页码不能超过 16！");
+
+            assertThatThrownBy(() -> list(null, null, null, null, null, 1, 257))
+                    .isInstanceOf(E2EchoException.class)
+                    .hasMessage("每页条数不能超过 256！");
+
+            // 边界值本身允许：最后一页与最大每页条数不会报错
+            assertThat(list(null, null, null, null, null, 16, 256).getContent()).isEmpty();
 
             assertThatThrownBy(() -> list(null, "abc", null, null, null, 1, 10))
                     .isInstanceOf(E2EchoException.class)

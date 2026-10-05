@@ -17,6 +17,7 @@ import com.github.wrx886.e2echo.ecc.EccMessage;
 import com.github.wrx886.e2echo.server.entity.Message;
 import com.github.wrx886.e2echo.server.exception.E2EchoException;
 import com.github.wrx886.e2echo.server.repository.MessageRepository;
+import com.github.wrx886.e2echo.server.vo.req.MessageListReqVo;
 
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +34,16 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class MessageService {
+
+    /**
+     * 页码上限：offset 越深查询越慢，更靠后的数据应该用游标翻页。
+     */
+    private static final int MAX_PAGE_NUM = 16;
+
+    /**
+     * 每页条数上限。
+     */
+    private static final int MAX_PAGE_SIZE = 256;
 
     /**
      * 消息数据访问对象。
@@ -89,52 +100,48 @@ public class MessageService {
      * 作为 {@code startId}（只取更大的），降序时作为 {@code endId}（只取更小的），这样翻页不会
      * 取到已经取过的消息。</p>
      *
-     * @param fromList       发送者公钥列表，为空表示不过滤
-     * @param toList         接收者信息列表，为空表示不过滤
-     * @param channel        消息通道，为空表示不过滤
-     * @param startTimestamp 起始时间戳（毫秒，含），为空表示不限制
-     * @param endTimestamp   结束时间戳（毫秒，含），为空表示不限制
-     * @param startId        起始消息 ID，仅返回 ID 大于该值的消息，为空表示不限制
-     * @param endId          结束消息 ID，仅返回 ID 小于该值的消息，为空表示不限制
-     * @param order          排序方向，{@code asc} 从老到新（默认）、{@code desc} 从新到老
-     * @param pageNum        页码，从 1 开始
-     * @param pageSize       每页条数
+     * <p>分页深度有限制：页码不超过 {@value #MAX_PAGE_NUM}、每页条数不超过
+     * {@value #MAX_PAGE_SIZE}，限制的是 offset 深翻页的开销，取更靠后的数据应该用游标。</p>
+     *
+     * @param reqVo 分页查询参数
      * @return 分页后的消息视图
-     * @throws E2EchoException 时间戳格式错误、排序方向非法、页码或每页条数非法
+     * @throws E2EchoException 时间戳格式错误、排序方向非法、页码或每页条数超出范围
      */
-    public Page<EccMessage> list(
-            List<String> fromList,
-            List<String> toList,
-            String channel,
-            String startTimestamp,
-            String endTimestamp,
-            String startId,
-            String endId,
-            String order,
-            int pageNum,
-            int pageSize
-    ) {
+    public Page<EccMessage> list(MessageListReqVo reqVo) {
+        // 页码与每页条数是必填项：缺省按 0 处理，与越界一样落到下面的范围校验
+        int pageNum = reqVo.pageNum() == null ? 0 : reqVo.pageNum();
+        int pageSize = reqVo.pageSize() == null ? 0 : reqVo.pageSize();
+
         if (pageNum < 1) {
             throw new E2EchoException("页码必须大于等于 1！");
+        }
+        if (pageNum > MAX_PAGE_NUM) {
+            throw new E2EchoException("页码不能超过 " + MAX_PAGE_NUM + "！");
         }
         if (pageSize < 1) {
             throw new E2EchoException("每页条数必须大于等于 1！");
         }
+        if (pageSize > MAX_PAGE_SIZE) {
+            throw new E2EchoException("每页条数不能超过 " + MAX_PAGE_SIZE + "！");
+        }
 
-        Long start = parseTimestamp(startTimestamp);
-        Long end = parseTimestamp(endTimestamp);
-        Sort.Direction direction = parseOrder(order);
+        Long start = parseTimestamp(reqVo.startTimestamp());
+        Long end = parseTimestamp(reqVo.endTimestamp());
+        Sort.Direction direction = parseOrder(reqVo.order());
 
         Specification<Message> specification = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
-            if (fromList != null && !fromList.isEmpty()) {
-                predicates.add(root.get("from").in(fromList));
+            if (reqVo.fromList() != null && !reqVo.fromList().isEmpty()) {
+                predicates.add(root.get("from").in(reqVo.fromList()));
             }
-            if (toList != null && !toList.isEmpty()) {
-                predicates.add(root.get("to").in(toList));
+            if (reqVo.toList() != null && !reqVo.toList().isEmpty()) {
+                predicates.add(root.get("to").in(reqVo.toList()));
             }
-            if (channel != null && !channel.isBlank()) {
-                predicates.add(cb.equal(root.get("channel"), channel));
+            if (reqVo.channel() != null && !reqVo.channel().isBlank()) {
+                predicates.add(cb.equal(root.get("channel"), reqVo.channel()));
+            }
+            if (reqVo.type() != null && !reqVo.type().isBlank()) {
+                predicates.add(cb.equal(root.get("type"), reqVo.type()));
             }
             if (start != null) {
                 predicates.add(cb.greaterThanOrEqualTo(root.get("timestamp"), start));
@@ -142,11 +149,11 @@ public class MessageService {
             if (end != null) {
                 predicates.add(cb.lessThanOrEqualTo(root.get("timestamp"), end));
             }
-            if (startId != null && !startId.isBlank()) {
-                predicates.add(cb.greaterThan(root.get("messageId"), startId));
+            if (reqVo.startId() != null && !reqVo.startId().isBlank()) {
+                predicates.add(cb.greaterThan(root.get("messageId"), reqVo.startId()));
             }
-            if (endId != null && !endId.isBlank()) {
-                predicates.add(cb.lessThan(root.get("messageId"), endId));
+            if (reqVo.endId() != null && !reqVo.endId().isBlank()) {
+                predicates.add(cb.lessThan(root.get("messageId"), reqVo.endId()));
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
