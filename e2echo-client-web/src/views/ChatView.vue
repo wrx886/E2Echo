@@ -307,6 +307,34 @@ async function onSendImage(file: File): Promise<void> {
   }
 }
 
+/**
+ * 发送视频：与文件同一套流程，成功后刷新当前会话。
+ *
+ * @param file 待发送的视频
+ */
+async function onSendVideo(file: File): Promise<void> {
+  try {
+    await messageStore.sendVideo(file, group.value)
+    await scrollToBottom()
+  } catch (error) {
+    showError(error, '视频发送失败')
+  }
+}
+
+/**
+ * 发送音频：与文件同一套流程，成功后刷新当前会话。
+ *
+ * @param file 待发送的音频
+ */
+async function onSendAudio(file: File): Promise<void> {
+  try {
+    await messageStore.sendAudio(file, group.value)
+    await scrollToBottom()
+  } catch (error) {
+    showError(error, '音频发送失败')
+  }
+}
+
 // 消息变化（收到通知、发送成功）时，贴着底部才自动滚到底
 watch(() => messageStore.messages, () => {
   if (restoring.value) {
@@ -401,6 +429,8 @@ watch(peer, async (value) => {
         @submit="onSend"
         @submit-file="onSendFile"
         @submit-image="onSendImage"
+        @submit-video="onSendVideo"
+        @submit-audio="onSendAudio"
       />
     </template>
   </section>

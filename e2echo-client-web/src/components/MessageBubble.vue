@@ -3,17 +3,23 @@ import { computed, ref } from 'vue'
 import { Document, Download } from '@element-plus/icons-vue'
 import {
   MESSAGE_TYPE_CHAT_FILE,
+  MESSAGE_TYPE_CHAT_FILE_AUDIO,
   MESSAGE_TYPE_CHAT_FILE_IMAGE,
+  MESSAGE_TYPE_CHAT_FILE_VIDEO,
+  audioMessageOf,
   chatTextOf,
   downloadChatFile,
   fileMessageOf,
   groupKeyOf,
   imageMessageOf,
   isTrustedGroupKey,
+  videoMessageOf,
 } from '@/api'
 import type { MessageVo } from '@/api'
+import AudioMessage from '@/components/AudioMessage.vue'
 import ImageMessage from '@/components/ImageMessage.vue'
 import GroupKeyMessage from '@/components/GroupKeyMessage.vue'
+import VideoMessage from '@/components/VideoMessage.vue'
 import { saveBlob } from '@/utils/download'
 import { showError } from '@/utils/feedback'
 import { shortKey } from '@/utils/display'
@@ -48,6 +54,12 @@ const fileBody = computed(() => fileMessageOf(props.message))
 /** 图片消息的正文，不是这类消息时为空。 */
 const imageBody = computed(() => imageMessageOf(props.message))
 
+/** 视频消息的正文，不是这类消息时为空。 */
+const videoBody = computed(() => videoMessageOf(props.message))
+
+/** 音频消息的正文，不是这类消息时为空。 */
+const audioBody = computed(() => audioMessageOf(props.message))
+
 /**
  * 是文件类消息（文件、图片）但正文解析不出来时给的提示，不是这类消息时为空。
  */
@@ -57,6 +69,12 @@ const attachmentBroken = computed(() => {
   }
   if (props.message.type === MESSAGE_TYPE_CHAT_FILE_IMAGE) {
     return '[图片消息异常]'
+  }
+  if (props.message.type === MESSAGE_TYPE_CHAT_FILE_VIDEO) {
+    return '[视频消息异常]'
+  }
+  if (props.message.type === MESSAGE_TYPE_CHAT_FILE_AUDIO) {
+    return '[音频消息异常]'
   }
   if (props.message.type === MESSAGE_TYPE_CHAT_FILE) {
     return '[文件消息异常]'
@@ -142,8 +160,18 @@ async function onDownloadFile(): Promise<void> {
       </div>
 
       <!-- 聊天图片：正文与文件相同，只是直接渲染出来 -->
-      <div v-else-if="imageBody" class="bubble bubble--image">
+      <div v-else-if="imageBody" class="bubble bubble--media">
         <ImageMessage :file="imageBody" />
+      </div>
+
+      <!-- 聊天视频：内嵌播放器，右上角可以点开弹窗放大播放 -->
+      <div v-else-if="videoBody" class="bubble bubble--media">
+        <VideoMessage :file="videoBody" />
+      </div>
+
+      <!-- 聊天音频：直接用浏览器原生播放器 -->
+      <div v-else-if="audioBody" class="bubble">
+        <AudioMessage :file="audioBody" />
       </div>
 
       <!-- 聊天文件：正文只带文件名与下载信息，文件本体由客户端取回解密后再交给浏览器保存 -->
@@ -244,8 +272,8 @@ async function onDownloadFile(): Promise<void> {
   max-width: 100%;
 }
 
-/* 图片气泡：不留底色与阴影，只留一点内边距，让图片本身成为气泡 */
-.bubble.bubble--image {
+/* 图片、视频这类媒体气泡：不留底色与阴影，只留一点内边距，让媒体本身成为气泡 */
+.bubble.bubble--media {
   padding: 4px;
   background: transparent;
   box-shadow: none;

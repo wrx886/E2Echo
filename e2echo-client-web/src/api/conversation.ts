@@ -2,7 +2,9 @@ import { get, post } from './http'
 import { isTrustedGroupKey } from './message'
 import {
   MESSAGE_TYPE_CHAT_FILE,
+  MESSAGE_TYPE_CHAT_FILE_AUDIO,
   MESSAGE_TYPE_CHAT_FILE_IMAGE,
+  MESSAGE_TYPE_CHAT_FILE_VIDEO,
   MESSAGE_TYPE_CHAT_GROUP_KEY,
   MESSAGE_TYPE_CHAT_TEXT,
 } from './types'
@@ -96,6 +98,12 @@ export function latestMessagePreview(conversation: ConversationDto): string {
   }
   if (latest.type === MESSAGE_TYPE_CHAT_FILE_IMAGE) {
     return '[图片]'
+  }
+  if (latest.type === MESSAGE_TYPE_CHAT_FILE_VIDEO) {
+    return '[视频]'
+  }
+  if (latest.type === MESSAGE_TYPE_CHAT_FILE_AUDIO) {
+    return '[音频]'
   }
   if (latest.type !== MESSAGE_TYPE_CHAT_TEXT) {
     return ''

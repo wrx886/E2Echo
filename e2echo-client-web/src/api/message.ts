@@ -2,7 +2,9 @@ import { get, post, request } from './http'
 import {
   CHANNEL_CHAT_PRIVATE_ECC,
   MESSAGE_TYPE_CHAT_FILE,
+  MESSAGE_TYPE_CHAT_FILE_AUDIO,
   MESSAGE_TYPE_CHAT_FILE_IMAGE,
+  MESSAGE_TYPE_CHAT_FILE_VIDEO,
   MESSAGE_TYPE_CHAT_GROUP_KEY,
   MESSAGE_TYPE_CHAT_TEXT,
 } from './types'
@@ -108,6 +110,44 @@ export function sendImageMessage(
 }
 
 /**
+ * 发送视频消息。
+ *
+ * <p>和文件消息走同一套流程，只是消息类型不同：client 会把类型标成视频消息，前端用播放器展示。</p>
+ *
+ * @param to         接收者：私聊时为对方公钥、群聊时为群聊标识
+ * @param group      是否群聊
+ * @param file       待发送的视频
+ * @param onProgress 上传进度回调，参数是 0-100 的百分比
+ */
+export function sendVideoMessage(
+  to: string,
+  group: boolean,
+  file: File,
+  onProgress?: (percent: number) => void,
+): Promise<void> {
+  return sendFileForm('/api/message/sendVideoMessage', to, group, file, onProgress)
+}
+
+/**
+ * 发送音频消息。
+ *
+ * <p>和文件消息走同一套流程，只是消息类型不同：client 会把类型标成音频消息，前端用播放器展示。</p>
+ *
+ * @param to         接收者：私聊时为对方公钥、群聊时为群聊标识
+ * @param group      是否群聊
+ * @param file       待发送的音频
+ * @param onProgress 上传进度回调，参数是 0-100 的百分比
+ */
+export function sendAudioMessage(
+  to: string,
+  group: boolean,
+  file: File,
+  onProgress?: (percent: number) => void,
+): Promise<void> {
+  return sendFileForm('/api/message/sendAudioMessage', to, group, file, onProgress)
+}
+
+/**
  * 用 multipart 把文件内容提交给 client（文件与图片共用）。
  *
  * @param url        接口地址
@@ -208,6 +248,26 @@ export function fileMessageOf(message: MessageVo): ChatFileMessageVo | null {
  */
 export function imageMessageOf(message: MessageVo): ChatFileMessageVo | null {
   return fileBodyOf(message, MESSAGE_TYPE_CHAT_FILE_IMAGE)
+}
+
+/**
+ * 取聊天视频消息的正文。
+ *
+ * @param message 会话消息
+ * @returns 文件名、密钥与对象键；不是视频消息或正文结构异常时返回 null
+ */
+export function videoMessageOf(message: MessageVo): ChatFileMessageVo | null {
+  return fileBodyOf(message, MESSAGE_TYPE_CHAT_FILE_VIDEO)
+}
+
+/**
+ * 取聊天音频消息的正文。
+ *
+ * @param message 会话消息
+ * @returns 文件名、密钥与对象键；不是音频消息或正文结构异常时返回 null
+ */
+export function audioMessageOf(message: MessageVo): ChatFileMessageVo | null {
+  return fileBodyOf(message, MESSAGE_TYPE_CHAT_FILE_AUDIO)
 }
 
 /**

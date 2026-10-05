@@ -12,7 +12,7 @@ import {
 import type { ChatFileMessageVo } from '@/api'
 import { CHAT_PIN_TO_BOTTOM } from '@/utils/chatScroll'
 import { saveBlob } from '@/utils/download'
-import { loadImageBlob, loadImageUrl } from '@/utils/image'
+import { loadMediaBlob, loadMediaUrl } from '@/utils/media'
 import { showError } from '@/utils/feedback'
 
 /**
@@ -189,7 +189,7 @@ async function load(): Promise<void> {
   loading.value = true
   failed.value = ''
   try {
-    const address = await loadImageUrl(props.file)
+    const address = await loadMediaUrl(props.file)
     await measure(address)
     url.value = address
     // 等图片进入布局，再把视图贴回底部（用户已经往上翻的话聊天页会忽略）
@@ -242,7 +242,7 @@ function onImageLoad(): void {
 async function onDownload(): Promise<void> {
   downloading.value = true
   try {
-    const blob = await loadImageBlob(props.file)
+    const blob = await loadMediaBlob(props.file)
     saveBlob(blob, props.file.filename)
   } catch (error) {
     showError(error, '图片下载失败')

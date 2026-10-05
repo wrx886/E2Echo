@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { Paperclip, Picture } from '@element-plus/icons-vue'
+import { Microphone, Paperclip, Picture, VideoCamera } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { FILE_MAX_SIZE_BYTE, FILE_MAX_SIZE_MESSAGE } from '@/api'
 
@@ -27,6 +27,8 @@ const emit = defineEmits<{
   'submit': []
   'submitFile': [file: File]
   'submitImage': [file: File]
+  'submitVideo': [file: File]
+  'submitAudio': [file: File]
 }>()
 
 /** 隐藏的文件选择框（任意文件）。 */
@@ -34,6 +36,12 @@ const fileInput = ref<HTMLInputElement>()
 
 /** 隐藏的图片选择框。 */
 const imageInput = ref<HTMLInputElement>()
+
+/** 隐藏的视频选择框。 */
+const videoInput = ref<HTMLInputElement>()
+
+/** 隐藏的音频选择框。 */
+const audioInput = ref<HTMLInputElement>()
 
 /** 正在发送的文件名，用于进度提示。 */
 const pendingName = ref('')
@@ -50,6 +58,20 @@ function onPickFile(): void {
  */
 function onPickImage(): void {
   imageInput.value?.click()
+}
+
+/**
+ * 打开视频选择框。
+ */
+function onPickVideo(): void {
+  videoInput.value?.click()
+}
+
+/**
+ * 打开音频选择框。
+ */
+function onPickAudio(): void {
+  audioInput.value?.click()
 }
 
 /**
@@ -79,12 +101,38 @@ function onImageChange(event: Event): void {
 }
 
 /**
+ * 选中视频后交给父组件发送。
+ *
+ * @param event 选择框的 change 事件
+ */
+function onVideoChange(event: Event): void {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  submitAttachment(file, 'submitVideo')
+}
+
+/**
+ * 选中音频后交给父组件发送。
+ *
+ * @param event 选择框的 change 事件
+ */
+function onAudioChange(event: Event): void {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  submitAttachment(file, 'submitAudio')
+}
+
+/**
  * 附件发送前的统一处理：超过大小上限的直接拦下来，不进入上传流程。
  *
  * @param file  选中的文件，可能为空（用户取消选择）
  * @param event 交给父组件的哪个事件
  */
-function submitAttachment(file: File | undefined, event: 'submitFile' | 'submitImage'): void {
+type AttachmentEvent = 'submitFile' | 'submitImage' | 'submitVideo' | 'submitAudio'
+
+function submitAttachment(file: File | undefined, event: AttachmentEvent): void {
   if (!file) {
     return
   }
@@ -95,6 +143,10 @@ function submitAttachment(file: File | undefined, event: 'submitFile' | 'submitI
   pendingName.value = file.name
   if (event === 'submitImage') {
     emit('submitImage', file)
+  } else if (event === 'submitVideo') {
+    emit('submitVideo', file)
+  } else if (event === 'submitAudio') {
+    emit('submitAudio', file)
   } else {
     emit('submitFile', file)
   }
@@ -142,6 +194,20 @@ function onEnter(event: KeyboardEvent): void {
           @click="onPickImage"
         />
         <el-button
+          :icon="VideoCamera"
+          :loading="sendingFile"
+          :disabled="sendingFile"
+          title="发送视频"
+          @click="onPickVideo"
+        />
+        <el-button
+          :icon="Microphone"
+          :loading="sendingFile"
+          :disabled="sendingFile"
+          title="发送音频"
+          @click="onPickAudio"
+        />
+        <el-button
           :icon="Paperclip"
           :loading="sendingFile"
           :disabled="sendingFile"
@@ -176,6 +242,20 @@ function onEnter(event: KeyboardEvent): void {
       type="file"
       accept="image/*"
       @change="onImageChange"
+    />
+    <input
+      ref="videoInput"
+      class="composer__file"
+      type="file"
+      accept="video/*"
+      @change="onVideoChange"
+    />
+    <input
+      ref="audioInput"
+      class="composer__file"
+      type="file"
+      accept="audio/*"
+      @change="onAudioChange"
     />
   </div>
 </template>

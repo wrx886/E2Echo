@@ -2,9 +2,11 @@ import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import {
   findConversationMessages,
+  sendAudioMessage,
   sendFileMessage,
   sendImageMessage,
   sendTextMessage,
+  sendVideoMessage,
 } from '@/api'
 import type { MessageVo } from '@/api'
 
@@ -221,6 +223,26 @@ export const useMessageStore = defineStore('message', () => {
   }
 
   /**
+   * 发送视频消息：流程与文件相同，client 会把类型标成视频消息。
+   *
+   * @param file  待发送的视频
+   * @param group 是否群聊会话
+   */
+  async function sendVideo(file: File, group: boolean): Promise<void> {
+    await sendAttachment(file, group, sendVideoMessage)
+  }
+
+  /**
+   * 发送音频消息：流程与文件相同，client 会把类型标成音频消息。
+   *
+   * @param file  待发送的音频
+   * @param group 是否群聊会话
+   */
+  async function sendAudio(file: File, group: boolean): Promise<void> {
+    await sendAttachment(file, group, sendAudioMessage)
+  }
+
+  /**
    * 清空当前会话的消息。
    */
   function reset(): void {
@@ -234,6 +256,6 @@ export const useMessageStore = defineStore('message', () => {
 
   return {
     peer, messages, loading, loadingOlder, hasMore, sending, sendingFile, fileProgress,
-    open, loadOlder, refreshLatest, send, sendFile, sendImage, reset,
+    open, loadOlder, refreshLatest, send, sendFile, sendImage, sendVideo, sendAudio, reset,
   }
 })
