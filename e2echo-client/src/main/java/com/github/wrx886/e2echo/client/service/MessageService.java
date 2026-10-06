@@ -349,7 +349,8 @@ public class MessageService {
             conversationService.updateLatestMessageByPeer(
                     eccMessage.getTo(),
                     ChannelEnum.CHAT_GROUP_AES.name().equals(eccMessage.getChannel()),
-                    message
+                    message,
+                    false // 自己发出去的消息不计未读
             );
             // 通知连上来的前端刷新（内容只是“数据可能变了”，这次没拉到新消息时同样会推）
             noticeService.notice();
@@ -441,7 +442,8 @@ public class MessageService {
         conversationService.updateLatestMessageByPeer(
                 group ? eccMessage.getTo() : eccMessage.getFrom(),
                 group,
-                message
+                message,
+                true // 收到对方的消息计入未读
         );
 
         // 5. 交给对应类型的处理器（消息已经入库，处理器对内容的修改没有意义）
@@ -468,18 +470,22 @@ public class MessageService {
      *
      * <p>消息正文是 JSON，这里按消息类型取处理器、用它的正文类型反序列化后再返回。</p>
      *
+     * <p>查看会话会顺手把该会话的未读数清零，所以本方法带事务（清零与查询在同一次事务里）。</p>
+     *
      * @param peer     会话方，私聊时为对方公钥、群聊时为群聊标识
      * @param endSeq   倒序翻页的游标，仅返回序号小于该值的消息，传空表示从头开始
      * @param pageNum  页码，从 1 开始
      * @param pageSize 每页条数
      * @return 会话内的消息，按序号倒序
      */
+    @Transactional
     public Page<MessageVo> findConversation(
             String peer,
             Long endSeq,
             int pageNum,
             int pageSize
     ) {
+        conversationService.clearUnread(peer);
         Specification<Message> specification = (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
 

@@ -23,6 +23,7 @@ import java.time.LocalDateTime;
  * @param group         是否群聊会话
  * @param enabled       会话是否启用
  * @param latestMessage 最新一条消息，还没有消息时为空
+ * @param unread        未读消息数（保存时忽略，由收发消息与查看会话维护）
  */
 public record ConversationDto(
         String id,
@@ -33,7 +34,8 @@ public record ConversationDto(
         @NotBlank String alias,
         @NotNull Boolean group,
         @NotNull Boolean enabled,
-        Message latestMessage
+        Message latestMessage,
+        Integer unread
 ) {
 
     /**
@@ -52,7 +54,8 @@ public record ConversationDto(
                 conversation.getAlias(),
                 conversation.getGroup(),
                 conversation.getEnabled(),
-                conversation.getLatestMessage()
+                conversation.getLatestMessage(),
+                conversation.getUnread()
         );
     }
 

@@ -136,9 +136,10 @@ public class ConversationService {
      * @param peer    会话对方
      * @param group   是否群聊
      * @param message 最新消息
+     * @param unread  这条消息是否计入未读：收到对方的消息才算，自己发出去的不算
      */
     @Transactional
-    public void updateLatestMessageByPeer(String peer, boolean group, Message message) {
+    public void updateLatestMessageByPeer(String peer, boolean group, Message message, boolean unread) {
         Conversation conversation = conversationRepository.findByOwnerAndPeer(currentOwner(), peer);
         boolean notice = false;
         if (conversation == null) {
@@ -148,6 +149,7 @@ public class ConversationService {
             notice = true;
         }
         conversation.setLatestMessage(message);
+        conversation.setUnread(conversation.getUnread() + (unread ? 1 : 0));
         // 这里不能直接调用 save，因为这个方法存在的意义就是不破坏别名机制更新最新消息
         conversationRepository.save(conversation);
 
@@ -182,7 +184,7 @@ public class ConversationService {
 
         Conversation conversation = new Conversation();
         BeanCopyUtils.copyNonNullProperties(conversationDto, conversation,
-                "latestMessage", "owner", "createTime", "updateTime");
+                "unread", "latestMessage", "owner", "createTime", "updateTime");
         self.save(conversation);
     }
 
@@ -199,6 +201,7 @@ public class ConversationService {
         conversation.setAlias(peer.substring(peer.length() > 5 ? peer.length() - 5 : 0));
         conversation.setGroup(group);
         conversation.setEnabled(true);
+        conversation.setUnread(0);
         return conversation;
     }
 
@@ -217,6 +220,32 @@ public class ConversationService {
         if (conversation == null) {
             save(createConversation(peer, group));
         }
+    }
+
+    /**
+     * 清空某个会话的未读数，查看会话时调用。
+     *
+     * @param peer 会话对方，私聊时为对方公钥、群聊时为群聊标识
+     */
+    @Transactional
+    public void clearUnread(String peer) {
+        Conversation conversation = conversationRepository.findByOwnerAndPeer(currentOwner(), peer);
+        if (conversation != null) {
+            conversation.setUnread(0);
+            // 这里不能调用 this.save 否则会导致重复
+            conversationRepository.save(conversation);
+        }
+    }
+
+    /**
+     * 统计当前用户所有会话的未读消息总数。
+     *
+     * @return 未读消息总数，没有未读时是 0
+     */
+    public Integer countUnread() {
+        Integer unread = conversationRepository.countUnread(currentOwner());
+        // 一条会话都没有时 SUM 为空，按 0 返回，前端不用再判 null
+        return unread == null ? 0 : unread;
     }
 
 }

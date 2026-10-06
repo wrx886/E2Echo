@@ -5,6 +5,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -49,5 +50,17 @@ public interface ConversationRepository extends JpaRepository<Conversation, Stri
      */
     @EntityGraph(attributePaths = {"latestMessage"})
     Conversation findByOwnerAndPeer(String owner, String peer);
+
+    /**
+     * 统计当前用户所有会话的未读消息总数。
+     *
+     * <p>直接在数据库里聚合求和，不把会话全查出来再累加；一条会话都没有时 {@code SUM} 为空，
+     * 返回 {@code null}。</p>
+     *
+     * @param owner 数据所有者，即当前登入用户的公钥
+     * @return 未读消息总数，没有会话时返回 {@code null}
+     */
+    @Query("SELECT SUM(c.unread) FROM Conversation c WHERE c.owner = :owner")
+    Integer countUnread(String owner);
 
 }

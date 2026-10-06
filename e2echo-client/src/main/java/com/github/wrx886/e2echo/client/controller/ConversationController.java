@@ -81,4 +81,14 @@ public class ConversationController {
         return Result.ok(conversationService.findAliasByPeer(peer));
     }
 
+    /**
+     * 统计当前用户的未读消息总数（所有会话的未读数之和）。
+     *
+     * @return 未读消息总数，没有未读时是 0
+     */
+    @GetMapping("countUnread")
+    public Result<Integer> countUnread() {
+        return Result.ok(conversationService.countUnread());
+    }
+
 }

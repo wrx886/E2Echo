@@ -51,4 +51,11 @@ public class Conversation extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     private Message latestMessage;
 
+    /**
+     * 未读消息数：收到对方的消息时加一，查看该会话时清零。
+     */
+    // 列上带默认值：非空列没有默认值时，ddl-auto=update 往已有数据的表里加这一列会被数据库拒绝
+    @Column(nullable = false, columnDefinition = "integer default 0")
+    private Integer unread = 0;
+
 }
