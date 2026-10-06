@@ -132,9 +132,16 @@ function timeOf(conversation: ConversationDto): string {
           }"
           @click="openConversation(item)"
         >
-          <el-avatar :size="36" class="conversation__avatar">
-            {{ titleOf(item).charAt(0) }}
-          </el-avatar>
+          <el-badge
+            class="conversation__badge"
+            :value="item.unread ?? 0"
+            :max="99"
+            :hidden="!item.unread"
+          >
+            <el-avatar :size="36" class="conversation__avatar">
+              {{ titleOf(item).charAt(0) }}
+            </el-avatar>
+          </el-badge>
 
           <div class="conversation__main">
             <div class="conversation__row">
@@ -220,6 +227,16 @@ function timeOf(conversation: ConversationDto): string {
   flex: none;
   background: #07c160;
   color: #fff;
+}
+
+/* 未读红点挂在头像右上角 */
+.conversation__badge {
+  flex: none;
+  line-height: 0;
+}
+
+.conversation__badge :deep(.el-badge__content) {
+  border: none;
 }
 
 .conversation--disabled .conversation__avatar {

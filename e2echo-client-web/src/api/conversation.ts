@@ -63,6 +63,15 @@ export function getConversationAlias(peer: string): Promise<string | null> {
 }
 
 /**
+ * 统计当前用户的未读消息总数（所有会话的未读数之和）。
+ *
+ * @returns 未读总数，没有未读时是 0
+ */
+export function countUnread(): Promise<number> {
+  return get<number>('/api/conversation/countUnread')
+}
+
+/**
  * 取会话最新消息的预览文本，供会话列表展示。
  *
  * <p>会话里的最新消息是实体，正文还是未反序列化的 JSON 字符串，这里按消息类型取出文字。</p>

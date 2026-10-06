@@ -368,6 +368,8 @@ watch(peer, async (value) => {
       await messageStore.refreshLatest()
     }
     await scrollToBottom()
+    // 拉消息时客户端会顺手把该会话的未读清零，列表里的红点与总数要跟着更新
+    await conversationStore.markRead(value)
   } catch (error) {
     showError(error, '加载消息失败')
   }

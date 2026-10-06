@@ -4,6 +4,7 @@ import type { Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ChatDotRound } from '@element-plus/icons-vue'
 import UserProfile from '@/components/UserProfile.vue'
+import { useConversationStore } from '@/stores/conversation'
 
 /**
  * 功能项。新增功能时在这里追加一项即可，侧边栏按数组渲染。
@@ -30,6 +31,7 @@ const features: Feature[] = [
 
 const route = useRoute()
 const router = useRouter()
+const conversationStore = useConversationStore()
 
 /** 当前高亮的功能。 */
 const activeKey = computed(() =>
@@ -46,9 +48,16 @@ const activeKey = computed(() =>
       :class="{ 'feature--active': item.key === activeKey }"
       @click="router.push(item.path)"
     >
-      <el-icon :size="22">
-        <component :is="item.icon" />
-      </el-icon>
+      <el-badge
+        class="feature__badge"
+        :value="conversationStore.unreadTotal"
+        :max="99"
+        :hidden="conversationStore.unreadTotal <= 0"
+      >
+        <el-icon :size="22">
+          <component :is="item.icon" />
+        </el-icon>
+      </el-badge>
       <span class="feature__label">{{ item.label }}</span>
     </button>
 
@@ -97,6 +106,15 @@ const activeKey = computed(() =>
 
 .feature__label {
   font-size: 12px;
+}
+
+/* 未读数挂在图标右上角；功能栏是深色底，去掉徽标默认的白色描边 */
+.feature__badge {
+  line-height: 0;
+}
+
+.feature__badge :deep(.el-badge__content) {
+  border: none;
 }
 
 .feature-rail__bottom {

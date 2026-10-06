@@ -42,15 +42,29 @@ export const useNoticeStore = defineStore('notice', () => {
    * 刷新会话列表与当前会话的消息。
    */
   async function refresh(): Promise<void> {
+    const conversationStore = useConversationStore()
+    const messageStore = useMessageStore()
+
     try {
-      await useConversationStore().refresh()
+      await conversationStore.refresh()
     } catch (error) {
       showError(error, '刷新会话列表失败')
     }
     try {
-      await useMessageStore().refreshLatest()
+      await messageStore.refreshLatest()
     } catch (error) {
       showError(error, '刷新消息失败')
+    }
+    try {
+      // 拉消息会顺手清掉当前会话的未读，但列表是在它之前刷新的，可能已经带上了未读，
+      // 所以这里按当前会话再同步一次；没有打开会话时就只更新总数
+      if (messageStore.peer.length > 0) {
+        await conversationStore.markRead(messageStore.peer)
+      } else {
+        await conversationStore.refreshUnread()
+      }
+    } catch (error) {
+      showError(error, '刷新未读数失败')
     }
   }
 

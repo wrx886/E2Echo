@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { getConversationAlias, listConversations, saveConversation } from '@/api'
+import { countUnread, getConversationAlias, listConversations, saveConversation } from '@/api'
 import type { ConversationDto } from '@/api'
 
 /** 会话列表每页条数。 */
@@ -27,6 +27,9 @@ export const useConversationStore = defineStore('conversation', () => {
 
   /** 是否已经加载过（用于区分“还没加载”和“加载完是空的”）。 */
   const loaded = ref(false)
+
+  /** 所有会话的未读消息总数，给左侧功能栏的红点用。 */
+  const unreadTotal = ref(0)
 
   /** 当前选中的会话对方。 */
   const currentPeer = ref('')
@@ -114,6 +117,30 @@ export const useConversationStore = defineStore('conversation', () => {
       return
     }
     await fetchPage(1, false)
+    await refreshUnread()
+  }
+
+  /**
+   * 重新取未读总数。
+   */
+  async function refreshUnread(): Promise<void> {
+    unreadTotal.value = await countUnread()
+  }
+
+  /**
+   * 把某个会话的未读清零（本地先改，再同步总数）。
+   *
+   * <p>查看会话时客户端已经把未读清了，这里同步界面：本地清零是即时的，总数需要再取一次——它可能
+   * 还包含别的会话的未读。</p>
+   *
+   * @param peer 会话对方
+   */
+  async function markRead(peer: string): Promise<void> {
+    const item = list.value.find((entry) => entry.peer === peer)
+    if (item) {
+      item.unread = 0
+    }
+    await refreshUnread()
   }
 
   /**
@@ -156,6 +183,7 @@ export const useConversationStore = defineStore('conversation', () => {
 
   return {
     list, loading, hasMore, loaded, currentPeer, current,
+    unreadTotal, refreshUnread, markRead,
     aliasCache, aliasOf, resolveAlias,
     loadIfNeeded, refresh, loadMore, save, select,
   }

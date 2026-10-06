@@ -211,8 +211,10 @@ export interface ConversationDto {
   group: boolean
   /** 会话是否启用。 */
   enabled: boolean
-    /** 最新一条消息，还没有消息时为 null。 */
-    latestMessage?: Message | null
+  /** 最新一条消息，还没有消息时为 null。 */
+  latestMessage?: Message | null
+  /** 未读消息数：收到对方的消息时加一，查看该会话时清零。 */
+  unread?: number
 }
 
 /**
