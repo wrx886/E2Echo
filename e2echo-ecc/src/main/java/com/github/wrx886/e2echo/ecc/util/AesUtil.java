@@ -23,8 +23,11 @@ import javax.crypto.spec.SecretKeySpec;
  * 被篡改，解密时会抛出异常。文件解密要求目标文件不存在，解密失败会自动删除本次创建的
  * 目标文件。所有 HEX 输入必须是偶数长度的合法十六进制，AES 密钥固定为 32 字节
  * （256 位）。</p>
+ *
+ * <p>本类不保存加解密状态，方法均为静态方法，可安全地在多线程环境中使用；密钥与 IV 由
+ * 全类共用的 {@link SecureRandom} 实例生成，每次调用都会得到新的随机值。</p>
  */
-public class AesUtil {
+public final class AesUtil {
 
     /**
      * 私有构造方法，禁止外部实例化工具类。
@@ -63,6 +66,14 @@ public class AesUtil {
     private static final int BUFFER_SIZE = 8192;
 
     /**
+     * 生成密钥与 IV 共用的安全随机数发生器。
+     *
+     * <p>{@link SecureRandom} 的创建需要读取系统熵源，开销较大，因此整个类只保留一个实例
+     * 复用；它本身是线程安全的，可以在多个线程之间共享。</p>
+     */
+    private static final SecureRandom secureRandom = new SecureRandom();
+
+    /**
      * 生成随机的 AES-256 密钥。
      *
      * @return 32 字节密钥的 HEX 字符串
@@ -70,7 +81,7 @@ public class AesUtil {
      */
     public static String generateKeyAsHex() throws Exception {
         KeyGenerator keyGen = KeyGenerator.getInstance(KEY_ALGORITHM);
-        keyGen.init(KEY_SIZE, new SecureRandom());
+        keyGen.init(KEY_SIZE, secureRandom);
         SecretKey secretKey = keyGen.generateKey();
         return bytesToHex(secretKey.getEncoded());
     }
@@ -92,8 +103,7 @@ public class AesUtil {
 
         // 生成随机 IV
         byte[] iv = new byte[GCM_IV_LENGTH];
-        SecureRandom random = new SecureRandom();
-        random.nextBytes(iv);
+        secureRandom.nextBytes(iv);
 
         // 使用 GCMParameterSpec 初始化
         GCMParameterSpec spec = new GCMParameterSpec(GCM_TAG_LENGTH, iv);
@@ -165,8 +175,7 @@ public class AesUtil {
 
         // 生成随机 IV
         byte[] iv = new byte[GCM_IV_LENGTH];
-        SecureRandom random = new SecureRandom();
-        random.nextBytes(iv);
+        secureRandom.nextBytes(iv);
 
         // 使用 GCMParameterSpec 初始化
         GCMParameterSpec spec = new GCMParameterSpec(GCM_TAG_LENGTH, iv);

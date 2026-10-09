@@ -21,8 +21,13 @@ import java.security.spec.ECGenParameterSpec;
  * ECC 加密工具类。
  *
  * <p>基于 Bouncy Castle 提供 secp256k1 密钥对生成、ECIES 加密/解密与
- * SHA256withECDSA 签名/验签。公钥和私钥均以 RAW HEX 字符串对外传递：
+ * SHA256withECDDSA 签名/验签。公钥和私钥均以 RAW HEX 字符串对外传递：
  * 公钥为 {@code 0x04 || X || Y} 的非压缩点格式，私钥为密钥值（大整数）的十六进制。</p>
+ *
+ * <p>签名算法名 {@code SHA256withECDDSA} 由 Bouncy Castle 提供（JDK 自带提供方不认识该
+ * 名称），是签名过程不引入随机数的确定性 ECDSA 变体，同一私钥对同一数据多次签名会得到
+ * 完全相同的签名。它的签名格式与 {@code SHA256withECDSA} 一致，均为 ASN.1 DER 编码，两者
+ * 产生的签名可以互相验证。本类方法均为静态方法且不保存状态，可安全地在多线程环境中使用。</p>
  */
 public final class EccUtil {
 
@@ -32,6 +37,12 @@ public final class EccUtil {
     private EccUtil() {
     }
 
+    /**
+     * 类初始化时注册 Bouncy Castle 提供方，供本类中的签名、加密等操作使用。
+     *
+     * <p>注册结果是全局的：与 JVM 中其他使用 BC 的代码共用同一份提供方。若同名提供方已
+     * 存在，{@link Security#addProvider} 会忽略本次注册，不会覆盖已有实例。</p>
+     */
     static {
         Security.addProvider(new BouncyCastleProvider());
     }
@@ -241,13 +252,17 @@ public final class EccUtil {
     /**
      * 使用私钥对数据进行签名
      *
+     * <p>算法为 SHA256withECDDSA（SHA-256 摘要 + 确定性 ECDSA），待签名的字符串按 UTF-8
+     * 编码转换为字节，签名结果为 ASN.1 DER 编码。该算法不依赖随机数，同一私钥对同一数据
+     * 多次签名会得到完全相同的签名，因此不要把签名结果当作每次调用都不同的随机值使用。</p>
+     *
      * @param data       要签名的数据
      * @param privateKey 私钥
-     * @return 数据的签名
+     * @return ASN.1 DER 编码的签名（HEX 字符串）
      * @throws Exception 签名算法或私钥不可用，或签名失败
      */
     private static String sign(String data, PrivateKey privateKey) throws Exception {
-        Signature signature = Signature.getInstance("SHA256withECDSA", "BC");
+        Signature signature = Signature.getInstance("SHA256withECDDSA", "BC");
         signature.initSign(privateKey);
         signature.update(data.getBytes(StandardCharsets.UTF_8));
         byte[] signatureBytes = signature.sign();
@@ -259,7 +274,7 @@ public final class EccUtil {
      *
      * @param data          要签名的数据
      * @param hexPrivateKey RAW HEX 格式的私钥
-     * @return 数据的签名
+     * @return ASN.1 DER 编码的签名（HEX 字符串），可直接交给 {@link #verify(String, String, String)} 验签
      * @throws IllegalArgumentException 私钥 HEX 非法
      * @throws Exception                签名算法不可用或签名失败
      */
@@ -271,14 +286,18 @@ public final class EccUtil {
     /**
      * 使用公钥验证签名
      *
+     * <p>待验签的字符串按 UTF-8 编码转换为字节，因此签名方与验签方必须使用相同的字符
+     * 编码。签名必须是 ASN.1 DER 编码的 ECDSA 签名（SHA256withECDDSA 与 SHA256withECDSA
+     * 的结果都可接受），其他编码形式（例如直接把 ECDSA 的 r、s 拼接成定长字节）无法验签。</p>
+     *
      * @param data         数据
-     * @param signatureHex 数据的签名
+     * @param signatureHex 数据的签名，SHA256withECDDSA 生成的 ASN.1 DER 编码签名（HEX 字符串）
      * @param publicKey    公钥
      * @return 验证结果，true表示签名有效，false表示签名无效
      * @throws Exception 签名或公钥格式非法，或验签算法不可用
      */
     private static boolean verify(String data, String signatureHex, PublicKey publicKey) throws Exception {
-        Signature signature = Signature.getInstance("SHA256withECDSA", "BC");
+        Signature signature = Signature.getInstance("SHA256withECDDSA", "BC");
         signature.initVerify(publicKey);
         signature.update(data.getBytes(StandardCharsets.UTF_8));
         byte[] signatureBytes = decodeHex(signatureHex, "Signature");
@@ -289,7 +308,7 @@ public final class EccUtil {
      * 使用 RAW HEX 格式的公钥验证签名
      *
      * @param data         数据
-     * @param signatureHex 数据的签名
+     * @param signatureHex SHA256withECDDSA 生成的 ASN.1 DER 编码签名（HEX 字符串）
      * @param hexPublicKey RAW HEX 格式的公钥
      * @return 验证结果，true表示签名有效，false表示签名无效
      * @throws IllegalArgumentException 公钥或签名 HEX 非法
