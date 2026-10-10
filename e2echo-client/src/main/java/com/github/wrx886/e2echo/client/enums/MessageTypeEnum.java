@@ -42,6 +42,21 @@ public enum MessageTypeEnum {
      * 聊天音频消息：正文与文件消息相同（都是 {@link ChatFileMessageVo} 的 JSON），单独分一个类型是
      * 为了前端用播放器展示，而不是显示成文件。
      */
-    CHAT_FILE_AUDIO
+    CHAT_FILE_AUDIO,
+
+    /**
+     * 广播的用户资料，正文是 {@link com.github.wrx886.e2echo.client.vo.broadcast.BroadcastUserinfo}
+     * 的 JSON，按发送者取最新一条。
+     */
+    BROADCAST_USERINFO,
+
+    /**
+     * 广播消息，正文是
+     * {@link com.github.wrx886.e2echo.client.vo.broadcast.BroadcastMessageVo} 的 JSON。
+     *
+     * <p>帖子和评论共用这一个类型，靠 {@code to} 区分：{@code *} 是发帖，帖子的消息 ID 是在该帖子
+     * 下评论（回复某条评论时由正文里的 {@code replyToId} 指回去）。</p>
+     */
+    BROADCAST_MESSAGE,
 
 }

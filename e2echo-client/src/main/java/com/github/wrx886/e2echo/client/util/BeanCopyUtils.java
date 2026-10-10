@@ -9,7 +9,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
-public class BeanCopyUtils {
+public final class BeanCopyUtils {
 
     /**
      * 复制非 null 属性（null 视为不存在，不覆盖目标）
