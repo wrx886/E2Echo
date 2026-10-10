@@ -2,10 +2,16 @@ package com.github.wrx886.e2echo.server.service;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpRange;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -20,6 +26,7 @@ import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 
@@ -35,6 +42,9 @@ import software.amazon.awssdk.services.s3.model.S3Exception;
  *
  * <p>对象键还会带一个生命周期前缀，形如 {@code 生命周期前缀/文件 ID}。过期策略由对象存储按前缀
  * 配置的生命周期规则执行，服务端只负责按调用方要求打前缀，不自己实现过期逻辑。</p>
+ *
+ * <p>下载支持 Range：范围直接下推给对象存储，只回源需要的那一段，因此拖动媒体播放进度、断点续传
+ * 都不会浪费带宽，也不会把文件载入内存。</p>
  */
 @Slf4j
 @Service
@@ -50,6 +60,11 @@ public class FileService {
      * 长期存储前缀，对象存储不设置过期。
      */
     private static final String LIFECYCLE_FOREVER = "forever";
+
+    /**
+     * 支持的范围单位：只支持按字节取范围。
+     */
+    private static final String RANGE_UNIT = "bytes";
 
     /**
      * 对象存储客户端。
@@ -91,30 +106,144 @@ public class FileService {
     }
 
     /**
-     * 取回文件。
+     * 下载文件。
      *
-     * <p>返回的是流，调用方负责关闭；文件较大时不会整体载入内存。</p>
+     * <p>返回的是流，Spring MVC 负责写出与关闭，文件不会整体载入内存。不带范围时整体返回
+     * （200）；带范围时把范围下推给对象存储，只回源这一段并返回 206 与 {@code Content-Range}；
+     * 范围不可满足时返回 416。只支持单段范围，多段范围与格式非法的 Range 按 HTTP 规范忽略，
+     * 整体返回。</p>
+     *
+     * @param lifecycle   生命周期前缀，取值同上传
+     * @param id          文件 ID
+     * @param rangeHeader Range 请求头，未带时为 {@code null}
+     * @return 响应实体：整体或部分内容流，或范围不可满足的空响应
+     * @throws E2EchoException 生命周期取值非法、文件不存在或下载失败
+     */
+    public ResponseEntity<InputStreamResource> download(String lifecycle, String id, String rangeHeader) {
+        String key = parseLifecycle(lifecycle) + "/" + id;
+        HttpRange range = singleRange(rangeHeader);
+
+        // 不带 Range、多段范围或格式非法：整体返回
+        if (range == null) {
+            ResponseInputStream<GetObjectResponse> object = getObject(key, null);
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.ACCEPT_RANGES, RANGE_UNIT)
+                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                    .contentLength(object.response().contentLength())
+                    .body(new InputStreamResource(object));
+        }
+
+        // 带 Range：先取长度把范围换算成闭区间，再按范围回源
+        long length = length(key);
+        long start = range.getRangeStart(length);
+        long end = range.getRangeEnd(length);
+        if (start > end) {
+            // 起始位置落在文件末尾之后：按规范返回 416，并告知实际长度
+            return ResponseEntity.status(HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE)
+                    .header(HttpHeaders.CONTENT_RANGE, RANGE_UNIT + " */" + length)
+                    .build();
+        }
+
+        ResponseInputStream<GetObjectResponse> object = getObject(key, RANGE_UNIT + "=" + start + "-" + end);
+        return ResponseEntity.status(HttpStatus.PARTIAL_CONTENT)
+                .header(HttpHeaders.ACCEPT_RANGES, RANGE_UNIT)
+                .header(HttpHeaders.CONTENT_RANGE, RANGE_UNIT + " " + start + "-" + end + "/" + length)
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .contentLength(end - start + 1)
+                .body(new InputStreamResource(object));
+    }
+
+    /**
+     * 读取文件元信息，用于 HEAD 请求：只回源长度，不取回内容。
      *
      * @param lifecycle 生命周期前缀，取值同上传
      * @param id        文件 ID
-     * @return 对象响应流，可通过 {@code response()} 读取长度等元信息
-     * @throws E2EchoException 生命周期取值非法、文件不存在或下载失败
+     * @return 只带长度与范围支持标记、不含内容的响应实体
+     * @throws E2EchoException 生命周期取值非法、文件不存在或读取失败
      */
-    public ResponseInputStream<GetObjectResponse> download(String lifecycle, String id) {
-        String key = parseLifecycle(lifecycle) + "/" + id;
+    public ResponseEntity<InputStreamResource> metadata(String lifecycle, String id) {
+        return ResponseEntity.ok()
+                .header(HttpHeaders.ACCEPT_RANGES, RANGE_UNIT)
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .contentLength(length(parseLifecycle(lifecycle) + "/" + id))
+                .build();
+    }
+
+    /**
+     * 向对象存储取对象。
+     *
+     * @param key   对象键
+     * @param range 字节范围，形如 {@code bytes=0-99}；为空时取整个对象
+     * @return 对象响应流，调用方负责关闭
+     * @throws E2EchoException 文件不存在或下载失败
+     */
+    private ResponseInputStream<GetObjectResponse> getObject(String key, String range) {
+        GetObjectRequest.Builder request = GetObjectRequest.builder()
+                .bucket(s3Config.getBucketName())
+                .key(key);
+        if (range != null) {
+            request.range(range);
+        }
         try {
-            return s3Client.getObject(GetObjectRequest.builder()
+            return s3Client.getObject(request.build());
+        } catch (S3Exception e) {
+            throw downloadFailure(key, e);
+        }
+    }
+
+    /**
+     * 读取对象大小：只取元信息，不取回内容。
+     *
+     * @param key 对象键
+     * @return 对象大小（字节）
+     * @throws E2EchoException 文件不存在或读取失败
+     */
+    private long length(String key) {
+        try {
+            return s3Client.headObject(HeadObjectRequest.builder()
                     .bucket(s3Config.getBucketName())
                     .key(key)
-                    .build());
+                    .build()).contentLength();
         } catch (S3Exception e) {
-            // 不同 S3 实现的错误码不完全一致，统一按 404 判定为文件不存在
-            if (e.statusCode() == 404) {
-                throw new E2EchoException("文件不存在：" + key);
-            }
-            log.error("Failed to download file, key: {}", key, e);
-            throw new E2EchoException("文件下载失败！");
+            throw downloadFailure(key, e);
         }
+    }
+
+    /**
+     * 解析单段范围。
+     *
+     * <p>多段范围需要 {@code multipart/byteranges} 响应，这里按 HTTP 规范选择忽略它，与格式非法的
+     * Range 一样整体返回：规范允许服务端忽略 Range 头。</p>
+     *
+     * @param rangeHeader Range 请求头，未带时为空
+     * @return 单段范围；未带、多段或格式非法时返回 {@code null}，表示按整体返回处理
+     */
+    private static HttpRange singleRange(String rangeHeader) {
+        if (rangeHeader == null || rangeHeader.isBlank()) {
+            return null;
+        }
+        try {
+            List<HttpRange> ranges = HttpRange.parseRanges(rangeHeader);
+            return ranges.size() == 1 ? ranges.get(0) : null;
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    /**
+     * 把对象存储的异常转换成业务异常。
+     *
+     * @param key 对象键
+     * @param e   对象存储抛出的异常
+     * @return 对应的业务异常
+     */
+    private static E2EchoException downloadFailure(String key, S3Exception e) {
+        // 不同 S3 实现的错误码不完全一致，统一按 404 判定为文件不存在
+        if (e.statusCode() == 404) {
+            return new E2EchoException("文件不存在：" + key);
+        }
+        log.error("Failed to download file, key: {}", key, e);
+        return new E2EchoException("文件下载失败！");
     }
 
     /**

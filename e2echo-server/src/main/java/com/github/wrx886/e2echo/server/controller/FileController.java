@@ -1,11 +1,14 @@
 package com.github.wrx886.e2echo.server.controller;
 
 import org.springframework.core.io.InputStreamResource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import com.github.wrx886.e2echo.server.service.FileService;
 import lombok.RequiredArgsConstructor;
@@ -15,8 +18,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.github.wrx886.e2echo.server.result.Result;
 
-import software.amazon.awssdk.core.ResponseInputStream;
-import software.amazon.awssdk.services.s3.model.GetObjectResponse;
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * 文件接口。
@@ -58,22 +60,28 @@ public class FileController {
     /**
      * 下载文件。
      *
-     * <p>以流的方式返回文件内容并带上 {@code Content-Length}，客户端可以据此展示进度；服务端不会
-     * 把文件整体读入内存。这里没有声明 {@code produces}，是为了让「文件不存在」这类异常仍能以
-     * JSON 形式返回统一结果。</p>
+     * <p>只负责请求分发：内容以流的方式返回、带上 {@code Content-Length}（客户端据此展示进度）、
+     * 文件不会整体载入内存，Range 与 206／416 等都由 {@link FileService#download} 决定。这里没有
+     * 声明 {@code produces}，是为了让「文件不存在」这类异常仍能以 JSON 形式返回统一结果。</p>
      *
-     * @param lifecycle 生命周期前缀，与上传时一致
-     * @param id        文件 ID
-     * @return 文件内容流
+     * <p>{@code HEAD} 交给 {@link FileService#metadata}：只回源元信息，不取内容。</p>
+     *
+     * @param lifecycle   生命周期前缀，与上传时一致
+     * @param id          文件 ID
+     * @param rangeHeader Range 请求头，未带时为 {@code null}
+     * @param request     当前请求，用于识别 HEAD
+     * @return 文件内容流或元信息
      */
     @GetMapping("/{lifecycle}/{id}")
     public ResponseEntity<InputStreamResource> download(@PathVariable String lifecycle,
-            @PathVariable String id) {
-        ResponseInputStream<GetObjectResponse> object = fileService.download(lifecycle, id);
-        return ResponseEntity.ok()
-                .contentType(MediaType.APPLICATION_OCTET_STREAM)
-                .contentLength(object.response().contentLength())
-                .body(new InputStreamResource(object));
+            @PathVariable String id,
+            @RequestHeader(value = HttpHeaders.RANGE, required = false) String rangeHeader,
+            HttpServletRequest request) {
+        // HEAD 只要元信息：交给业务层只回源长度，不取回内容
+        if (HttpMethod.HEAD.matches(request.getMethod())) {
+            return fileService.metadata(lifecycle, id);
+        }
+        return fileService.download(lifecycle, id, rangeHeader);
     }
 
 }

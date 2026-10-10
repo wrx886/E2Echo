@@ -10,6 +10,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
@@ -134,8 +135,35 @@ class FileControllerTest {
      * @throws Exception 请求执行失败
      */
     private HttpResponse<byte[]> download(String key) throws Exception {
+        return download(key, null);
+    }
+
+    /**
+     * 通过 HTTP 下载文件，可指定范围。
+     *
+     * @param key   对象键，形如 {@code default/0000018f...}
+     * @param range Range 请求头；为 {@code null} 时不带该头
+     * @return 下载响应，响应体为服务端返回的字节
+     * @throws Exception 请求执行失败
+     */
+    private HttpResponse<byte[]> download(String key, String range) throws Exception {
+        HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/file/" + key));
+        if (range != null) {
+            builder.header("Range", range);
+        }
+        return httpClient.send(builder.GET().build(), HttpResponse.BodyHandlers.ofByteArray());
+    }
+
+    /**
+     * 通过 HTTP 发送 HEAD 请求。
+     *
+     * @param key 对象键，形如 {@code default/0000018f...}
+     * @return HEAD 响应，响应体为空
+     * @throws Exception 请求执行失败
+     */
+    private HttpResponse<byte[]> head(String key) throws Exception {
         HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/file/" + key))
-                .GET()
+                .method("HEAD", HttpRequest.BodyPublishers.noBody())
                 .build();
         return httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
     }
@@ -176,9 +204,96 @@ class FileControllerTest {
         assertThat(downloadResponse.statusCode()).isEqualTo(200);
         assertThat(downloadResponse.headers().firstValue("Content-Type"))
                 .contains("application/octet-stream");
+        // 整体下载也要声明支持 Range，客户端据此决定是否可以按范围请求
+        assertThat(downloadResponse.headers().firstValue("Accept-Ranges")).contains("bytes");
         assertThat(downloadResponse.headers().firstValueAsLong("Content-Length"))
                 .hasValue(content.length);
         assertThat(downloadResponse.body()).isEqualTo(content);
+    }
+
+    /**
+     * 校验范围下载：指定区间、后缀区间与开区间都只返回对应的字节，并带上 206、Content-Range
+     * 与片段长度。
+     *
+     * @throws Exception 请求执行失败
+     */
+    @Test
+    @DisplayName("按范围下载：返回 206 与请求的字节片段")
+    void downloadsRequestedRange() throws Exception {
+        byte[] content = new byte[1024];
+        new SecureRandom().nextBytes(content);
+
+        String key = fileIdOf(upload(content, "range.bin", null));
+        uploadedIds.add(key);
+
+        // 指定区间
+        HttpResponse<byte[]> ranged = download(key, "bytes=100-199");
+        assertThat(ranged.statusCode()).isEqualTo(206);
+        assertThat(ranged.headers().firstValue("Content-Range"))
+                .contains("bytes 100-199/" + content.length);
+        assertThat(ranged.headers().firstValue("Accept-Ranges")).contains("bytes");
+        assertThat(ranged.headers().firstValueAsLong("Content-Length")).hasValue(100);
+        assertThat(ranged.body()).isEqualTo(Arrays.copyOfRange(content, 100, 200));
+
+        // 后缀区间：最后 50 字节
+        HttpResponse<byte[]> suffix = download(key, "bytes=-50");
+        assertThat(suffix.statusCode()).isEqualTo(206);
+        assertThat(suffix.headers().firstValue("Content-Range"))
+                .contains("bytes " + (content.length - 50) + "-" + (content.length - 1) + "/" + content.length);
+        assertThat(suffix.body()).isEqualTo(Arrays.copyOfRange(content, content.length - 50, content.length));
+
+        // 开区间：从 1000 到末尾
+        HttpResponse<byte[]> open = download(key, "bytes=1000-");
+        assertThat(open.statusCode()).isEqualTo(206);
+        assertThat(open.body()).isEqualTo(Arrays.copyOfRange(content, 1000, content.length));
+    }
+
+    /**
+     * 校验范围不可满足时返回 416，多段与格式非法的 Range 按规范忽略、整体返回。
+     *
+     * @throws Exception 请求执行失败
+     */
+    @Test
+    @DisplayName("范围越界：返回 416；多段与非法 Range 整体返回")
+    void handlesUnsatisfiableAndIgnoredRanges() throws Exception {
+        byte[] content = "range content".getBytes(StandardCharsets.UTF_8);
+
+        String key = fileIdOf(upload(content, "range.bin", null));
+        uploadedIds.add(key);
+
+        HttpResponse<byte[]> outOfRange = download(key, "bytes=100-200");
+        assertThat(outOfRange.statusCode()).isEqualTo(416);
+        assertThat(outOfRange.headers().firstValue("Content-Range"))
+                .contains("bytes */" + content.length);
+
+        // 多段范围与格式非法的 Range 都不按范围处理
+        HttpResponse<byte[]> multiRange = download(key, "bytes=0-3,6-8");
+        assertThat(multiRange.statusCode()).isEqualTo(200);
+        assertThat(multiRange.body()).isEqualTo(content);
+
+        HttpResponse<byte[]> invalidRange = download(key, "bytes=abc");
+        assertThat(invalidRange.statusCode()).isEqualTo(200);
+        assertThat(invalidRange.body()).isEqualTo(content);
+    }
+
+    /**
+     * 校验 HEAD 只返回元信息：带上长度与 Accept-Ranges，不返回内容。
+     *
+     * @throws Exception 请求执行失败
+     */
+    @Test
+    @DisplayName("HEAD：只返回长度与 Range 支持标记")
+    void headsFileMetadata() throws Exception {
+        byte[] content = "head content".getBytes(StandardCharsets.UTF_8);
+
+        String key = fileIdOf(upload(content, "head.bin", null));
+        uploadedIds.add(key);
+
+        HttpResponse<byte[]> response = head(key);
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.headers().firstValueAsLong("Content-Length")).hasValue(content.length);
+        assertThat(response.headers().firstValue("Accept-Ranges")).contains("bytes");
+        assertThat(response.body()).isEmpty();
     }
 
     /**
