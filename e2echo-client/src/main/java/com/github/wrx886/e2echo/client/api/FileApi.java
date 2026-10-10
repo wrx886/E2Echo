@@ -1,7 +1,9 @@
 package com.github.wrx886.e2echo.client.api;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.OutputStream;
+import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 
@@ -10,15 +12,20 @@ import com.github.wrx886.e2echo.client.exception.E2EchoException;
 import com.github.wrx886.e2echo.client.result.Result;
 import com.github.wrx886.e2echo.client.util.ApiUtil;
 
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferUtils;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.util.StringUtils;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -238,6 +245,113 @@ public class FileApi {
             throw new E2EchoException("对象键格式错误：" + objectKey);
         }
         download(objectKey.substring(0, index), objectKey.substring(index + 1), target);
+    }
+
+    /**
+     * 透传下载（使用上传时返回的对象键），把范围与响应原样转给浏览器。
+     *
+     * @param objectKey   上传时返回的对象键，形如 {@code default/文件 ID}
+     * @param rangeHeader 浏览器的 {@code Range} 请求头，未带时为空
+     * @param response    待写入的 Servlet 响应
+     * @throws E2EchoException 对象键格式错误、文件超过大小上限、请求失败，或服务端返回失败状态
+     */
+    public void download(String objectKey, String rangeHeader, HttpServletResponse response) {
+
+        int index = objectKey == null ? -1 : objectKey.indexOf('/');
+        if (index < 1 || index == objectKey.length() - 1) {
+            throw new E2EchoException("对象键格式错误：" + objectKey);
+        }
+        download(objectKey.substring(0, index), objectKey.substring(index + 1), rangeHeader, response);
+    }
+
+    /**
+     * 透传下载（按生命周期前缀与文件 ID），把服务端的响应原样转给浏览器。
+     *
+     * <p>用于本地没有副本、要直接把对象存储的内容转发出去的场景（广播附件）：浏览器的 {@code Range}
+     * 头原样转给服务端，再把服务端的状态码与 Range 相关响应头镜像回来，内容边收边写，所以里面的视频、
+     * 音频也能拖动进度条，且一个字节都不会落盘。</p>
+     *
+     * <p>响应类型与文件名由调用方在进入本方法前设置，本方法只负责状态码、{@code Content-Range}、
+     * {@code Content-Length}、{@code Accept-Ranges} 与响应体。</p>
+     *
+     * @param lifecycle   生命周期前缀，与上传时一致
+     * @param id          文件 ID
+     * @param rangeHeader 浏览器的 {@code Range} 请求头，未带时为空
+     * @param response    待写入的 Servlet 响应
+     * @throws E2EchoException 文件超过大小上限、请求失败，或服务端返回失败状态（例如文件不存在）
+     */
+    public void download(String lifecycle, String id, String rangeHeader, HttpServletResponse response) {
+        timestampApi.checkTime();
+
+        OutputStream outputStream;
+        try {
+            outputStream = response.getOutputStream();
+        } catch (IOException e) {
+            throw new E2EchoException("下载失败！");
+        }
+
+        ApiUtil.apiCall(() -> webClient.get()
+                .uri("file/{lifecycle}/{id}", lifecycle, id)
+                .headers(headers -> {
+                    if (StringUtils.hasText(rangeHeader)) {
+                        headers.set(HttpHeaders.RANGE, rangeHeader);
+                    }
+                })
+                .exchangeToMono(clientResponse -> writeResponse(clientResponse, response, outputStream))
+                .block());
+    }
+
+    /**
+     * 把服务端的下载响应写进 Servlet 响应：镜像状态与 Range 相关响应头，内容边收边写。
+     *
+     * @param clientResponse 服务端响应
+     * @param response       待写入的 Servlet 响应
+     * @param outputStream   Servlet 响应的输出流
+     * @return 写完后的空流
+     */
+    private static Mono<Void> writeResponse(ClientResponse clientResponse, HttpServletResponse response,
+            OutputStream outputStream) {
+        // 失败时服务端返回的是 JSON（状态码仍为 200），按响应类型区分，避免把 JSON 写进响应
+        if (isJson(clientResponse.headers().contentType())) {
+            return clientResponse.bodyToMono(new ParameterizedTypeReference<Result<Void>>() {
+            }).flatMap(result -> Mono.error(new E2EchoException(
+                    result.message() == null ? "下载失败！" : result.message())));
+        }
+
+        HttpStatusCode status = clientResponse.statusCode();
+        HttpHeaders headers = clientResponse.headers().asHttpHeaders();
+
+        // 范围不可满足：服务端没有内容，只把状态与 Content-Range 转给浏览器
+        if (status.value() == HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE.value()) {
+            mirrorRangeHeaders(headers, response);
+            response.setStatus(status.value());
+            return Mono.empty();
+        }
+        if (status.isError()) {
+            return Mono.error(new E2EchoException("服务器状态异常！"));
+        }
+        return checkDownloadSize(clientResponse.headers())
+                // 先写响应头与状态码，再收内容，免得状态码还没定就先写出了内容
+                .then(Mono.fromRunnable(() -> {
+                    mirrorRangeHeaders(headers, response);
+                    response.setStatus(status.value());
+                }))
+                .then(DataBufferUtils.write(clientResponse.bodyToFlux(DataBuffer.class), outputStream).then());
+    }
+
+    /**
+     * 把服务端响应里的 Range 相关响应头原样转给浏览器。
+     *
+     * @param headers  服务端响应头
+     * @param response 待写入的 Servlet 响应
+     */
+    private static void mirrorRangeHeaders(HttpHeaders headers, HttpServletResponse response) {
+        for (String name : List.of(HttpHeaders.CONTENT_RANGE, HttpHeaders.CONTENT_LENGTH, HttpHeaders.ACCEPT_RANGES)) {
+            List<String> values = headers.get(name);
+            if (values != null) {
+                values.forEach(value -> response.addHeader(name, value));
+            }
+        }
     }
 
     /**

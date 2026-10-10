@@ -3,6 +3,7 @@ package com.github.wrx886.e2echo.client.controller;
 import com.github.wrx886.e2echo.client.api.FileApi;
 import com.github.wrx886.e2echo.client.service.FileService;
 import com.github.wrx886.e2echo.client.vo.message.ChatFileMessageVo;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
@@ -13,7 +14,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import java.nio.charset.StandardCharsets;
 
@@ -77,30 +77,32 @@ public class FileController {
      * 广播文件下载：把对象存储里的内容直接透传给前端。
      *
      * <p>广播通道（{@code BROADCAST_*_NONE}）不加密，文件本体就是原样存进对象存储的，所以这里不需要
-     * 解密、也不用落盘：直接把文件流写进响应流。</p>
+     * 解密、也不用落盘：把浏览器的 {@code Range} 头原样转给服务端，再把服务端的状态码与内容转回去。</p>
      *
-     * <p>响应体用 {@link StreamingResponseBody} 而不是 {@code Resource}：文件在服务端的对象存储里，
-     * 本地没有对应的文件可指，因此也不支持 {@code Range}（视频拖动进度条）。</p>
+     * <p>正因为是原样透传，广播里的视频、音频也能靠 {@code Range} 拖动进度条（服务端命中范围时回
+     * {@code 206}）。</p>
      *
      * @param objectKey   对象存储里的对象键
      * @param filename    文件名，用于响应头里的展示名，可以为空
      * @param contentType 内容类型（MIME，如 {@code image/png}），为空按
      *                    {@code application/octet-stream} 处理
-     * @return 文件内容流
+     * @param rangeHeader 浏览器的 {@code Range} 请求头，未带时为空
+     * @param response    待写入的 Servlet 响应
      */
     @GetMapping("broadcast")
-    public ResponseEntity<StreamingResponseBody> broadcast(
+    public void broadcast(
             @NotBlank String objectKey,
             String filename,
-            String contentType
+            String contentType,
+            @RequestHeader(value = HttpHeaders.RANGE, required = false) String rangeHeader,
+            HttpServletResponse response
     ) {
         String name = StringUtils.hasText(filename) ? filename : "file";
-        return ResponseEntity.ok()
-                .contentType(mediaTypeOf(contentType))
-                // 用 inline：图片、播放器就地展示，而不是让浏览器弹出"另存为"
-                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.inline()
-                        .filename(name, StandardCharsets.UTF_8).build().toString())
-                .body(outputStream -> fileApi.download(objectKey, outputStream));
+        response.setContentType(mediaTypeOf(contentType).toString());
+        // 用 inline：图片、播放器就地展示，而不是让浏览器弹出"另存为"
+        response.setHeader(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.inline()
+                .filename(name, StandardCharsets.UTF_8).build().toString());
+        fileApi.download(objectKey, rangeHeader, response);
     }
 
     /**
