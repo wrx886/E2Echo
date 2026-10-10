@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
   Download,
   Loading,
@@ -10,16 +10,15 @@ import {
   ZoomOut,
 } from '@element-plus/icons-vue'
 import type { ChatFileMessageVo } from '@/api'
+import { chatFileUrl } from '@/api'
 import { CHAT_PIN_TO_BOTTOM } from '@/utils/chatScroll'
-import { saveBlob } from '@/utils/download'
-import { loadMediaBlob, loadMediaUrl } from '@/utils/media'
-import { showError } from '@/utils/feedback'
+import { safeFileName } from '@/utils/filename'
 
 /**
  * 图片消息。
  *
- * <p>图片字节要 POST 给 client 才能拿到，所以不能直接写进 {@code src}：这里在图片将要进入视野时才
- * 去取（懒加载），取回后转成 object URL 渲染缩略图，点击弹窗看原图。</p>
+ * <p>文件接口支持 GET + Range + inline，地址可以直接写进 {@code src}：这里在图片将要进入视野时才
+ * 挂上地址（懒加载），加载完按最大边缩放显示，点击弹窗看原图。</p>
  */
 
 const props = defineProps<{
@@ -35,27 +34,20 @@ const props = defineProps<{
  */
 const pinToBottom = inject(CHAT_PIN_TO_BOTTOM, null)
 
-/** 缩略图的最大边长。 */
-const THUMB_MAX_SIZE = 320
+/** 是否已经进入视野：进入后才把地址交给 img，实现懒加载。 */
+const revealed = ref(false)
 
-/** 图片地址，空串表示还没取到。 */
-const url = ref('')
+/** 是否已经加载完成。 */
+const loaded = ref(false)
 
-/** 按最大边缩过的显示尺寸；量不出来时为 0，交给 CSS 约束。 */
-const width = ref(0)
-const height = ref(0)
-
-/** 是否正在取图片。 */
-const loading = ref(false)
-
-/** 取图片失败（或取回来但不是能渲染的图片）时的提示。 */
+/** 加载失败（或取回来但浏览器解不出图片）时的提示。 */
 const failed = ref('')
+
+/** 图片地址：空串表示还没进入视野。 */
+const src = computed(() => (revealed.value ? chatFileUrl(props.file) : ''))
 
 /** 是否正在看大图。 */
 const previewVisible = ref(false)
-
-/** 是否正在下载原图。 */
-const downloading = ref(false)
 
 /** 大图当前缩放倍数。 */
 const scale = ref(1)
@@ -180,85 +172,50 @@ let observer: IntersectionObserver | null = null
 const root = ref<HTMLDivElement>()
 
 /**
- * 取回图片。
+ * 让图片开始加载：进入视野时调用一次。
  */
-async function load(): Promise<void> {
-  if (loading.value) {
-    return
-  }
-  loading.value = true
-  failed.value = ''
-  try {
-    const address = await loadMediaUrl(props.file)
-    await measure(address)
-    url.value = address
-    // 等图片进入布局，再把视图贴回底部（用户已经往上翻的话聊天页会忽略）
-    await nextTick()
-    pinToBottom?.()
-  } catch (error) {
-    failed.value = '图片加载失败'
-    showError(error, '图片加载失败')
-  } finally {
-    loading.value = false
-  }
+function reveal(): void {
+  revealed.value = true
 }
 
 /**
- * 先量出图片的真实尺寸，再决定显示尺寸。
- *
- * <p>直接插入未解码的 {@code <img>} 会让气泡先塌成 0 再涨回来，高度来回变两次，滚动很难跟准；
- * 先把宽高算好写进去，气泡只会在插入时变高一次。量不出来（解码失败）就保持 0，退回由 CSS 约束。</p>
- *
- * @param address 图片地址
- */
-async function measure(address: string): Promise<void> {
-  try {
-    const image = new Image()
-    image.src = address
-    await image.decode()
-    const scale = Math.min(
-      1,
-      THUMB_MAX_SIZE / image.naturalWidth,
-      THUMB_MAX_SIZE / image.naturalHeight,
-    )
-    width.value = Math.round(image.naturalWidth * scale)
-    height.value = Math.round(image.naturalHeight * scale)
-  } catch {
-    width.value = 0
-    height.value = 0
-  }
-}
-
-/**
- * 图片渲染完成后贴一次底部：量尺寸失败时，尺寸要到这一刻才知道。
+ * 图片加载完成：标记完成，并让聊天页贴回底部（图片会撑高气泡）。
  */
 function onImageLoad(): void {
+  loaded.value = true
   pinToBottom?.()
 }
 
 /**
- * 下载原图：字节已经在缓存里（看图时取过），直接交给浏览器保存。
+ * 打开大图：还没加载完就不打开，免得弹出一个空白查看器。
  */
-async function onDownload(): Promise<void> {
-  downloading.value = true
-  try {
-    const blob = await loadMediaBlob(props.file)
-    saveBlob(blob, props.file.filename)
-  } catch (error) {
-    showError(error, '图片下载失败')
-  } finally {
-    downloading.value = false
+function openPreview(): void {
+  if (loaded.value) {
+    previewVisible.value = true
   }
 }
 
 /**
- * 重试：先清掉地址再取一次。
+ * 下载原图：直接用文件接口的地址触发一次浏览器下载，不再自己取字节再转 object URL。
+ */
+function onDownload(): void {
+  const anchor = document.createElement('a')
+  anchor.href = chatFileUrl(props.file)
+  anchor.download = safeFileName(props.file.filename)
+  document.body.appendChild(anchor)
+  anchor.click()
+  document.body.removeChild(anchor)
+}
+
+/**
+ * 重试：把图片重新挂一次，触发一次新的请求。
  */
 async function onRetry(): Promise<void> {
-  url.value = ''
-  width.value = 0
-  height.value = 0
-  await load()
+  failed.value = ''
+  loaded.value = false
+  revealed.value = false
+  await nextTick()
+  revealed.value = true
 }
 
 /**
@@ -273,7 +230,7 @@ onMounted(() => {
   // 拿不到观察器就直接加载，保证功能可用，只是失去懒加载
   if (!element || typeof IntersectionObserver === 'undefined') {
     started = true
-    void load()
+    reveal()
     return
   }
   observer = new IntersectionObserver((entries) => {
@@ -283,7 +240,7 @@ onMounted(() => {
     started = true
     observer?.disconnect()
     observer = null
-    void load()
+    reveal()
   }, { rootMargin: '200px' })
   observer.observe(element)
 })
@@ -303,29 +260,26 @@ watch(previewVisible, (value) => {
 
 <template>
   <div ref="root" class="image">
-    <div v-if="url && failed.length === 0" class="image__box" @click="previewVisible = true">
+    <!-- 进入视野后才挂上地址；解码完成前由占位块撑住尺寸，点图片看大图 -->
+    <div v-if="failed.length === 0" class="image__box" @click="openPreview">
       <img
+        v-if="revealed"
         class="image__img"
-        :src="url"
-        :width="width > 0 ? width : undefined"
-        :height="height > 0 ? height : undefined"
+        :class="{ 'image__img--loading': !loaded }"
+        :src="src"
         :alt="file.filename"
         @load="onImageLoad"
         @error="onImageError"
       />
+      <div v-if="!loaded" class="image__placeholder">
+        <el-icon class="is-loading" :size="18"><Loading /></el-icon>
+      </div>
     </div>
 
-    <div v-else-if="loading" class="image__placeholder">
-      <el-icon class="is-loading" :size="18"><Loading /></el-icon>
-    </div>
-
-    <div v-else-if="failed.length > 0" class="image__failed">
+    <div v-else class="image__failed">
       <span>{{ failed }}</span>
       <el-button size="small" text :icon="RefreshLeft" @click="onRetry">重试</el-button>
     </div>
-
-    <!-- 还没进入视野：留个占位，等懒加载触发 -->
-    <div v-else class="image__placeholder" />
 
     <el-dialog v-model="previewVisible" :title="file.filename" width="80%" align-center>
       <div
@@ -337,9 +291,9 @@ watch(previewVisible, (value) => {
         @pointerleave="onPointerUp"
       >
         <img
-          v-if="url"
+          v-if="src"
           class="viewer__img"
-          :src="url"
+          :src="src"
           :style="{ transform: transformStyle }"
           :alt="file.filename"
           draggable="false"
@@ -348,7 +302,7 @@ watch(previewVisible, (value) => {
 
       <div class="viewer__bar">
         <el-button-group>
-          <el-button :icon="Download" :loading="downloading" title="下载原图" @click="onDownload" />
+          <el-button :icon="Download" title="下载原图" @click="onDownload" />
           <el-button :icon="ZoomOut" title="缩小" @click="zoomOut" />
           <el-button :icon="ZoomIn" title="放大" @click="zoomIn" />
           <el-button :icon="RefreshLeft" title="左转 90°" @click="rotateLeft" />
@@ -372,14 +326,22 @@ watch(previewVisible, (value) => {
 .image__box {
   display: block;
   cursor: zoom-in;
+  line-height: 0;
 }
 
 .image__img {
   display: block;
-  max-width: 100%;
-  /* 宽高由组件按真实比例写好，窄窗口下只收缩宽度、高度按同比例跟着变 */
-  height: auto;
+  /* 缩略图最大边 320，窄窗口下按可用宽度收缩 */
+  max-width: min(320px, 100%);
+  max-height: 320px;
   border-radius: 4px;
+}
+
+/* 还没解码出来：不占位、不可见，由占位块撑住气泡 */
+.image__img--loading {
+  width: 0;
+  height: 0;
+  opacity: 0;
 }
 
 .image__placeholder {

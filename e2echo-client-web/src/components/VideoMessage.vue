@@ -1,21 +1,16 @@
 <script setup lang="ts">
-import { inject, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { Loading, RefreshLeft } from '@element-plus/icons-vue'
+import { chatFileUrl } from '@/api'
 import type { ChatFileMessageVo } from '@/api'
 import { CHAT_PIN_TO_BOTTOM } from '@/utils/chatScroll'
-import { showError } from '@/utils/feedback'
-import { loadMediaUrl } from '@/utils/media'
 
 /**
  * 视频消息。
  *
- * <p>视频字节要 POST 给 client 才能拿到，所以不能直接写进 {@code src}：这里在将要进入视野时才去取
- * （懒加载），取回后转成 object URL 用播放器内嵌播放。放大、全屏、画中画都用播放器自带的能力，
- * 下载同理，前端不再另外放按钮或弹窗。</p>
+ * <p>文件接口支持 GET + Range，地址可以直接写进 {@code src}：这里在将要进入视野时才挂上地址（懒加载），
+ * 播放器自己取、自己按区间请求。放大、全屏、画中画、下载都用播放器自带的能力。</p>
  */
-
-/** 内嵌播放器的最大边长。 */
-const THUMB_MAX_SIZE = 320
 
 const props = defineProps<{
   /** 视频消息正文（文件名、密钥、对象键）。 */
@@ -27,18 +22,14 @@ const props = defineProps<{
  */
 const pinToBottom = inject(CHAT_PIN_TO_BOTTOM, null)
 
-/** 视频地址，空串表示还没取到。 */
-const url = ref('')
+/** 是否已经进入视野：进入后才把地址交给播放器，实现懒加载。 */
+const revealed = ref(false)
 
-/** 按最长边缩过的显示尺寸；量不出来时为 0，交给 CSS 约束。 */
-const width = ref(0)
-const height = ref(0)
-
-/** 是否正在取视频。 */
-const loading = ref(false)
-
-/** 取视频失败（或取回来但没法播放）时的提示。 */
+/** 加载失败（或取回来但播放器解不出来）时的提示。 */
 const failed = ref('')
+
+/** 视频地址：空串表示还没进入视野。 */
+const src = computed(() => (revealed.value ? chatFileUrl(props.file) : ''))
 
 /** 懒加载是否已经触发过，只触发一次。 */
 let started = false
@@ -50,76 +41,27 @@ let observer: IntersectionObserver | null = null
 const root = ref<HTMLDivElement>()
 
 /**
- * 取回视频。
+ * 让播放器开始加载：进入视野时调用一次。
  */
-async function load(): Promise<void> {
-  if (loading.value) {
-    return
-  }
-  loading.value = true
-  failed.value = ''
-  try {
-    const address = await loadMediaUrl(props.file)
-    await measure(address)
-    url.value = address
-    // 等播放器进入布局，再把视图贴回底部（用户已经往上翻的话聊天页会忽略）
-    await nextTick()
-    pinToBottom?.()
-  } catch (error) {
-    failed.value = '视频加载失败'
-    showError(error, '视频加载失败')
-  } finally {
-    loading.value = false
-  }
+function reveal(): void {
+  revealed.value = true
 }
 
 /**
- * 先量出视频尺寸，再决定显示尺寸（和图片一样，避免气泡先塌后涨）。
- *
- * @param address 视频地址
+ * 拿到元数据：尺寸在这一刻确定，让聊天页贴回底部（播放器会撑高气泡）。
  */
-async function measure(address: string): Promise<void> {
-  try {
-    const video = document.createElement('video')
-    video.preload = 'metadata'
-    video.src = address
-    await new Promise<void>((resolve, reject) => {
-      const timer = window.setTimeout(() => reject(new Error('读取超时')), 3000)
-      video.onloadedmetadata = () => {
-        window.clearTimeout(timer)
-        resolve()
-      }
-      video.onerror = () => {
-        window.clearTimeout(timer)
-        reject(new Error('读取失败'))
-      }
-    })
-    if (video.videoWidth === 0 || video.videoHeight === 0) {
-      width.value = 0
-      height.value = 0
-      return
-    }
-    const scale = Math.min(
-      1,
-      THUMB_MAX_SIZE / video.videoWidth,
-      THUMB_MAX_SIZE / video.videoHeight,
-    )
-    width.value = Math.round(video.videoWidth * scale)
-    height.value = Math.round(video.videoHeight * scale)
-  } catch {
-    width.value = 0
-    height.value = 0
-  }
+function onLoadedMetadata(): void {
+  pinToBottom?.()
 }
 
 /**
- * 重试：先清掉地址再取一次。
+ * 重试：把播放器重新挂一次，触发一次新的请求。
  */
 async function onRetry(): Promise<void> {
-  url.value = ''
-  width.value = 0
-  height.value = 0
-  await load()
+  failed.value = ''
+  revealed.value = false
+  await nextTick()
+  revealed.value = true
 }
 
 /**
@@ -134,7 +76,7 @@ onMounted(() => {
   // 拿不到观察器就直接加载，保证功能可用，只是失去懒加载
   if (!element || typeof IntersectionObserver === 'undefined') {
     started = true
-    void load()
+    reveal()
     return
   }
   observer = new IntersectionObserver((entries) => {
@@ -144,7 +86,7 @@ onMounted(() => {
     started = true
     observer?.disconnect()
     observer = null
-    void load()
+    reveal()
   }, { rootMargin: '200px' })
   observer.observe(element)
 })
@@ -158,29 +100,24 @@ onBeforeUnmount(() => {
 <template>
   <div ref="root" class="video">
     <video
-      v-if="url && failed.length === 0"
+      v-if="revealed && failed.length === 0"
       class="video__player"
-      :src="url"
-      :width="width > 0 ? width : undefined"
-      :height="height > 0 ? height : undefined"
+      :src="src"
       controls
       preload="metadata"
-      @loadedmetadata="pinToBottom?.()"
+      @loadedmetadata="onLoadedMetadata"
       @error="onVideoError"
     />
 
-    <div v-else-if="loading" class="video__placeholder">
+    <!-- 还没进入视野：留个占位，等懒加载触发 -->
+    <div v-if="!revealed && failed.length === 0" class="video__placeholder">
       <el-icon class="is-loading" :size="18"><Loading /></el-icon>
     </div>
 
-    <div v-else-if="failed.length > 0" class="video__failed">
+    <div v-if="failed.length > 0" class="video__failed">
       <span>{{ failed }}</span>
       <el-button size="small" text :icon="RefreshLeft" @click="onRetry">重试</el-button>
     </div>
-
-    <!-- 还没进入视野：留个占位，等懒加载触发 -->
-    <div v-else class="video__placeholder" />
-
   </div>
 </template>
 
@@ -193,8 +130,9 @@ onBeforeUnmount(() => {
 
 .video__player {
   display: block;
-  max-width: 100%;
-  height: auto;
+  /* 播放器最大边 320，窄窗口下按可用宽度收缩 */
+  max-width: min(320px, 100%);
+  max-height: 320px;
   border-radius: 4px;
   background: #000;
 }

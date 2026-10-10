@@ -1,16 +1,15 @@
 <script setup lang="ts">
-import { inject, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { Headset, Loading, RefreshLeft } from '@element-plus/icons-vue'
+import { chatFileUrl } from '@/api'
 import type { ChatFileMessageVo } from '@/api'
 import { CHAT_PIN_TO_BOTTOM } from '@/utils/chatScroll'
-import { showError } from '@/utils/feedback'
-import { loadMediaUrl } from '@/utils/media'
 
 /**
  * 音频消息。
  *
- * <p>和视频一样：进入视野才去 client 取字节，取回后转成 object URL 交给浏览器原生播放器播放，
- * 下载直接用播放器自带的能力，前端不再单独放按钮。</p>
+ * <p>和视频一样：进入视野才把地址交给播放器（懒加载），播放器自己取、自己按区间请求。下载直接用
+ * 播放器自带的能力，前端不再单独放按钮。</p>
  */
 
 const props = defineProps<{
@@ -21,14 +20,14 @@ const props = defineProps<{
 /** 让聊天页把视图贴回底部的能力。 */
 const pinToBottom = inject(CHAT_PIN_TO_BOTTOM, null)
 
-/** 音频地址，空串表示还没取到。 */
-const url = ref('')
+/** 是否已经进入视野：进入后才把地址交给播放器，实现懒加载。 */
+const revealed = ref(false)
 
-/** 是否正在取音频。 */
-const loading = ref(false)
-
-/** 取音频失败（或取回来但没法播放）时的提示。 */
+/** 加载失败（或取回来但播放器解不出来）时的提示。 */
 const failed = ref('')
+
+/** 音频地址：空串表示还没进入视野。 */
+const src = computed(() => (revealed.value ? chatFileUrl(props.file) : ''))
 
 /** 懒加载是否已经触发过，只触发一次。 */
 let started = false
@@ -40,32 +39,27 @@ let observer: IntersectionObserver | null = null
 const root = ref<HTMLDivElement>()
 
 /**
- * 取回音频。
+ * 让播放器开始加载：进入视野时调用一次。
  */
-async function load(): Promise<void> {
-  if (loading.value) {
-    return
-  }
-  loading.value = true
-  failed.value = ''
-  try {
-    url.value = await loadMediaUrl(props.file)
-    await nextTick()
-    pinToBottom?.()
-  } catch (error) {
-    failed.value = '音频加载失败'
-    showError(error, '音频加载失败')
-  } finally {
-    loading.value = false
-  }
+function reveal(): void {
+  revealed.value = true
 }
 
 /**
- * 重试：先清掉地址再取一次。
+ * 拿到元数据：让聊天页贴回底部（气泡高度在这一刻定下来）。
+ */
+function onLoadedMetadata(): void {
+  pinToBottom?.()
+}
+
+/**
+ * 重试：把播放器重新挂一次，触发一次新的请求。
  */
 async function onRetry(): Promise<void> {
-  url.value = ''
-  await load()
+  failed.value = ''
+  revealed.value = false
+  await nextTick()
+  revealed.value = true
 }
 
 /**
@@ -80,7 +74,7 @@ onMounted(() => {
   // 拿不到观察器就直接加载，保证功能可用，只是失去懒加载
   if (!element || typeof IntersectionObserver === 'undefined') {
     started = true
-    void load()
+    reveal()
     return
   }
   observer = new IntersectionObserver((entries) => {
@@ -90,7 +84,7 @@ onMounted(() => {
     started = true
     observer?.disconnect()
     observer = null
-    void load()
+    reveal()
   }, { rootMargin: '200px' })
   observer.observe(element)
 })
@@ -103,25 +97,30 @@ onBeforeUnmount(() => {
 
 <template>
   <div ref="root" class="audio">
-    <template v-if="url && failed.length === 0">
+    <template v-if="revealed && failed.length === 0">
       <div class="audio__head">
         <el-icon class="audio__icon" :size="16"><Headset /></el-icon>
         <span class="audio__name" :title="file.filename">{{ file.filename }}</span>
       </div>
-      <audio class="audio__player" :src="url" controls preload="metadata" @error="onAudioError" />
+      <audio
+        class="audio__player"
+        :src="src"
+        controls
+        preload="metadata"
+        @loadedmetadata="onLoadedMetadata"
+        @error="onAudioError"
+      />
     </template>
 
-    <div v-else-if="loading" class="audio__placeholder">
+    <!-- 还没进入视野：留个占位，等懒加载触发 -->
+    <div v-if="!revealed && failed.length === 0" class="audio__placeholder">
       <el-icon class="is-loading" :size="18"><Loading /></el-icon>
     </div>
 
-    <div v-else-if="failed.length > 0" class="audio__failed">
+    <div v-if="failed.length > 0" class="audio__failed">
       <span>{{ failed }}</span>
       <el-button size="small" text :icon="RefreshLeft" @click="onRetry">重试</el-button>
     </div>
-
-    <!-- 还没进入视野：留个占位，等懒加载触发 -->
-    <div v-else class="audio__placeholder" />
   </div>
 </template>
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { Document, Download } from '@element-plus/icons-vue'
 import {
   MESSAGE_TYPE_CHAT_FILE,
@@ -8,7 +8,7 @@ import {
   MESSAGE_TYPE_CHAT_FILE_VIDEO,
   audioMessageOf,
   chatTextOf,
-  downloadChatFile,
+  chatFileUrl,
   fileMessageOf,
   groupKeyOf,
   imageMessageOf,
@@ -20,8 +20,7 @@ import AudioMessage from '@/components/AudioMessage.vue'
 import ImageMessage from '@/components/ImageMessage.vue'
 import GroupKeyMessage from '@/components/GroupKeyMessage.vue'
 import VideoMessage from '@/components/VideoMessage.vue'
-import { saveBlob } from '@/utils/download'
-import { showError } from '@/utils/feedback'
+import { safeFileName } from '@/utils/filename'
 import { shortKey } from '@/utils/display'
 
 /**
@@ -82,9 +81,6 @@ const attachmentBroken = computed(() => {
   return ''
 })
 
-/** 是否正在下载。 */
-const downloading = ref(false)
-
 /**
  * 群聊密钥消息的来源是否可信。
  *
@@ -101,22 +97,19 @@ const avatar = computed(() =>
   props.mine && props.mineAvatar ? props.mineAvatar : shortKey(props.message.from, 2))
 
 /**
- * 下载文件消息：取回解密后的内容，再交给浏览器保存。
+ * 下载文件消息：直接用文件接口的地址触发一次浏览器下载。
  */
-async function onDownloadFile(): Promise<void> {
+function onDownloadFile(): void {
   const file = fileBody.value
   if (!file) {
     return
   }
-  downloading.value = true
-  try {
-    const blob = await downloadChatFile(file)
-    saveBlob(blob, file.filename)
-  } catch (error) {
-    showError(error, '文件下载失败')
-  } finally {
-    downloading.value = false
-  }
+  const anchor = document.createElement('a')
+  anchor.href = chatFileUrl(file)
+  anchor.download = safeFileName(file.filename)
+  document.body.appendChild(anchor)
+  anchor.click()
+  document.body.removeChild(anchor)
 }
 </script>
 
@@ -183,7 +176,6 @@ async function onDownloadFile(): Promise<void> {
             size="small"
             type="primary"
             :icon="Download"
-            :loading="downloading"
             @click="onDownloadFile"
           >
             下载
