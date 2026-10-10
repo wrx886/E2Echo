@@ -264,8 +264,15 @@ function onDownloadFile(): void {
   max-width: 100%;
 }
 
-/* 图片、视频这类媒体气泡：不留底色与阴影，只留一点内边距，让媒体本身成为气泡 */
+/*
+  图片、视频这类媒体气泡：不留底色与阴影，只留一点内边距，让媒体本身成为气泡。
+  宽度上限放在气泡上、而不是媒体上：媒体的 max-width 百分比要相对父级算，而父级是按内容
+  收缩的，浏览器算内容宽度时会忽略这个百分比，结果气泡被媒体的原始尺寸撑宽、右侧空出一块。
+  328 = 内容 320 + 左右各 4px 内边距。
+*/
 .bubble.bubble--media {
+  width: fit-content;
+  max-width: 328px;
   padding: 4px;
   background: transparent;
   box-shadow: none;

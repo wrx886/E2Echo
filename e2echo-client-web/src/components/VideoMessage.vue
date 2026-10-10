@@ -130,9 +130,10 @@ onBeforeUnmount(() => {
 
 .video__player {
   display: block;
-  /* 播放器最大边 320，窄窗口下按可用宽度收缩 */
-  max-width: min(320px, 100%);
+  /* 宽度上限由外层媒体气泡控制，这里只管填满并按需要收缩 */
+  max-width: 100%;
   max-height: 320px;
+  height: auto;
   border-radius: 4px;
   background: #000;
 }
