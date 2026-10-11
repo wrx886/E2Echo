@@ -7,6 +7,7 @@ import com.github.wrx886.e2echo.client.vo.broadcast.BroadcastUserinfo;
 import com.github.wrx886.e2echo.client.vo.req.BroadcastMessageListReq;
 import com.github.wrx886.e2echo.client.vo.req.BroadcastMessageReq;
 import com.github.wrx886.e2echo.client.vo.resp.BroadcastMessageRespVo;
+import com.github.wrx886.e2echo.client.vo.resp.BroadcastUserinfoRespVo;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
@@ -34,15 +35,17 @@ public class BroadcastController {
      * 查询某个用户的资料。
      *
      * @param uid 用户公钥
-     * @return 用户资料，没有资料时 {@code data} 为 {@code null}
+     * @return 用户资料及消息信息（作者看 {@code from}），没有资料时 {@code data} 为 {@code null}
      */
     @GetMapping("userinfo/{uid}")
-    public Result<BroadcastUserinfo> userinfo(@NotBlank @PathVariable String uid) {
+    public Result<BroadcastUserinfoRespVo> userinfo(@NotBlank @PathVariable String uid) {
         return Result.ok(service.userinfo(uid));
     }
 
     /**
      * 发布当前用户的资料（签名后作为广播消息发到服务端）。
+     *
+     * <p>作者固定是当前登录用户，正文里不带公钥。</p>
      *
      * @param userinfo 用户资料
      * @return 空结果

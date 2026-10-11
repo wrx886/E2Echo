@@ -10,6 +10,7 @@ import com.github.wrx886.e2echo.client.vo.broadcast.BroadcastUserinfo;
 import com.github.wrx886.e2echo.client.vo.req.BroadcastMessageListReq;
 import com.github.wrx886.e2echo.client.vo.req.MessageListReqVo;
 import com.github.wrx886.e2echo.client.vo.resp.BroadcastMessageRespVo;
+import com.github.wrx886.e2echo.client.vo.resp.BroadcastUserinfoRespVo;
 import com.github.wrx886.e2echo.ecc.Ecc;
 import com.github.wrx886.e2echo.ecc.EccMessage;
 import jakarta.validation.Valid;
@@ -58,9 +59,10 @@ public class BroadcastService {
      * 查询某个用户的资料：取该用户最新的一条用户资料广播。
      *
      * @param uid 用户公钥
-     * @return 用户资料，没有资料或签名校验不通过时返回 {@code null}
+     * @return 用户资料及消息信息（作者看签名过的 {@code from}），没有资料或签名校验不通过时返回
+     *         {@code null}
      */
-    public BroadcastUserinfo userinfo(@NotBlank String uid) {
+    public BroadcastUserinfoRespVo userinfo(@NotBlank String uid) {
         PageData<EccMessage> eccMessages = messageApi.list(new MessageListReqVo(
                 List.of(uid),
                 null,
@@ -89,11 +91,21 @@ public class BroadcastService {
         }
 
         // 正式返回数据
-        return objectMapper.readValue(eccMessage.getMessage(), BroadcastUserinfo.class);
+        return new BroadcastUserinfoRespVo(
+                eccMessage.getId(),
+                eccMessage.getFrom(),
+                eccMessage.getTo(),
+                objectMapper.readValue(eccMessage.getMessage(), BroadcastUserinfo.class),
+                eccMessage.getType(),
+                eccMessage.getChannel(),
+                eccMessage.getInfo()
+        );
     }
 
     /**
      * 发布当前用户的资料：签名后作为一条广播消息发给服务端。
+     *
+     * <p>作者固定是当前登录用户（公钥写进 {@code from} 并参与签名），正文里不再带公钥。</p>
      *
      * @param userinfo 用户资料
      * @throws E2EchoException 签名失败，或发送失败
