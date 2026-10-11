@@ -215,6 +215,17 @@ export const useBroadcastStore = defineStore('broadcast', () => {
   const postAnchorId = ref('')
 
   /**
+   * 用户主页的定位锚点：从主页里点开某条帖子再返回时，把那条帖子滚回中间。
+   *
+   * <p>锚点带上是哪个人的主页（见 {@link profileAnchorUid}）：换一个人看时，上一个主页的锚点
+   * 不能套过来。</p>
+   */
+  const profileAnchorId = ref('')
+
+  /** 主页锚点所属的用户公钥。 */
+  const profileAnchorUid = ref('')
+
+  /**
    * 加载帖子。
    *
    * <p>先把上一次的内容清掉：查不到（服务端返回失败会抛异常）或正文有问题时，赋值不会发生，
@@ -370,7 +381,7 @@ export const useBroadcastStore = defineStore('broadcast', () => {
     posts, postsLoading, postsHasMore, loadPosts, refreshPosts, createPost,
     feedAnchorId,
     post, postLoading, comments, commentsLoading, commentsHasMore,
-    commentsOrder, postAnchorId,
+    commentsOrder, postAnchorId, profileAnchorId, profileAnchorUid,
     loadPost, openPost, loadComments, createComment, findComment,
     userPosts, userPostsLoading, userPostsHasMore, loadUserPosts,
   }

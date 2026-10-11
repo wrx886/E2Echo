@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ArrowLeft, DocumentCopy, Edit, Picture } from '@element-plus/icons-vue'
@@ -65,6 +65,21 @@ const avatarInput = ref<HTMLInputElement>()
 /** 是否放大查看头像。 */
 const avatarPreviewVisible = ref(false)
 
+/** 主页滚动容器。 */
+const listEl = ref<HTMLDivElement>()
+
+/** 内容容器，用来观察内容高度变化。 */
+const contentEl = ref<HTMLDivElement>()
+
+/** 待定位的帖子 ID：从主页点开帖子再返回时，把那条帖子滚回可视区中间。 */
+const pendingAnchor = ref('')
+
+/** 重新定位的截止时间：附件加载完之前一直跟着挪，之后就交给用户。 */
+let anchorDeadline = 0
+
+/** 内容高度观察器。 */
+let contentObserver: ResizeObserver | null = null
+
 watch(uid, async (value) => {
   if (value.length === 0) {
     return
@@ -76,6 +91,14 @@ watch(uid, async (value) => {
     await broadcastStore.loadProfile(value, true)
     fillForm()
     await broadcastStore.loadUserPosts(value, true)
+    // 把上次从主页点开的那条帖子放回可视区中间（换人看时锚点不套用）
+    pendingAnchor.value = broadcastStore.profileAnchorUid === value
+      ? broadcastStore.profileAnchorId
+      : ''
+    anchorDeadline = Date.now() + 3000
+    await nextTick()
+    applyAnchor()
+    observeContent()
   } catch (error) {
     showError(error, '加载主页失败')
   }
@@ -90,7 +113,48 @@ watch(() => userStore.publicKey, () => {
 
 onUnmounted(() => {
   clearAvatarFile()
+  contentObserver?.disconnect()
+  contentObserver = null
 })
+
+/**
+ * 把锚点帖子滚到可视区中间。
+ */
+function applyAnchor(): void {
+  const id = pendingAnchor.value
+  const container = listEl.value
+  if (id.length === 0 || !container) {
+    return
+  }
+  const target = container.querySelector(`[data-item-id="${id}"]`)
+  target?.scrollIntoView({ block: 'center' })
+}
+
+/**
+ * 观察内容高度：附件异步加载会让内容变高、锚点位置跟着变，这段时间里持续把它拉回中间。
+ */
+function observeContent(): void {
+  contentObserver?.disconnect()
+  contentObserver = null
+  const content = contentEl.value
+  if (!content || typeof ResizeObserver === 'undefined') {
+    return
+  }
+  contentObserver = new ResizeObserver(() => {
+    if (pendingAnchor.value.length === 0 || Date.now() > anchorDeadline) {
+      return
+    }
+    applyAnchor()
+  })
+  contentObserver.observe(content)
+}
+
+/**
+ * 用户自己滚动：不要再把视图拽回锚点。
+ */
+function onUserScroll(): void {
+  pendingAnchor.value = ''
+}
 
 /**
  * 返回上一页；直接打开（没有历史）时回时间线。
@@ -246,15 +310,21 @@ async function onLoadMore(): Promise<void> {
  * @param id 帖子消息 ID
  */
 function openPost(id: string): void {
+  // 记下点开的是哪条、属于谁的主页，返回时把它放回中间
+  broadcastStore.profileAnchorUid = uid.value
+  broadcastStore.profileAnchorId = id
   void router.push({ name: 'broadcast-post', params: { id } })
 }
 
 /**
  * 打开另一个用户的主页。
  *
- * @param value 用户公钥
+ * @param value  用户公钥
+ * @param itemId 这条内容的 ID，回来时用它定位
  */
-function openUser(value: string): void {
+function openUser(value: string, itemId: string): void {
+  broadcastStore.profileAnchorUid = uid.value
+  broadcastStore.profileAnchorId = itemId
   if (value === uid.value) {
     return
   }
@@ -275,7 +345,13 @@ function openUser(value: string): void {
       <span class="profile__title">用户主页</span>
     </header>
 
-    <div class="profile__body scroll-y">
+    <div
+      ref="listEl"
+      class="profile__body scroll-y"
+      @wheel.passive="onUserScroll"
+      @touchstart.passive="onUserScroll"
+    >
+      <div ref="contentEl">
       <div class="profile__card">
         <el-avatar
           :size="56"
@@ -374,6 +450,7 @@ function openUser(value: string): void {
           <span v-else class="profile__end">没有更多了</span>
         </div>
       </template>
+      </div>
     </div>
 
     <input
