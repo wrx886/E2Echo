@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { Document, Download } from '@element-plus/icons-vue'
 import {
   MESSAGE_TYPE_CHAT_FILE,
@@ -17,6 +17,7 @@ import {
 } from '@/api'
 import type { MessageVo } from '@/api'
 import AudioMessage from '@/components/AudioMessage.vue'
+import ChatUserCard from '@/components/ChatUserCard.vue'
 import ImageMessage from '@/components/ImageMessage.vue'
 import GroupKeyMessage from '@/components/GroupKeyMessage.vue'
 import VideoMessage from '@/components/VideoMessage.vue'
@@ -40,6 +41,9 @@ const props = defineProps<{
   /** 自己的头像文字；为空时按发送者公钥算。 */
   mineAvatar?: string
 }>()
+
+/** 用户小卡片是否打开。 */
+const cardVisible = ref(false)
 
 /** 文字正文，非文字消息为空。 */
 const text = computed(() => chatTextOf(props.message))
@@ -115,13 +119,27 @@ function onDownloadFile(): void {
 
 <template>
   <div class="bubble-row" :class="mine ? 'bubble-row--mine' : 'bubble-row--other'">
-    <el-avatar
-      :size="32"
-      class="bubble-row__avatar"
-      :class="{ 'bubble-row__avatar--mine': mine }"
+    <!-- 点对方头像弹出用户卡片：看别名与公钥，并按有没有会话给出对应操作 -->
+    <el-popover
+      v-model:visible="cardVisible"
+      :disabled="mine"
+      placement="top-start"
+      :width="300"
+      trigger="click"
     >
-      {{ avatar }}
-    </el-avatar>
+      <template #reference>
+        <el-avatar
+          :size="32"
+          class="bubble-row__avatar"
+          :class="{ 'bubble-row__avatar--mine': mine }"
+          :title="mine ? '' : '查看对方信息'"
+        >
+          {{ avatar }}
+        </el-avatar>
+      </template>
+
+      <ChatUserCard :uid="message.from" @close="cardVisible = false" />
+    </el-popover>
 
     <div class="bubble-row__body">
       <div v-if="group && !mine" class="bubble-row__name">{{ shortKey(message.from) }}</div>
@@ -211,6 +229,11 @@ function onDownloadFile(): void {
 .bubble-row__avatar--mine {
   background: #07c160;
   color: #fff;
+}
+
+/* 对方头像可点：打开与 TA 的会话 */
+.bubble-row--other .bubble-row__avatar {
+  cursor: pointer;
 }
 
 .bubble-row__body {

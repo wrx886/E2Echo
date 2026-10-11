@@ -135,9 +135,8 @@ async function onCopy(): Promise<void> {
 }
 
 .profile__key {
-  max-height: 96px;
+  /* 公钥固定 130 位、行数有限，完整显示即可，不用滚动 */
   margin-top: 4px;
-  overflow-y: auto;
   padding: 6px 8px;
   border-radius: 4px;
   background: #f5f7fa;

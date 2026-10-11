@@ -83,7 +83,7 @@ watch(() => form.value.group, (value) => {
  * 新增页与设置页用的是同一个组件，路由在这两者之间切换时组件实例会被复用、不会重新挂载，
  * 所以这里监听路由把表单重置干净，否则新增页会带着上一个会话的数据。
  */
-watch(() => `${String(route.name ?? '')}|${peer.value}`, async () => {
+watch(() => `${String(route.name ?? '')}|${peer.value}|${String(route.query.peer ?? '')}`, async () => {
   form.value = { id: '', peer: '', alias: '', group: false, enabled: true }
   aliasEdited.value = false
   missing.value = false
@@ -91,6 +91,11 @@ watch(() => `${String(route.name ?? '')}|${peer.value}`, async () => {
   void userStore.ensureLoaded().catch(() => {})
 
   if (isCreate.value) {
+    // 从聊天里点别人头像过来时地址上带着对方公钥：直接填进输入框，别名会跟着自动生成
+    const queryPeer = String(route.query.peer ?? '').trim()
+    if (queryPeer.length > 0) {
+      form.value.peer = queryPeer
+    }
     return
   }
 
