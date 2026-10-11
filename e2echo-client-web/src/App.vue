@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue'
-import { RouterView } from 'vue-router'
+import { computed, onMounted, onUnmounted } from 'vue'
+import { RouterView, useRoute } from 'vue-router'
+import BroadcastNav from '@/components/BroadcastNav.vue'
 import ConversationList from '@/components/ConversationList.vue'
 import FeatureRail from '@/components/FeatureRail.vue'
 import { useNoticeStore } from '@/stores/notice'
@@ -14,6 +15,10 @@ import { useUserStore } from '@/stores/user'
 
 const noticeStore = useNoticeStore()
 const userStore = useUserStore()
+const route = useRoute()
+
+/** 中间栏跟着功能走：聊天用会话列表，广播用广播导航。 */
+const isBroadcast = computed(() => route.path.startsWith('/broadcast'))
 
 onMounted(() => {
   // 身份只用于区分消息气泡，取不到不影响其他功能，所以这里不打断
@@ -29,7 +34,8 @@ onUnmounted(() => {
 <template>
   <div class="app-shell">
     <FeatureRail />
-    <ConversationList />
+    <BroadcastNav v-if="isBroadcast" />
+    <ConversationList v-else />
     <main class="app-shell__content">
       <RouterView />
     </main>

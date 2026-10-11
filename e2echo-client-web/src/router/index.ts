@@ -41,6 +41,26 @@ const router = createRouter({
       component: () => import('@/views/ConversationSettingsView.vue'),
     },
     {
+      path: '/broadcast',
+      name: 'broadcast-feed',
+      component: () => import('@/views/BroadcastFeedView.vue'),
+    },
+    {
+      path: '/broadcast/post/:id',
+      name: 'broadcast-post',
+      component: () => import('@/views/BroadcastPostView.vue'),
+    },
+    {
+      path: '/broadcast/new',
+      name: 'broadcast-create',
+      component: () => import('@/views/BroadcastCreateView.vue'),
+    },
+    {
+      path: '/broadcast/user/:uid',
+      name: 'broadcast-profile',
+      component: () => import('@/views/BroadcastProfileView.vue'),
+    },
+    {
       path: '/:pathMatch(.*)*',
       redirect: '/chat',
     },

@@ -96,6 +96,142 @@ export interface Page<T> {
 }
 
 /**
+ * 分页结果，对应 client 的 {@code PageData}。
+ *
+ * <p>与 {@link Page} 的区别：广播接口返回的是 client 自己重新组装的 {@code PageData}，只带这四项。</p>
+ *
+ * @param T 当前页的数据类型
+ */
+export interface PageData<T> {
+  /** 当前页的数据。 */
+  content: T[]
+  /** 当前页码，从 0 开始。 */
+  number: number
+  /** 每页条数。 */
+  size: number
+  /** 总条数。 */
+  totalElements: number
+}
+
+/** 帖子在广播消息 {@code to} 上的占位符：to 是它表示帖子，是帖子 ID 表示评论。 */
+export const BROADCAST_POST_TO = '*'
+
+/** 用户公钥的固定长度：未压缩 secp256k1 公钥的十六进制表示。 */
+export const PUBLIC_KEY_LENGTH = 130
+
+/** 消息 ID 的固定长度：16 位十六进制时间戳 + 32 位无连字符 UUID。 */
+export const MESSAGE_ID_LENGTH = 48
+
+/**
+ * 广播附件，对应 {@code BroadcastFileVo}。
+ *
+ * <p>广播通道不加密，附件原样存在对象存储里，所以这里没有密钥，只有取文件与展示所需的信息。</p>
+ */
+export interface BroadcastFileVo {
+  /** 对象存储里的对象键。 */
+  objectKey: string
+  /** 文件名，下载时用于命名。 */
+  filename: string
+  /** 内容类型（MIME），前端据此决定内嵌展示还是当文件。 */
+  contentType: string
+  /** 字节数。 */
+  size: number
+}
+
+/**
+ * 广播的用户资料，对应 {@code BroadcastUserinfo}。
+ *
+ * <p>正文里不含公钥：作者以所在广播消息的 {@code from} 为准（它参与签名，改不了），所以发布资料时
+ * 也不需要传自己的公钥。</p>
+ */
+export interface BroadcastUserinfo {
+  /** 昵称。 */
+  nickname: string
+  /** 性别，可以为空。 */
+  gender?: string | null
+  /** 头像地址，可以为空。 */
+  avatarUrl?: string | null
+  /** 个人简介，可以为空。 */
+  description?: string | null
+}
+
+/**
+ * 用户资料的返回结构，对应 {@code BroadcastUserinfoRespVo}。
+ */
+export interface BroadcastUserinfoRespVo {
+  /** 消息 ID（服务端生成）。 */
+  id: string
+  /** 资料所属用户的公钥，也是这条消息的签名者。 */
+  from: string
+  /** 发布目标，资料广播固定是占位符。 */
+  to: string
+  /** 解析后的用户资料正文。 */
+  userinfo: BroadcastUserinfo
+  /** 消息类型。 */
+  type: string
+  /** 消息通道。 */
+  channel: string
+  /** 消息附加信息。 */
+  info: string
+}
+
+/**
+ * 广播正文（帖子与评论共用），对应 {@code BroadcastMessageVo}。
+ */
+export interface BroadcastMessageVo {
+  /** 正文文本。 */
+  text: string
+  /** 附件列表。 */
+  files: BroadcastFileVo[]
+  /** 被回复评论的消息 ID：二级回复时填，帖子和直接评论帖子时为空。 */
+  replyToId?: string | null
+}
+
+/**
+ * 广播消息（帖子或评论），对应 {@code BroadcastMessageRespVo}。
+ */
+export interface BroadcastMessageRespVo {
+  /** 消息 ID，帖子与评论都用它被引用。 */
+  id: string
+  /** 发送者公钥。 */
+  from: string
+  /** 发布目标：{@link BROADCAST_POST_TO} 表示帖子，帖子 ID 表示该帖子下的评论。 */
+  to: string
+  /** 广播正文。 */
+  message: BroadcastMessageVo
+  /** 消息类型。 */
+  type: string
+  /** 消息通道。 */
+  channel: string
+  /** 消息附加信息。 */
+  info: string
+}
+
+/**
+ * 广播列表查询条件，对应 {@code BroadcastMessageListReq}。
+ */
+export interface BroadcastMessageListReq {
+  /** 作者公钥列表，空列表表示不按作者过滤。 */
+  from: string[]
+  /** 列表目标：{@link BROADCAST_POST_TO} 是帖子列表，帖子 ID 是该帖子下的评论。 */
+  to: string[]
+  /** 起始时间戳（毫秒，含），空串表示不限制。 */
+  startTimestamp: string
+  /** 结束时间戳（毫秒，含），空串表示不限制。 */
+  endTimestamp: string
+  /** 起始消息 ID，仅返回 ID 大于该值的消息，空串表示不限制。 */
+  startId: string
+  /** 结束消息 ID，仅返回 ID 小于该值的消息，空串表示不限制。 */
+  endId: string
+  /** 排序方向：{@code asc} 从老到新、{@code desc} 从新到老。 */
+  order: string
+  /** 页码，从 1 开始。 */
+  pageNum: number
+  /** 每页条数。 */
+  pageSize: number
+}
+
+/**
  * 文字聊天消息的正文，对应 {@code ChatTextMessageVo}。
  */
 export interface ChatTextMessageVo {

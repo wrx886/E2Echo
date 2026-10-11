@@ -281,7 +281,14 @@ watch(previewVisible, (value) => {
       <el-button size="small" text :icon="RefreshLeft" @click="onRetry">重试</el-button>
     </div>
 
-    <el-dialog v-model="previewVisible" :title="file.filename" width="80%" align-center>
+    <!-- append-to-body：弹窗挂到 body 上，不嵌在可滚动的消息列表里 -->
+    <el-dialog
+      v-model="previewVisible"
+      :title="file.filename"
+      width="80%"
+      align-center
+      append-to-body
+    >
       <div
         class="viewer"
         @wheel.prevent="onWheel"

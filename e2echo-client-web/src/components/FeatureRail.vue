@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import type { Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ChatDotRound } from '@element-plus/icons-vue'
+import { Promotion } from '@element-plus/icons-vue'
 import UserProfile from '@/components/UserProfile.vue'
 import { useConversationStore } from '@/stores/conversation'
 
@@ -27,6 +28,7 @@ interface Feature {
  */
 const features: Feature[] = [
   { key: 'chat', label: '聊天', path: '/chat', icon: ChatDotRound },
+  { key: 'broadcast', label: '广播', path: '/broadcast', icon: Promotion },
 ]
 
 const route = useRoute()
