@@ -36,10 +36,11 @@ import java.util.List;
 public class BroadcastService {
 
     /**
-     * 发帖时 {@code to} 的占位符。
+     * 帖子在 {@code to} 上的占位符。
      *
-     * <p>帖子没有具体接收者，而服务端要求 {@code to} 非空，所以用 {@code *} 占位。调用方不用关心它：
-     * 发帖、拉帖子列表时都传空字符串，这里会换成这个占位符（服务端只是存下来，不会拿它去匹配）。</p>
+     * <p>帖子没有具体接收者，而服务端要求 {@code to} 非空，所以用 {@code *} 占位。发帖时调用方传空
+     * 字符串，这里会换成它；拉帖子列表时调用方要自己传 {@code *}（列表查询按 {@code to} 区分帖子和
+     * 评论，不再做空串转换，见 {@link #listMessage(BroadcastMessageListReq)}）。</p>
      */
     private static final String POST_TO = "*";
 
@@ -167,20 +168,20 @@ public class BroadcastService {
     }
 
     /**
-     * 分页查询广播消息列表：{@code to} 传空字符串是帖子列表，传帖子 ID 是该帖子下的评论；{@code from}
-     * 传作者公钥就只看这个人的帖子/评论，传空字符串表示不按作者过滤。
+     * 分页查询广播消息列表：{@code to} 传 {@code *} 是帖子列表，传帖子 ID 是该帖子下的评论；{@code from}
+     * 传作者公钥列表就只看这些人的帖子/评论，传空列表表示不按作者过滤。
      *
      * <p>每一条都会验签，验签失败（或正文解析失败）的那条在结果里占位为 {@code null}，这样前端还能
      * 按顺序展示其余消息，不会因为一条坏数据整页失败。</p>
      *
-     * @param req 查询条件（作者、目标、时间范围、游标、分页）；目标是空字符串时查帖子列表
+     * @param req 查询条件（作者、目标、时间范围、游标、分页）；目标含 {@code *} 时查帖子列表
      * @return 广播消息分页结果，坏数据对应 {@code null}
      */
     public PageData<BroadcastMessageRespVo> listMessage(@Valid BroadcastMessageListReq req) {
         // 拉取消息
         PageData<EccMessage> eccMessages = messageApi.list(new MessageListReqVo(
-                StringUtils.hasText(req.from()) ? List.of(req.from()) : null,
-                List.of(StringUtils.hasText(req.to()) ? req.to() : POST_TO),
+                req.from(),
+                req.to(),
                 ChannelEnum.BROADCAST_MESSAGE_NONE.name(),
                 MessageTypeEnum.BROADCAST_MESSAGE.name(),
                 req.startTimestamp(),

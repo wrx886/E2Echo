@@ -1,7 +1,6 @@
 package com.github.wrx886.e2echo.client.vo.broadcast;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 
 /**
  * 广播的用户资料。
@@ -11,15 +10,15 @@ import jakarta.validation.constraints.NotNull;
  *
  * @param publicKey   用户公钥，也就是查询时用的 uid
  * @param nickname    昵称
- * @param gender      性别
- * @param avatarUrl   头像地址
- * @param description 个人简介
+ * @param gender      性别，可以为空
+ * @param avatarUrl   头像地址，可以为空
+ * @param description 个人简介，可以为空
  */
 public record BroadcastUserinfo(
         @NotBlank String publicKey,
         @NotBlank String nickname,
-        @NotNull String gender,
-        @NotNull String avatarUrl,
-        @NotNull String description
+        String gender,
+        String avatarUrl,
+        String description
 ) {
 }
