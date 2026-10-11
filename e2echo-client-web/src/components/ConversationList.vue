@@ -7,6 +7,7 @@ import type { ConversationDto } from '@/api'
 import { useConversationStore } from '@/stores/conversation'
 import { conversationTitle, formatTime } from '@/utils/display'
 import { showError } from '@/utils/feedback'
+import { afterPaint } from '@/utils/paint'
 
 /**
  * 会话区。
@@ -21,9 +22,12 @@ const router = useRouter()
 /** 列表滚动容器。 */
 const listEl = ref<HTMLDivElement>()
 
-/** 当前打开的会话对方，只在聊天页里算选中。 */
+/** 刚点下、还没真正跳过去的会话对方，用来先画出选中效果。 */
+const pendingPeer = ref('')
+
+/** 当前选中的会话对方：刚点的那个优先，其次看路由，都只在聊天页里算选中。 */
 const activePeer = computed(() =>
-  route.name === 'chat' ? String(route.params.peer ?? '') : '')
+  pendingPeer.value || (route.name === 'chat' ? String(route.params.peer ?? '') : ''))
 
 onMounted(async () => {
   try {
@@ -39,7 +43,13 @@ onMounted(async () => {
  * @param conversation 会话
  */
 function openConversation(conversation: ConversationDto): void {
-  router.push({ name: 'chat', params: { peer: conversation.peer } })
+  // 先把点击反馈画出来：这一步只改选中样式，浏览器能在当前帧直接绘制，
+  // 切会话（重建消息区）放到绘制之后再开始，否则反馈会和重活一起被推迟到下一帧
+  pendingPeer.value = conversation.peer
+  afterPaint(() => {
+    pendingPeer.value = ''
+    void router.push({ name: 'chat', params: { peer: conversation.peer } })
+  })
 }
 
 /**
@@ -207,6 +217,14 @@ function timeOf(conversation: ConversationDto): string {
 
 .conversation:hover {
   background: #ededed;
+}
+
+/*
+  按下就变色：切换偶尔要等一下才有反应，有了这个即时反馈，按下的一瞬间就能看到「点到了」，
+  不会觉得是没点中。纯 CSS，不依赖脚本。
+*/
+.conversation:active {
+  background: #e4e4e4;
 }
 
 .conversation--active {

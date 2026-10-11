@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { Document, Download } from '@element-plus/icons-vue'
 import {
   MESSAGE_TYPE_CHAT_FILE,
@@ -40,10 +40,37 @@ const props = defineProps<{
   group: boolean
   /** 自己的头像文字；为空时按发送者公钥算。 */
   mineAvatar?: string
+  /**
+   * 用户小卡片是否开在这条消息上。
+   *
+   * <p>整页同一时刻只有一张卡片，开在哪条消息上由聊天页决定：只有它的气泡会创建 el-popover。</p>
+   */
+  cardOpen?: boolean
 }>()
 
-/** 用户小卡片是否打开。 */
+const emit = defineEmits<{
+  /** 点了对方的头像，请求把用户卡片开在这条消息上。 */
+  'avatarClick': []
+  /** 用户卡片自己关掉了（点外部、按 Esc 或点了卡片里的关闭）。 */
+  'cardClose': []
+}>()
+
+/** 已创建出来的用户小卡片是否显示，挂上 el-popover 即为打开。 */
 const cardVisible = ref(false)
+
+// 聊天页把卡片指到这条消息时，挂上来的 popover 要直接是打开状态，用户不用再点一次头像
+watch(() => props.cardOpen === true, (open) => {
+  if (open) {
+    cardVisible.value = true
+  }
+}, { immediate: true })
+
+// 任何方式关掉都要告诉聊天页清掉「卡片开在哪条消息上」，否则 v-if 不会卸载 popover
+watch(cardVisible, (value) => {
+  if (!value) {
+    emit('cardClose')
+  }
+})
 
 /** 文字正文，非文字消息为空。 */
 const text = computed(() => chatTextOf(props.message))
@@ -101,6 +128,17 @@ const avatar = computed(() =>
   props.mine && props.mineAvatar ? props.mineAvatar : shortKey(props.message.from, 2))
 
 /**
+ * 点头像：请求聊天页把用户卡片开在这条消息上。
+ *
+ * <p>自己的头像没有卡片可看，直接忽略。</p>
+ */
+function onAvatarClick(): void {
+  if (!props.mine) {
+    emit('avatarClick')
+  }
+}
+
+/**
  * 下载文件消息：直接用文件接口的地址触发一次浏览器下载。
  */
 function onDownloadFile(): void {
@@ -119,12 +157,19 @@ function onDownloadFile(): void {
 
 <template>
   <div class="bubble-row" :class="mine ? 'bubble-row--mine' : 'bubble-row--other'">
-    <!-- 点对方头像弹出用户卡片：看别名与公钥，并按有没有会话给出对应操作 -->
+    <!--
+      点对方头像弹出用户卡片：看别名与公钥，并按有没有会话给出对应操作。
+
+      这里用 v-if 把 el-popover 限定在「卡片正开在这条消息上」时才创建：el-popover 挂的是
+      ElTooltip + 触发器 + 定位 + FocusTrap 一整套组件，一条消息一套的话，切换会话要卸载再挂载
+      整个消息列表，200 条消息就能在主线程上卡出 600ms 的长任务（实测 200 条约 700ms）。
+      整页同时最多只会有一张卡片，所以只会多出一个 popover。
+    -->
     <el-popover
+      v-if="cardOpen === true"
       v-model:visible="cardVisible"
-      :disabled="mine"
-      placement="top-start"
       :width="300"
+      placement="top-start"
       trigger="click"
     >
       <template #reference>
@@ -140,6 +185,17 @@ function onDownloadFile(): void {
 
       <ChatUserCard :uid="message.from" @close="cardVisible = false" />
     </el-popover>
+
+    <el-avatar
+      v-else
+      :size="32"
+      class="bubble-row__avatar"
+      :class="{ 'bubble-row__avatar--mine': mine }"
+      :title="mine ? '' : '查看对方信息'"
+      @click="onAvatarClick"
+    >
+      {{ avatar }}
+    </el-avatar>
 
     <div class="bubble-row__body">
       <div v-if="group && !mine" class="bubble-row__name">{{ shortKey(message.from) }}</div>

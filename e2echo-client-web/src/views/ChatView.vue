@@ -52,6 +52,14 @@ const fallbackConversation = ref<ConversationDto | null>(null)
 /** 会话不存在。 */
 const missing = ref(false)
 
+/**
+ * 用户小卡片开在哪条消息上，空串表示没有。
+ *
+ * <p>卡片（含 el-popover）整页同时只保留一张，开在哪条消息上由这里决定：每条消息各自挂一套
+ * el-popover 的话，切换会话要卸载再挂载整个消息列表的组件树，几十上百条消息就会卡主线程。</p>
+ */
+const cardMessageId = ref('')
+
 /** 正在恢复滚动位置，期间不触发自动滚到底部。 */
 const restoring = ref(false)
 
@@ -247,6 +255,29 @@ function pinToBottomIfSticky(): void {
 
 provide(CHAT_PIN_TO_BOTTOM, pinToBottomIfSticky)
 
+/**
+ * 把用户小卡片开在某条消息上。
+ *
+ * @param messageId 消息 ID
+ */
+function openUserCard(messageId: string): void {
+  cardMessageId.value = messageId
+}
+
+/**
+ * 关掉用户小卡片。
+ *
+ * <p>只认当前那条消息发来的关闭：点另一条消息的头像时，旧卡片会被「点外部」关掉，它的关闭通知
+ * 不能把刚打开的新卡片一起清掉。</p>
+ *
+ * @param messageId 消息 ID
+ */
+function closeUserCard(messageId: string): void {
+  if (cardMessageId.value === messageId) {
+    cardMessageId.value = ''
+  }
+}
+
 // 用 ref 的 watch 而不是 onMounted：会话从「不存在」切到正常会话时，列表容器是后出现的
 watch(contentEl, (element) => {
   contentObserver?.disconnect()
@@ -353,6 +384,8 @@ watch(() => messageStore.messages, () => {
 watch(peer, async (value) => {
   fallbackConversation.value = null
   missing.value = false
+  // 换会话时把上一会话开着的小卡片收掉
+  cardMessageId.value = ''
   if (value.length === 0) {
     messageStore.reset()
     return
@@ -417,6 +450,9 @@ watch(peer, async (value) => {
                 :mine="isMine(item.message)"
                 :group="group"
                 :mine-avatar="userStore.avatarText"
+                :card-open="item.message.id === cardMessageId"
+                @avatar-click="openUserCard(item.message.id)"
+                @card-close="closeUserCard(item.message.id)"
               />
             </template>
           </template>
