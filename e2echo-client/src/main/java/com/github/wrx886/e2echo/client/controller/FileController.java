@@ -1,10 +1,13 @@
 package com.github.wrx886.e2echo.client.controller;
 
 import com.github.wrx886.e2echo.client.api.FileApi;
+import com.github.wrx886.e2echo.client.result.Result;
 import com.github.wrx886.e2echo.client.service.FileService;
+import com.github.wrx886.e2echo.client.vo.broadcast.BroadcastFileVo;
 import com.github.wrx886.e2echo.client.vo.message.ChatFileMessageVo;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ContentDisposition;
@@ -14,13 +17,15 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.nio.charset.StandardCharsets;
 
 /**
  * 文件接口。
  *
- * <p>客户端自己的 HTTP 接口：前端按文件消息或广播附件里的信息取回文件，下载统一走 GET。</p>
+ * <p>客户端自己的 HTTP 接口：上传广播附件，以及按文件消息或广播附件里的信息取回文件（下载统一走
+ * GET）。</p>
  */
 @Validated
 @RestController
@@ -71,6 +76,20 @@ public class FileController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.inline()
                         .filename(chatFileMessageVo.filename(), StandardCharsets.UTF_8).build().toString())
                 .body(object);
+    }
+
+    /**
+     * 上传广播附件。
+     *
+     * <p>广播通道不加密，原文件直接上传；返回附件信息，前端原样放进广播正文的 {@code files} 再发帖或
+     * 评论。上传与发消息分开：上传只负责把字节放进对象存储，前端可以并行传多个附件、并逐个显示进度。</p>
+     *
+     * @param file 待上传的附件
+     * @return 附件信息（对象键、文件名、内容类型、大小）
+     */
+    @PostMapping("broadcast")
+    public Result<BroadcastFileVo> uploadBroadcast(@NotNull MultipartFile file) {
+        return Result.ok(fileService.uploadBroadcast(file));
     }
 
     /**
