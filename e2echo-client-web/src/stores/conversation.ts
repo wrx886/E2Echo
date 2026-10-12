@@ -46,28 +46,40 @@ export const useConversationStore = defineStore('conversation', () => {
    */
   const aliasCache = ref(new Map<string, string | null>())
 
+  /** 正在请求中的别名查询：同一个对方并发查询时只发一次请求。 */
+  const pendingAliases = new Map<string, Promise<string | null>>()
+
   /**
    * 取会话对方的别名：先看缓存，再看已经加载的会话列表，最后按公钥单独查一次。
    *
    * @param peer 会话对方：私聊时为对方公钥、群聊时为群聊标识
    * @returns 别名，没有对应会话或没有别名时返回 null
    */
-  async function resolveAlias(peer: string): Promise<string | null> {
+  function resolveAlias(peer: string): Promise<string | null> {
     if (aliasCache.value.has(peer)) {
-      return aliasCache.value.get(peer) ?? null
+      return Promise.resolve(aliasCache.value.get(peer) ?? null)
     }
     const conversation = list.value.find((item) => item.peer === peer)
     if (conversation) {
       aliasCache.value.set(peer, conversation.alias)
-      return conversation.alias
+      return Promise.resolve(conversation.alias)
     }
-    try {
-      const alias = await getConversationAlias(peer)
-      aliasCache.value.set(peer, alias)
-      return alias
-    } catch {
-      return null
+    const pending = pendingAliases.get(peer)
+    if (pending) {
+      return pending
     }
+    // 请求失败不写缓存，下次还能重试；并发调用共用同一个请求，避免一屏消息把同一个别名查很多次
+    const request = getConversationAlias(peer)
+      .then((alias) => {
+        aliasCache.value.set(peer, alias)
+        return alias
+      })
+      .catch(() => null)
+      .finally(() => {
+        pendingAliases.delete(peer)
+      })
+    pendingAliases.set(peer, request)
+    return request
   }
 
   /**

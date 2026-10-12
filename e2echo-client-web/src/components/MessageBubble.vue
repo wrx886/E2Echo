@@ -23,6 +23,7 @@ import GroupKeyMessage from '@/components/GroupKeyMessage.vue'
 import VideoMessage from '@/components/VideoMessage.vue'
 import { safeFileName } from '@/utils/filename'
 import { shortKey } from '@/utils/display'
+import { useConversationStore } from '@/stores/conversation'
 
 /**
  * 单条消息气泡。
@@ -54,6 +55,24 @@ const emit = defineEmits<{
   /** 用户卡片自己关掉了（点外部、按 Esc 或点了卡片里的关闭）。 */
   'cardClose': []
 }>()
+
+const conversationStore = useConversationStore()
+
+/**
+ * 对方的展示名称：优先用会话别名，没有对应会话时退回公钥末 6 位。
+ *
+ * <p>别名存在会话记录上，和会话列表、会话设置、群成员列表用的是同一份数据，保证同一个人在哪都是
+ * 同一个名字。</p>
+ */
+const senderName = computed(() =>
+  conversationStore.aliasOf(props.message.from) ?? shortKey(props.message.from))
+
+// 别名没查到就补一次查询（会话列表里没有这个人时会单独请求），取到后上面的 computed 会自动换成别名
+watch(() => props.message.from, (from) => {
+  if (!props.mine && from.length > 0 && !conversationStore.aliasOf(from)) {
+    void conversationStore.resolveAlias(from)
+  }
+}, { immediate: true })
 
 /** 已创建出来的用户小卡片是否显示，挂上 el-popover 即为打开。 */
 const cardVisible = ref(false)
@@ -123,9 +142,9 @@ const keyTrusted = computed(() => {
   return key !== null && isTrustedGroupKey(key.group, props.message.from, props.message.channel)
 })
 
-/** 头像文字：自己的消息用自己的名称，对方的按公钥末几位。 */
+/** 头像文字：自己的消息用自己的名称，对方的用对方名称首字。 */
 const avatar = computed(() =>
-  props.mine && props.mineAvatar ? props.mineAvatar : shortKey(props.message.from, 2))
+  props.mine && props.mineAvatar ? props.mineAvatar : senderName.value.slice(0, 1))
 
 /**
  * 点头像：请求聊天页把用户卡片开在这条消息上。
@@ -198,7 +217,7 @@ function onDownloadFile(): void {
     </el-avatar>
 
     <div class="bubble-row__body">
-      <div v-if="group && !mine" class="bubble-row__name">{{ shortKey(message.from) }}</div>
+      <div v-if="group && !mine" class="bubble-row__name" :title="senderName">{{ senderName }}</div>
 
       <!--
         特殊类型消息的来源标记放在气泡外面：普通文字消息的正文里无论写什么都不会有这一行，
@@ -305,8 +324,13 @@ function onDownloadFile(): void {
 
 .bubble-row__name {
   margin-bottom: 2px;
+  /* 别名可能比公钥末几位长，放不下就省略，别把气泡撑变形 */
+  max-width: 100%;
+  overflow: hidden;
   font-size: 12px;
   color: #909399;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .bubble-row__tag {
