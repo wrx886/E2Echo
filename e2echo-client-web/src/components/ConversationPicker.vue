@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { onUnmounted, ref, watch } from 'vue'
 import { DocumentCopy, Search } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { listConversations } from '@/api'
@@ -12,16 +12,20 @@ import { showError } from '@/utils/feedback'
 /**
  * 会话选取弹窗。
  *
- * <p>列出全部会话，但群聊会话和「与自己」的会话灰掉不可选：这两类只看会话自己的属性（是不是群聊、
- * 是不是自己），判断可靠，也能提前挡住没意义的操作。已经在群里的会话不做任何标记——成员和会话都是
- * 分页查询，前端拿不到全量名单，判错了反而误导，成员是否已存在一律交给后端判断。</p>
+ * <p>只列私聊会话：群聊不能作为群成员，直接让接口按 {@code group=false} 过滤，比取回来在前端筛更准
+ * 也更省——以前是按会话分页取回来再筛，私聊占比低时用户得点很多次「加载更多」。搜索同样交给接口
+ * （按对方或别名模糊匹配），这样没加载到的那几页也能搜到。</p>
  *
- * <p>会话列表接口没有搜索和按类型过滤，只能分页取回来在前端筛，所以这里自己维护分页：打开时取
- * 第一页，取满一页时才显示「加载更多」。</p>
+ * <p>「与自己」的会话仍然列出来但灰掉：它只是一条普通会话，判起来可靠，也能提前挡住没意义的操作。
+ * 已经在群里的会话不做任何标记——成员是分页查询的，前端拿不到全量名单，判错了反而误导，成员是否
+ * 已存在一律交给后端判断。</p>
  */
 
 /** 每次拉取的会话条数。 */
-const PAGE_SIZE = 100
+const PAGE_SIZE = 50
+
+/** 输入停止多久后才去查。 */
+const SEARCH_DELAY = 300
 
 const props = defineProps<{
   /** 是否显示。 */
@@ -36,7 +40,13 @@ const emit = defineEmits<{
 
 const userStore = useUserStore()
 
-/** 已加载的会话，含私聊与群聊，展示前才过滤。 */
+/** 搜索框里的文字。 */
+const keyword = ref('')
+
+/** 已经发给接口的搜索词：接口返回的是它的结果，不能用输入框当前值判断空态。 */
+const appliedKeyword = ref('')
+
+/** 已加载的私聊会话。 */
 const conversations = ref<ConversationDto[]>([])
 
 /** 已经加载到第几页。 */
@@ -48,38 +58,23 @@ const hasMore = ref(false)
 /** 是否正在加载。 */
 const loading = ref(false)
 
-/** 搜索词，按会话名称或公钥过滤。 */
-const keyword = ref('')
+/** 搜索防抖定时器。 */
+let searchTimer: ReturnType<typeof setTimeout> | null = null
 
-/** 候选会话：全部会话按搜索词过滤。 */
-const candidates = computed(() => {
-  const word = keyword.value.trim().toLowerCase()
-  return conversations.value.filter((item) => {
-    if (word.length === 0) {
-      return true
-    }
-    return item.alias.toLowerCase().includes(word) || item.peer.toLowerCase().includes(word)
-  })
+onUnmounted(() => {
+  if (searchTimer !== null) {
+    clearTimeout(searchTimer)
+  }
 })
 
 /**
  * 判断一条会话能不能作为群成员。
  *
  * @param item 会话
- * @returns 可选返回 true；群聊会话和「与自己」的会话不能选
+ * @returns 可选返回 true；「与自己」的会话不能选（群聊已经由接口过滤掉）
  */
 function selectable(item: ConversationDto): boolean {
-  return !item.group && item.peer !== userStore.publicKey
-}
-
-/**
- * 取不可选的原因，用作悬浮提示。
- *
- * @param item 会话
- * @returns 不可选的原因
- */
-function disabledReason(item: ConversationDto): string {
-  return item.group ? '群聊会话不能作为群成员' : '不能把自己加为群成员'
+  return item.peer !== userStore.publicKey
 }
 
 /**
@@ -100,7 +95,8 @@ function titleOf(item: ConversationDto): string {
 async function fetchPage(page: number): Promise<void> {
   loading.value = true
   try {
-    const result = await listConversations(page, PAGE_SIZE)
+    // group=false：只要私聊会话
+    const result = await listConversations(page, PAGE_SIZE, appliedKeyword.value, false)
     if (page === 1) {
       conversations.value = result.content
     } else {
@@ -131,6 +127,40 @@ function onPick(item: ConversationDto): void {
 }
 
 /**
+ * 搜索框内容变化：防抖后交给接口重新查第一页。
+ */
+function onSearchInput(): void {
+  if (searchTimer !== null) {
+    clearTimeout(searchTimer)
+  }
+  searchTimer = setTimeout(() => {
+    searchTimer = null
+    const value = keyword.value.trim()
+    if (value === appliedKeyword.value) {
+      return
+    }
+    appliedKeyword.value = value
+    void fetchPage(1)
+  }, SEARCH_DELAY)
+}
+
+/**
+ * 清空搜索：不用等防抖，直接回到全部私聊会话。
+ */
+function onSearchClear(): void {
+  if (searchTimer !== null) {
+    clearTimeout(searchTimer)
+    searchTimer = null
+  }
+  keyword.value = ''
+  if (appliedKeyword.value.length === 0) {
+    return
+  }
+  appliedKeyword.value = ''
+  void fetchPage(1)
+}
+
+/**
  * 复制公钥。
  *
  * @param peer 会话对方的公钥
@@ -150,6 +180,7 @@ watch(() => props.visible, (value) => {
     return
   }
   keyword.value = ''
+  appliedKeyword.value = ''
   conversations.value = []
   pageNum.value = 0
   hasMore.value = false
@@ -169,24 +200,26 @@ watch(() => props.visible, (value) => {
       placeholder="搜索会话名称或公钥"
       clearable
       :prefix-icon="Search"
+      @input="onSearchInput"
+      @clear="onSearchClear"
     />
 
     <div class="picker__list scroll-y">
       <el-skeleton v-if="loading && conversations.length === 0" :rows="4" animated />
 
       <el-empty
-        v-else-if="candidates.length === 0"
+        v-else-if="conversations.length === 0"
         :image-size="60"
-        :description="conversations.length === 0 ? '还没有会话，可以直接粘贴对方公钥添加' : '没有匹配的会话'"
+        :description="appliedKeyword.length > 0 ? '没有匹配的会话' : '还没有私聊会话，可以直接粘贴对方公钥添加'"
       />
 
       <template v-else>
         <div
-          v-for="item in candidates"
+          v-for="item in conversations"
           :key="item.peer"
           class="picker__item"
           :class="{ 'picker__item--disabled': !selectable(item) }"
-          :title="selectable(item) ? '' : disabledReason(item)"
+          :title="selectable(item) ? '' : '不能把自己加为群成员'"
           @click="onPick(item)"
         >
           <el-avatar :size="32" class="picker__avatar">

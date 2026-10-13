@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Plus } from '@element-plus/icons-vue'
+import { Plus, Search } from '@element-plus/icons-vue'
 import { latestMessagePreview } from '@/api'
 import type { ConversationDto } from '@/api'
 import { useConversationStore } from '@/stores/conversation'
@@ -12,8 +12,12 @@ import { afterPaint } from '@/utils/paint'
 /**
  * 会话区。
  *
- * <p>列表按更新时间倒序，触底加载更多；点击某条会话进入聊天页，右上角按钮进入新增会话页。</p>
+ * <p>列表按更新时间倒序，触底加载更多；点击某条会话进入聊天页，右上角按钮进入新增会话页。
+ * 顶部的搜索框按会话对方或别名过滤，过滤交给 client 分页查（不是只筛已加载的那一页）。</p>
  */
+
+/** 输入停止多久后才真正去查，免得每敲一个字都打一次接口。 */
+const SEARCH_DELAY = 300
 
 const conversationStore = useConversationStore()
 const route = useRoute()
@@ -25,9 +29,18 @@ const listEl = ref<HTMLDivElement>()
 /** 刚点下、还没真正跳过去的会话对方，用来先画出选中效果。 */
 const pendingPeer = ref('')
 
+/** 搜索框里的文字：初始化成 store 里已生效的关键词，来回切页面时不会看起来是空的。 */
+const keyword = ref(conversationStore.keyword)
+
+/** 搜索防抖定时器。 */
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+
 /** 当前选中的会话对方：刚点的那个优先，其次看路由，都只在聊天页里算选中。 */
 const activePeer = computed(() =>
   pendingPeer.value || (route.name === 'chat' ? String(route.params.peer ?? '') : ''))
+
+/** 搜索框里是不是有关键词，用来区分"还没有会话"和"没搜到"。 */
+const searching = computed(() => keyword.value.trim().length > 0)
 
 onMounted(async () => {
   try {
@@ -36,6 +49,50 @@ onMounted(async () => {
     showError(error, '加载会话列表失败')
   }
 })
+
+onUnmounted(() => {
+  if (searchTimer !== null) {
+    clearTimeout(searchTimer)
+  }
+})
+
+/**
+ * 搜索框内容变化：防抖后交给 store 重新查第一页。
+ */
+function onSearchInput(): void {
+  if (searchTimer !== null) {
+    clearTimeout(searchTimer)
+  }
+  searchTimer = setTimeout(() => {
+    searchTimer = null
+    void runSearch()
+  }, SEARCH_DELAY)
+}
+
+/**
+ * 清空搜索：不用等防抖，直接回到全量列表。
+ */
+function onSearchClear(): void {
+  if (searchTimer !== null) {
+    clearTimeout(searchTimer)
+    searchTimer = null
+  }
+  void runSearch()
+}
+
+/**
+ * 执行搜索并回到列表顶部。
+ */
+async function runSearch(): Promise<void> {
+  try {
+    await conversationStore.search(keyword.value)
+    if (listEl.value) {
+      listEl.value.scrollTop = 0
+    }
+  } catch (error) {
+    showError(error, '搜索会话失败')
+  }
+}
 
 /**
  * 打开会话。
@@ -118,15 +175,32 @@ function timeOf(conversation: ConversationDto): string {
       />
     </header>
 
+    <div class="conversations__search">
+      <el-input
+        v-model="keyword"
+        size="small"
+        clearable
+        :prefix-icon="Search"
+        placeholder="搜索会话（公钥或别名）"
+        @input="onSearchInput"
+        @clear="onSearchClear"
+      />
+    </div>
+
     <div ref="listEl" class="conversations__list scroll-y" @scroll="onScroll">
       <el-skeleton v-if="conversationStore.loading && conversationStore.list.length === 0" :rows="6" animated />
 
       <el-empty
         v-else-if="conversationStore.list.length === 0"
-        description="还没有会话"
+        :description="searching ? '没有匹配的会话' : '还没有会话'"
         :image-size="80"
       >
-        <el-button type="primary" size="small" @click="router.push({ name: 'conversation-create' })">
+        <el-button
+          v-if="!searching"
+          type="primary"
+          size="small"
+          @click="router.push({ name: 'conversation-create' })"
+        >
           新增会话
         </el-button>
       </el-empty>
@@ -194,6 +268,12 @@ function timeOf(conversation: ConversationDto): string {
 .conversations__title {
   font-size: 16px;
   font-weight: 600;
+}
+
+.conversations__search {
+  flex: none;
+  padding: 8px 12px;
+  border-bottom: 1px solid #e4e7ed;
 }
 
 .conversations__add {

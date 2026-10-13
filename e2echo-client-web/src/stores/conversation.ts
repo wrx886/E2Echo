@@ -28,6 +28,14 @@ export const useConversationStore = defineStore('conversation', () => {
   /** 是否已经加载过（用于区分“还没加载”和“加载完是空的”）。 */
   const loaded = ref(false)
 
+  /**
+   * 会话过滤关键词：按会话对方或别名模糊匹配，空串表示不过滤。
+   *
+   * <p>放在 store 里是为了让刷新（收到通知后的重新拉取、保存会话后的刷新）沿用同一个关键词，
+   * 不会把过滤结果冲成全量列表。</p>
+   */
+  const keyword = ref('')
+
   /** 所有会话的未读消息总数，给左侧功能栏的红点用。 */
   const unreadTotal = ref(0)
 
@@ -105,7 +113,7 @@ export const useConversationStore = defineStore('conversation', () => {
   async function fetchPage(page: number, append: boolean): Promise<void> {
     loading.value = true
     try {
-      const result = await listConversations(page, PAGE_SIZE)
+      const result = await listConversations(page, PAGE_SIZE, keyword.value)
       if (append) {
         // 翻页期间列表可能已经变化，按 peer 去重，避免同一条会话出现两次
         const known = new Set(list.value.map((item) => item.peer))
@@ -163,6 +171,20 @@ export const useConversationStore = defineStore('conversation', () => {
   }
 
   /**
+   * 按关键词重新查会话（空串表示不过滤），回到第一页。
+   *
+   * @param value 关键词
+   */
+  async function search(value: string): Promise<void> {
+    const keywordValue = value.trim()
+    if (keyword.value === keywordValue) {
+      return
+    }
+    keyword.value = keywordValue
+    await fetchPage(1, false)
+  }
+
+  /**
    * 加载下一页（触底时调用）。
    */
   async function loadMore(): Promise<void> {
@@ -195,6 +217,7 @@ export const useConversationStore = defineStore('conversation', () => {
 
   return {
     list, loading, hasMore, loaded, currentPeer, current,
+    keyword, search,
     unreadTotal, refreshUnread, markRead,
     aliasCache, aliasOf, resolveAlias,
     loadIfNeeded, refresh, loadMore, save, select,

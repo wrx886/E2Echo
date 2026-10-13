@@ -382,7 +382,9 @@ watch(() => messageStore.messages, () => {
 
 // 会话变化：切换消息列表并滚到底部
 watch(peer, async (value) => {
-  fallbackConversation.value = null
+  // 先把当前这条会话记下来：搜索会话时列表里可能就查不到它了，标题和「群 / 已停用」标记不能跟着丢
+  fallbackConversation.value =
+    conversationStore.list.find((item) => item.peer === value) ?? null
   missing.value = false
   // 换会话时把上一会话开着的小卡片收掉
   cardMessageId.value = ''

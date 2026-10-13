@@ -23,12 +23,20 @@ import type {
 /**
  * 分页列出当前用户的会话，最近有消息的排在前面。
  *
- * @param pageNum  页码，从 1 开始
- * @param pageSize 每页条数
+ * @param pageNum     页码，从 1 开始
+ * @param pageSize    每页条数
+ * @param peerOrAlias 关键词：按会话对方或别名模糊匹配，忽略大小写；空串表示不过滤
+ * @param group       是否群聊：true 只看群聊、false 只看私聊；不传表示不过滤
  * @returns 会话分页结果
  */
-export function listConversations(pageNum: number, pageSize: number): Promise<Page<ConversationDto>> {
-  return get<Page<ConversationDto>>('/api/conversation/list', { pageNum, pageSize })
+export function listConversations(
+  pageNum: number,
+  pageSize: number,
+  peerOrAlias = '',
+  group?: boolean,
+): Promise<Page<ConversationDto>> {
+  // 关键词一直带上：为空时后端不做过滤，也免得依赖「参数可不可以不传」
+  return get<Page<ConversationDto>>('/api/conversation/list', { pageNum, pageSize, peerOrAlias, group })
 }
 
 /**
