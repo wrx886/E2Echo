@@ -63,11 +63,11 @@ public class BroadcastService {
      *         {@code null}
      */
     public BroadcastUserinfoRespVo userinfo(@NotBlank String uid) {
+        // 不用按类型过滤：用户资料与广播消息分属不同通道，通道已经把它们分开了
         PageData<EccMessage> eccMessages = messageApi.list(new MessageListReqVo(
                 List.of(uid),
                 null,
                 ChannelEnum.BROADCAST_USERINFO_NONE.name(),
-                MessageTypeEnum.BROADCAST_USERINFO.name(),
                 null,
                 null,
                 null,
@@ -190,12 +190,12 @@ public class BroadcastService {
      * @return 广播消息分页结果，坏数据对应 {@code null}
      */
     public PageData<BroadcastMessageRespVo> listMessage(@Valid BroadcastMessageListReq req) {
+        // 不用按类型过滤：帖子/评论与用户资料分属不同通道，通道已经把它们分开了
         // 拉取消息
         PageData<EccMessage> eccMessages = messageApi.list(new MessageListReqVo(
                 req.from(),
                 req.to(),
                 ChannelEnum.BROADCAST_MESSAGE_NONE.name(),
-                MessageTypeEnum.BROADCAST_MESSAGE.name(),
                 req.startTimestamp(),
                 req.endTimestamp(),
                 req.startId(),

@@ -231,12 +231,11 @@ public class MessageService {
                 break;
             }
 
-            // 拉取消息：不限发送者与消息类型，只要“到期之后、按消息 ID 升序”的这一批
+            // 拉取消息：不限发送者，只要“到期之后、按消息 ID 升序”的这一批；类型拉回来再分发
             pageData = messageApi.list(new MessageListReqVo(
                     null,                          // fromList：不限发送者
                     toList,                        // 接收者：自己 / 自己订阅的群聊
                     channel.name(),
-                    null,                          // type：文件、图片、视频、音频都要拉
                     lastPullTime,                  // startTimestamp：上次拉取时间之前的不再要
                     null,                          // endTimestamp：不限
                     startId,                       // startId：升序拉取的游标
