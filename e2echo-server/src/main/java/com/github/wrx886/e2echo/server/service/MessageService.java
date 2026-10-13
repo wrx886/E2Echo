@@ -140,9 +140,6 @@ public class MessageService {
             if (reqVo.channel() != null && !reqVo.channel().isBlank()) {
                 predicates.add(cb.equal(root.get("channel"), reqVo.channel()));
             }
-            if (reqVo.type() != null && !reqVo.type().isBlank()) {
-                predicates.add(cb.equal(root.get("type"), reqVo.type()));
-            }
             if (start != null) {
                 predicates.add(cb.greaterThanOrEqualTo(root.get("timestamp"), start));
             }

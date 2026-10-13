@@ -52,11 +52,6 @@ class MessageControllerTest {
     private static final String USERINFO_CHANNEL = "USERINFO";
 
     /**
-     * 另一种消息类型，用于验证按类型过滤。
-     */
-    private static final String FILE_TYPE = "file";
-
-    /**
      * 待测控制器。
      */
     @Autowired
@@ -138,19 +133,6 @@ class MessageControllerTest {
      * @return 写入数据库的消息实体
      */
     private Message persistMessage(long timestamp, int sequence, String channel) {
-        return persistMessage(timestamp, sequence, channel, "text");
-    }
-
-    /**
-     * 直接向数据库写入一条指定类型的消息，用于构造查询用例所需的、时间可控的数据。
-     *
-     * @param timestamp 消息时间戳（毫秒）
-     * @param sequence  同一次测试内的序号，用于保证 ID 有序且不重复
-     * @param channel   消息通道
-     * @param type      消息类型
-     * @return 写入数据库的消息实体
-     */
-    private Message persistMessage(long timestamp, int sequence, String channel, String type) {
         // ID 前 16 位是十六进制时间戳，后 32 位保证同一次测试内不重复，且序号部分保证 ID 有序
         String id = String.format("%016x", timestamp)
                 + UUID.randomUUID().toString().replace("-", "").substring(0, 24)
@@ -161,7 +143,7 @@ class MessageControllerTest {
         message.setFrom(senderKeyPair.publicKeyHex());
         message.setTo(receiverKeyPair.publicKeyHex());
         message.setMessage("cipher-text");
-        message.setType(type);
+        message.setType("text");
         message.setChannel(channel);
         message.setInfo("extra-info");
         message.setSign("sign");
@@ -189,7 +171,6 @@ class MessageControllerTest {
                 null,                                     // fromList
                 List.of(receiverKeyPair.publicKeyHex()),  // toList
                 channel,
-                null,                                     // type
                 startTimestamp,
                 endTimestamp,
                 startId,
@@ -366,7 +347,6 @@ class MessageControllerTest {
                     List.of(senderKeyPair.publicKeyHex()),    // fromList
                     List.of(receiverKeyPair.publicKeyHex()),  // toList
                     PRIVATE_CHANNEL,                          // channel
-                    null,                                     // type
                     null,                                     // startTimestamp
                     null,                                     // endTimestamp
                     null,                                     // startId
@@ -381,34 +361,6 @@ class MessageControllerTest {
 
             Page<EccMessage> groupPage = list("group", null, null, null, null, 1, 10);
             assertThat(groupPage.getTotalElements()).isEqualTo(1);
-        }
-
-        /**
-         * 校验消息类型过滤：只有类型匹配的消息会被返回。
-         */
-        @Test
-        @DisplayName("按类型过滤")
-        void filtersByType() {
-            long base = System.currentTimeMillis();
-            persistMessage(base, 1, PRIVATE_CHANNEL);
-            persistMessage(base, 2, PRIVATE_CHANNEL, FILE_TYPE);
-
-            Page<EccMessage> page = messageController.list(new MessageListReqVo(
-                    null,                                     // fromList
-                    List.of(receiverKeyPair.publicKeyHex()),  // toList
-                    PRIVATE_CHANNEL,                          // channel
-                    FILE_TYPE,                                // type
-                    null,                                     // startTimestamp
-                    null,                                     // endTimestamp
-                    null,                                     // startId
-                    null,                                     // endId
-                    null,                                     // order
-                    1,                                        // pageNum
-                    10                                        // pageSize
-            )).data();
-
-            assertThat(page.getTotalElements()).isEqualTo(1);
-            assertThat(page.getContent()).extracting(EccMessage::getType).containsExactly(FILE_TYPE);
         }
 
         /**
@@ -452,7 +404,6 @@ class MessageControllerTest {
                     List.of(senderKeyPair.publicKeyHex()),  // fromList
                     null,                                   // toList
                     USERINFO_CHANNEL,                       // channel
-                    null,                                   // type
                     null,                                   // startTimestamp
                     null,                                   // endTimestamp
                     null,                                   // startId
@@ -502,7 +453,6 @@ class MessageControllerTest {
                     null,                                     // fromList
                     List.of(receiverKeyPair.publicKeyHex()),  // toList
                     PRIVATE_CHANNEL,                          // channel
-                    null,                                     // type
                     null,                                     // startTimestamp
                     null,                                     // endTimestamp
                     null,                                     // startId
@@ -519,7 +469,6 @@ class MessageControllerTest {
                     null,                                     // fromList
                     List.of(receiverKeyPair.publicKeyHex()),  // toList
                     PRIVATE_CHANNEL,                          // channel
-                    null,                                     // type
                     null,                                     // startTimestamp
                     null,                                     // endTimestamp
                     first.getMessageId(),                     // startId
