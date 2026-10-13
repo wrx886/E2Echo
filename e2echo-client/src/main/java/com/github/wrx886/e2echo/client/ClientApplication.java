@@ -9,6 +9,7 @@ import lombok.Setter;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
+import org.springframework.data.web.config.EnableSpringDataWebSupport;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.util.StringUtils;
 
@@ -23,10 +24,15 @@ import org.springframework.util.StringUtils;
  * {@code @CreatedDate}、{@code @LastModifiedDate} 因此生效：审计人由
  * {@link com.github.wrx886.e2echo.client.config.EccAuditorAware} 提供，取的是当前登入用户的公钥，
  * 填充到实体的 {@code owner} 字段。没有这个注解时，实体上虽然标了这些注解也不会自动填值。</p>
+ *
+ * <p>{@link EnableSpringDataWebSupport} 选用 {@code VIA_DTO}：分页接口不再按 {@code Page} 原样序列化，
+ * 分页信息收在 {@code page} 对象里（{@code {"content":[...],"page":{...}}}），与外部服务端、前端保持
+ * 同一种结构。</p>
  */
 @EnableJpaAuditing
 @SpringBootApplication
 @EnableTransactionManagement
+@EnableSpringDataWebSupport(pageSerializationMode = EnableSpringDataWebSupport.PageSerializationMode.VIA_DTO)
 public class ClientApplication {
 
     @Getter

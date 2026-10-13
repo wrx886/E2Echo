@@ -229,9 +229,8 @@ public class BroadcastService {
 
         return new PageData<>(
                 broadcastMessageRespVos,
-                eccMessages.number(),
-                eccMessages.size(),
-                eccMessages.totalElements()
+                // 分页信息直接沿用服务端的：正文只是做了验签与解析，条数没变
+                eccMessages.page()
         );
     }
 }
