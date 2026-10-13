@@ -11,6 +11,7 @@ import {
 } from '@/api'
 import type { BroadcastUserinfo } from '@/api'
 import BroadcastPostCard from '@/components/BroadcastPostCard.vue'
+import ImagePreviewDialog from '@/components/ImagePreviewDialog.vue'
 import { useBroadcastStore } from '@/stores/broadcast'
 import { useUserStore } from '@/stores/user'
 import { copyText } from '@/utils/clipboard'
@@ -461,15 +462,12 @@ function openUser(value: string, itemId: string): void {
       @change="onPickAvatar"
     />
 
-    <!-- 头像放大查看 -->
-    <el-dialog v-model="avatarPreviewVisible" width="60%" align-center>
-      <img
-        v-if="avatarDisplay"
-        class="profile__avatar-preview"
-        :src="avatarDisplay"
-        :alt="displayName"
-      />
-    </el-dialog>
+    <!-- 头像放大查看：和聊天、广播附件的图片共用同一个查看器 -->
+    <ImagePreviewDialog
+      v-model:visible="avatarPreviewVisible"
+      :src="avatarDisplay"
+      :title="displayName + ' 的头像'"
+    />
   </section>
 </template>
 
@@ -519,13 +517,6 @@ function openUser(value: string, itemId: string): void {
 
 .profile__avatar--zoom {
   cursor: zoom-in;
-}
-
-.profile__avatar-preview {
-  display: block;
-  max-width: 100%;
-  max-height: 70vh;
-  margin: 0 auto;
 }
 
 .profile__main {

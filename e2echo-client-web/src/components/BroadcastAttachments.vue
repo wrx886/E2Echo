@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { Close, Document, Headset } from '@element-plus/icons-vue'
 import { broadcastFileUrl } from '@/api'
 import type { BroadcastFileVo } from '@/api'
+import ImagePreviewDialog from '@/components/ImagePreviewDialog.vue'
 import { safeFileName } from '@/utils/filename'
 
 /**
@@ -40,6 +41,9 @@ const emit = defineEmits<{
 
 /** 正在放大查看的图片地址。 */
 const previewUrl = ref('')
+
+/** 正在放大查看的图片文件名，用作标题与下载名。 */
+const previewTitle = ref('')
 
 /** 是否显示图片放大弹窗。 */
 const previewVisible = ref(false)
@@ -96,6 +100,7 @@ function urlOf(file: AttachmentItem): string {
  */
 function openPreview(file: AttachmentItem): void {
   previewUrl.value = urlOf(file)
+  previewTitle.value = file.filename
   previewVisible.value = true
 }
 
@@ -214,13 +219,12 @@ function sizeText(size: number): string {
       </button>
     </div>
 
-    <!--
-      append-to-body：弹窗默认渲染在原地，而附件在"整卡可点进详情"的帖子里，
-      点遮罩或关闭按钮的那一下会冒泡到卡片上、顺势跳进详情页，所以这里必须把它挂到 body 上。
-    -->
-    <el-dialog v-model="previewVisible" width="80%" align-center append-to-body>
-      <img v-if="previewUrl" class="attachments__preview" :src="previewUrl" />
-    </el-dialog>
+    <!-- 放大看原图：和聊天里的图片消息共用同一个查看器（自带下载/缩放/旋转/复位） -->
+    <ImagePreviewDialog
+      v-model:visible="previewVisible"
+      :src="previewUrl"
+      :title="previewTitle"
+    />
   </div>
 </template>
 
@@ -359,10 +363,4 @@ function sizeText(size: number): string {
   text-decoration: none;
 }
 
-.attachments__preview {
-  display: block;
-  max-width: 100%;
-  max-height: 70vh;
-  margin: 0 auto;
-}
 </style>
