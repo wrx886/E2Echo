@@ -7,14 +7,19 @@ import com.github.wrx886.e2echo.client.entity.Message;
 import com.github.wrx886.e2echo.client.exception.E2EchoException;
 import com.github.wrx886.e2echo.client.repository.ConversationRepository;
 import com.github.wrx886.e2echo.client.util.BeanCopyUtils;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -50,15 +55,41 @@ public class ConversationService {
     /**
      * 分页列出当前用户的会话，按更新时间倒序（最近有消息的排在前面）。
      *
-     * @param pageNum  页码，从 1 开始
-     * @param pageSize 每页条数
+     * <p>关键词同时匹配会话对方与别名（不区分大小写），{@code group} 只看群聊或只看私聊，两者为空都
+     * 表示不过滤。分页是无状态的，排序带上主键兜底，更新时间相同的记录顺序才稳定，翻页不会漏或
+     * 重复。</p>
+     *
+     * @param pageNum     页码，从 1 开始
+     * @param pageSize    每页条数
+     * @param peerOrAlias 关键词，按会话对方或别名模糊匹配（不区分大小写）；为空表示不过滤
+     * @param group       是否群聊：{@code true} 只看群聊、{@code false} 只看私聊；为空表示不过滤
      * @return 会话分页结果（DTO），已带出最新消息
      */
-    public Page<ConversationDto> list(int pageNum, int pageSize) {
-        return conversationRepository.findAllByOwnerOrderByUpdateTimeDescIdDesc(
-                currentOwner(),
-                PageRequest.of(pageNum - 1, pageSize)
-        ).map(ConversationDto::fromEntity);
+    public Page<ConversationDto> list(int pageNum, int pageSize, String peerOrAlias, Boolean group) {
+        Specification<Conversation> specification = (root, q, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            // owner
+            predicates.add(cb.equal(root.get("owner"), currentOwner()));
+
+            // peerOrAlias
+            if (StringUtils.hasLength(peerOrAlias)) {
+                String keyword = "%" + peerOrAlias.toLowerCase() + "%";
+                Predicate peerPredicate = cb.like(cb.lower(root.get("peer")), keyword);
+                Predicate aliasPredicate = cb.like(cb.lower(root.get("alias")), keyword);
+                predicates.add(cb.or(peerPredicate, aliasPredicate));
+            }
+
+            // group
+            if (group != null) {
+                predicates.add(cb.equal(root.get("group"), group));
+            }
+
+            return cb.and(predicates);
+        };
+        Pageable pageable = PageRequest.of(pageNum - 1, pageSize,
+                Sort.by(Sort.Direction.DESC, "updateTime").and(Sort.by(Sort.Direction.DESC, "id")));
+        return conversationRepository.findAll(specification, pageable).map(ConversationDto::fromEntity);
     }
 
     /**

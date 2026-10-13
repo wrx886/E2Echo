@@ -30,16 +30,20 @@ public class ConversationController {
     /**
      * 分页列出当前用户的会话，最近有消息的排在前面。
      *
-     * @param pageNum  页码，从 1 开始
-     * @param pageSize 每页条数
+     * @param pageNum     页码，从 1 开始
+     * @param pageSize    每页条数
+     * @param peerOrAlias 关键词，按会话对方或别名模糊匹配（不区分大小写）；为空表示不过滤
+     * @param group       是否群聊：{@code true} 只看群聊、{@code false} 只看私聊；为空表示不过滤
      * @return 会话分页结果
      */
     @GetMapping("list")
     public Result<Page<ConversationDto>> list(
             @NotNull Integer pageNum,
-            @NotNull Integer pageSize
+            @NotNull Integer pageSize,
+            String peerOrAlias,
+            Boolean group
     ) {
-        return Result.ok(conversationService.list(pageNum, pageSize));
+        return Result.ok(conversationService.list(pageNum, pageSize, peerOrAlias, group));
     }
 
     /**
