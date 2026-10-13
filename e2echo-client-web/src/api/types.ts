@@ -74,44 +74,41 @@ export const MESSAGE_TYPE_CHAT_FILE_AUDIO = 'CHAT_FILE_AUDIO'
 /**
  * 分页结果，对应 Spring Data 的 {@code Page} 序列化后的 JSON。
  *
+ * <p>client 上开了 {@code @EnableSpringDataWebSupport(pageSerializationMode = VIA_DTO)}，所以分页信息
+ * 不在顶层，而是收在 {@code page} 对象里：{@code {"content":[...],"page":{...}}}。</p>
+ *
  * @param T 当前页的数据类型
  */
 export interface Page<T> {
   /** 当前页的数据。 */
   content: T[]
-  /** 当前页码，从 0 开始（注意与接口入参的 pageNum 从 1 开始不同）。 */
-  number: number
+  /** 分页信息。 */
+  page: PageMetadata
+}
+
+/**
+ * 分页信息，对应上面 {@code page} 对象。
+ */
+export interface PageMetadata {
   /** 每页条数。 */
   size: number
+  /** 当前页码，从 0 开始（注意与接口入参的 pageNum 从 1 开始不同）。 */
+  number: number
   /** 总条数。 */
   totalElements: number
   /** 总页数。 */
   totalPages: number
-  /** 是否为第一页。 */
-  first: boolean
-  /** 是否为最后一页。 */
-  last: boolean
-  /** 当前页是否为空。 */
-  empty: boolean
 }
 
 /**
  * 分页结果，对应 client 的 {@code PageData}。
  *
- * <p>与 {@link Page} 的区别：广播接口返回的是 client 自己重新组装的 {@code PageData}，只带这四项。</p>
+ * <p>结构与 {@link Page} 相同（分页信息同样收在 {@code page} 对象里），区别只是广播接口的内容由
+ * client 自己重新组装。</p>
  *
  * @param T 当前页的数据类型
  */
-export interface PageData<T> {
-  /** 当前页的数据。 */
-  content: T[]
-  /** 当前页码，从 0 开始。 */
-  number: number
-  /** 每页条数。 */
-  size: number
-  /** 总条数。 */
-  totalElements: number
-}
+export type PageData<T> = Page<T>
 
 /** 帖子在广播消息 {@code to} 上的占位符：to 是它表示帖子，是帖子 ID 表示评论。 */
 export const BROADCAST_POST_TO = '*'

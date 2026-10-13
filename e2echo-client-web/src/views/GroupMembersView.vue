@@ -141,7 +141,8 @@ async function reloadMembers(): Promise<void> {
   try {
     const page = await listGroupMembers(group.value, pageNum.value, PAGE_SIZE)
     members.value = page.content
-    total.value = page.totalElements
+    // 分页信息收在 page 对象里（client 开了 VIA_DTO 序列化）
+    total.value = page.page.totalElements
     await resolveAliases(page.content)
   } catch (error) {
     showError(error, '加载成员失败')
