@@ -6,14 +6,16 @@ import { BROADCAST_POST_TO, avatarSrc } from '@/api'
 import type { BroadcastMessageRespVo } from '@/api'
 import BroadcastAttachments from '@/components/BroadcastAttachments.vue'
 import { useBroadcastStore } from '@/stores/broadcast'
+import { useSubscribeStore } from '@/stores/subscribe'
 import { copyText } from '@/utils/clipboard'
 import { formatTime, shortKey, timestampFromId } from '@/utils/display'
 
 /**
  * 广播内容卡片：帖子与评论共用。
  *
- * <p>作者昵称、头像来自用户资料（按公钥查，查不到就退回公钥末几位）；时间是消息 ID 前 16 位里的
- * 时间戳。二级回复会在正文上方标出回复了谁。帖子会带出它的 ID（48 位），便于复制给别人用 ID 检索；
+ * <p>作者名字优先用订阅别名（订阅时给自己起的本机名字），其次用用户资料的昵称，都没有就退回公钥末
+ * 几位；头像取名字首字。时间是消息 ID 前 16 位里的时间戳。二级回复会在正文上方标出回复了谁。
+ * 帖子会带出它的 ID（48 位），便于复制给别人用 ID 检索；
  * 评论不带，因为评论的 {@code to} 指向帖子，展示 ID 容易和帖子混淆。</p>
  */
 
@@ -36,12 +38,19 @@ const emit = defineEmits<{
 }>()
 
 const broadcastStore = useBroadcastStore()
+const subscribeStore = useSubscribeStore()
 
 /** 作者资料。 */
 const author = computed(() => broadcastStore.profileOf(props.item.from))
 
-/** 作者展示名。 */
-const authorName = computed(() => author.value?.nickname ?? shortKey(props.item.from, 5))
+/** 作者展示名：订阅别名优先，其次是资料昵称，最后公钥末几位。 */
+const authorName = computed(() =>
+  subscribeStore.aliasOf(props.item.from)
+  || author.value?.nickname
+  || shortKey(props.item.from, 5))
+
+/** 这条内容的作者有没有被当前用户订阅：名字右边标一下。 */
+const subscribed = computed(() => subscribeStore.isSubscribed(props.item.from))
 
 /** 被回复者的展示名。 */
 const replyName = computed(() => {
@@ -49,7 +58,9 @@ const replyName = computed(() => {
   if (!target) {
     return ''
   }
-  return broadcastStore.profileOf(target.from)?.nickname ?? shortKey(target.from, 5)
+  return subscribeStore.aliasOf(target.from)
+    || broadcastStore.profileOf(target.from)?.nickname
+    || shortKey(target.from, 5)
 })
 
 /** 发布时间。 */
@@ -112,6 +123,8 @@ watch(() => [props.item.from, props.replyTo?.from], loadProfiles, { immediate: t
     <div class="post__main">
       <div class="post__head">
         <span class="post__name" @click.stop="emit('openUser', item.from, item.id)">{{ authorName }}</span>
+        <!-- 作者是当前用户订阅的人：标一下，和自己发的、没订阅的内容区分开 -->
+        <el-tag v-if="subscribed" size="small" type="success" effect="plain">已订阅</el-tag>
         <span class="post__time">{{ time }}</span>
       </div>
 

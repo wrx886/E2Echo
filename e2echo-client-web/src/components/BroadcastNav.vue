@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { useSubscribeStore } from '@/stores/subscribe'
 import { useUserStore } from '@/stores/user'
 
 /**
@@ -12,21 +13,30 @@ import { useUserStore } from '@/stores/user'
 
 const route = useRoute()
 const router = useRouter()
+const subscribeStore = useSubscribeStore()
 const userStore = useUserStore()
 
-/** 导航项。"我的帖子"在自己的资料页里，所以这里只有两项。 */
+/**
+ * 导航项。"我的帖子"在自己的资料页里，所以没有单独一项；订阅管理是订阅流右上角的入口，
+ * 也不是独立功能，所以同样不占一个导航项。
+ */
 const items = computed(() => [
   { key: 'feed', label: '全部帖子', path: '/broadcast' },
+  { key: 'subscribe', label: '订阅', path: '/broadcast/subscribe' },
   { key: 'me', label: '我的资料', path: `/broadcast/user/${userStore.publicKey}` },
 ])
 
 /**
  * 当前选中的导航项。
  *
- * <p>"我的资料"只在自己主页上高亮：看别人的主页时两边都不选中，免得看起来像在看自己的资料。
- * 帖子详情算时间线的一部分，仍然高亮"全部帖子"。</p>
+ * <p>"我的资料"只在自己主页上高亮：看别人的主页时都不选中，免得看起来像在看自己的资料。
+ * 帖子详情算时间线的一部分，仍然高亮"全部帖子"；发帖页也是从时间线进去的，同样高亮它；订阅管理
+ * 是订阅流的一部分，跟着高亮"订阅"。</p>
  */
 const activeKey = computed(() => {
+  if (route.name === 'broadcast-subscribe' || route.name === 'broadcast-subscribe-manage') {
+    return 'subscribe'
+  }
   if (route.name === 'broadcast-profile') {
     const uid = String(route.params.uid ?? '')
     return uid.length > 0 && uid === userStore.publicKey ? 'me' : ''
@@ -37,6 +47,8 @@ const activeKey = computed(() => {
 onMounted(() => {
   // 自己的资料页要用公钥拼路径
   void userStore.ensureLoaded().catch(() => {})
+  // 订阅索引只在这里拉一次：卡片上的"已订阅"标签和作者别名都靠它（幂等）
+  void subscribeStore.loadIndex().catch(() => {})
 })
 
 /**

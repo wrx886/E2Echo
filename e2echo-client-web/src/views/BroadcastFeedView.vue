@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Edit, Refresh, Search } from '@element-plus/icons-vue'
@@ -7,12 +7,13 @@ import { MESSAGE_ID_LENGTH, PUBLIC_KEY_LENGTH } from '@/api'
 import type { BroadcastMessageRespVo } from '@/api'
 import BroadcastPostCard from '@/components/BroadcastPostCard.vue'
 import { useBroadcastStore } from '@/stores/broadcast'
+import { useAnchorScroll } from '@/utils/anchorScroll'
 import { showError } from '@/utils/feedback'
 
 /**
  * 广播时间线：所有人的帖子，右下角按钮进入发帖页，顶部可以按公钥或帖子 ID 检索。
  *
- * <p>广播没有推送，进入页面拉一次，之后靠刷新按钮手动刷新（同样没有关注关系，所以只有"全部"）。</p>
+ * <p>广播没有推送，进入页面拉一次，之后靠刷新按钮手动刷新。想看订阅的人发的帖子去「订阅」流。</p>
  */
 
 const router = useRouter()
@@ -30,11 +31,11 @@ const contentEl = ref<HTMLDivElement>()
 /** 待定位的帖子 ID：返回列表后把它滚到可视区中间。 */
 const pendingAnchor = ref('')
 
-/** 重新定位的截止时间：附件陆续加载完之前一直跟着挪，之后就交给用户。 */
-let anchorDeadline = 0
-
-/** 内容高度观察器。 */
-let contentObserver: ResizeObserver | null = null
+const anchor = useAnchorScroll({
+  container: listEl,
+  content: contentEl,
+  anchorId: pendingAnchor,
+})
 
 onMounted(async () => {
   // 从帖子详情返回时列表还在 store 里：不重新拉，保住已经加载的页
@@ -45,56 +46,17 @@ onMounted(async () => {
       showError(error, '加载广播失败')
     }
   }
-  // 把上次点开的那条帖子放回可视区中间
-  pendingAnchor.value = broadcastStore.feedAnchorId
-  anchorDeadline = Date.now() + 3000
-  await nextTick()
-  applyAnchor()
-  observeContent()
+  // 把上次点开的那条帖子放回可视区中间；取走即清，避免以后重新进这个页面又跳一次
+  pendingAnchor.value = broadcastStore.consumeFeedAnchor()
+  await anchor.start()
 })
-
-/**
- * 把锚点帖子滚到可视区中间。
- */
-function applyAnchor(): void {
-  const id = pendingAnchor.value
-  const container = listEl.value
-  if (id.length === 0 || !container) {
-    return
-  }
-  const target = container.querySelector(`[data-item-id="${id}"]`)
-  target?.scrollIntoView({ block: 'center' })
-}
-
-/**
- * 观察内容高度：附件是浏览器异步加载的，加载完内容会变高，锚点的位置跟着变，所以在这段时间里持续
- * 把它拉回中间；用户自己滚了就立刻停手。
- */
-function observeContent(): void {
-  const content = contentEl.value
-  if (!content || typeof ResizeObserver === 'undefined') {
-    return
-  }
-  contentObserver = new ResizeObserver(() => {
-    if (pendingAnchor.value.length === 0 || Date.now() > anchorDeadline) {
-      return
-    }
-    applyAnchor()
-  })
-  contentObserver.observe(content)
-}
 
 /**
  * 用户自己滚动：不要再把视图拽回锚点。
  */
 function onUserScroll(): void {
-  pendingAnchor.value = ''
+  anchor.stop()
 }
-
-onBeforeUnmount(() => {
-  contentObserver?.disconnect()
-  contentObserver = null
-})
 
 /**
  * 检索：按长度区分是用户公钥还是帖子 ID，分别跳到用户主页或帖子详情。
@@ -128,6 +90,8 @@ function onSearch(): void {
 async function onRefresh(): Promise<void> {
   try {
     await broadcastStore.refreshPosts()
+    // 刷新就是重看最新的：放弃定位、回到顶部
+    anchor.reset()
   } catch (error) {
     showError(error, '刷新失败')
   }

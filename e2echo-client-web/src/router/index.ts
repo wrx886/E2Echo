@@ -1,4 +1,5 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
+import { recordNavigation } from '@/utils/anchorScroll'
 
 /**
  * 前端路由。
@@ -61,10 +62,25 @@ const router = createRouter({
       component: () => import('@/views/BroadcastProfileView.vue'),
     },
     {
+      path: '/broadcast/subscribe',
+      name: 'broadcast-subscribe',
+      component: () => import('@/views/BroadcastSubscribeView.vue'),
+    },
+    {
+      path: '/broadcast/subscribe/manage',
+      name: 'broadcast-subscribe-manage',
+      component: () => import('@/views/BroadcastSubscribeManageView.vue'),
+    },
+    {
       path: '/:pathMatch(.*)*',
       redirect: '/chat',
     },
   ],
+})
+
+// 每次导航结束记一笔方向：列表返回定位只在"回退"时生效
+router.afterEach(() => {
+  recordNavigation()
 })
 
 export default router

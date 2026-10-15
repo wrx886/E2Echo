@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { ArrowLeft } from '@element-plus/icons-vue'
+import { ArrowLeft, Refresh } from '@element-plus/icons-vue'
 import type { BroadcastFileVo, BroadcastMessageRespVo } from '@/api'
 import BroadcastComposer from '@/components/BroadcastComposer.vue'
 import BroadcastPostCard from '@/components/BroadcastPostCard.vue'
 import { useBroadcastStore } from '@/stores/broadcast'
+import { useSubscribeStore } from '@/stores/subscribe'
+import { useAnchorScroll } from '@/utils/anchorScroll'
 import { showError } from '@/utils/feedback'
 
 /**
@@ -20,6 +22,7 @@ import { showError } from '@/utils/feedback'
 const route = useRoute()
 const router = useRouter()
 const broadcastStore = useBroadcastStore()
+const subscribeStore = useSubscribeStore()
 
 /** 帖子 ID。 */
 const postId = computed(() => String(route.params.id ?? ''))
@@ -45,11 +48,11 @@ const contentEl = ref<HTMLDivElement>()
 /** 待定位的内容 ID：从评论跳走再回来时，把那条评论滚回可视区中间。 */
 const pendingAnchor = ref('')
 
-/** 重新定位的截止时间：附件加载完之前一直跟着挪，之后就交给用户。 */
-let anchorDeadline = 0
-
-/** 内容高度观察器。 */
-let contentObserver: ResizeObserver | null = null
+const anchor = useAnchorScroll({
+  container: listEl,
+  content: contentEl,
+  anchorId: pendingAnchor,
+})
 
 /** 正在回复的评论作者展示名。 */
 const replyToName = computed(() => {
@@ -57,7 +60,8 @@ const replyToName = computed(() => {
   if (!target) {
     return ''
   }
-  return broadcastStore.profileOf(target.from)?.nickname ?? ''
+  // 名字和卡片保持一致：订阅别名优先，其次资料昵称
+  return subscribeStore.aliasOf(target.from) || broadcastStore.profileOf(target.from)?.nickname || ''
 })
 
 watch(postId, async (value) => {
@@ -75,60 +79,38 @@ watch(postId, async (value) => {
       await broadcastStore.openPost(value)
     }
     await resolveReplies()
-    // 把上次跳走时那条评论放回可视区中间
-    pendingAnchor.value = broadcastStore.postAnchorId
-    anchorDeadline = Date.now() + 3000
-    await nextTick()
-    applyAnchor()
-    observeContent()
+    // 把上次跳走时那条评论放回可视区中间；取走即清，避免重复跳
+    pendingAnchor.value = broadcastStore.consumePostAnchor()
+    await anchor.start()
   } catch (error) {
     showError(error, '加载帖子失败')
   }
 }, { immediate: true })
 
 /**
- * 把锚点内容滚到可视区中间。
- */
-function applyAnchor(): void {
-  const id = pendingAnchor.value
-  const container = listEl.value
-  if (id.length === 0 || !container) {
-    return
-  }
-  const target = container.querySelector(`[data-item-id="${id}"]`)
-  target?.scrollIntoView({ block: 'center' })
-}
-
-/**
- * 观察内容高度：附件异步加载会让内容变高、锚点位置跟着变，这段时间里持续把它拉回中间。
- */
-function observeContent(): void {
-  contentObserver?.disconnect()
-  contentObserver = null
-  const content = contentEl.value
-  if (!content || typeof ResizeObserver === 'undefined') {
-    return
-  }
-  contentObserver = new ResizeObserver(() => {
-    if (pendingAnchor.value.length === 0 || Date.now() > anchorDeadline) {
-      return
-    }
-    applyAnchor()
-  })
-  contentObserver.observe(content)
-}
-
-/**
  * 用户自己滚动：不要再把视图拽回锚点。
  */
 function onUserScroll(): void {
-  pendingAnchor.value = ''
+  anchor.stop()
 }
 
-onBeforeUnmount(() => {
-  contentObserver?.disconnect()
-  contentObserver = null
-})
+/**
+ * 刷新：帖子与评论都按第一次打开那样重新拉一遍，然后回到顶部。
+ */
+async function onRefresh(): Promise<void> {
+  const id = postId.value
+  if (id.length === 0) {
+    return
+  }
+  try {
+    // openPost 会清掉旧内容与旧评论，再从第一页拉
+    await broadcastStore.openPost(id)
+    await resolveReplies()
+    anchor.reset()
+  } catch (error) {
+    showError(error, '刷新失败')
+  }
+}
 
 /**
  * 把评论里引用到的"被回复评论"补齐：已加载的评论里找不到时单独查一次。
@@ -252,6 +234,15 @@ async function onLoadMore(): Promise<void> {
         @click="onBack"
       />
       <span class="post-view__title">帖子</span>
+      <el-button
+        class="post-view__refresh"
+        :icon="Refresh"
+        circle
+        size="small"
+        title="刷新"
+        :loading="broadcastStore.postLoading || broadcastStore.commentsLoading"
+        @click="onRefresh"
+      />
     </header>
 
     <div
@@ -358,6 +349,10 @@ async function onLoadMore(): Promise<void> {
 .post-view__title {
   font-size: 15px;
   font-weight: 600;
+}
+
+.post-view__refresh {
+  margin-left: auto;
 }
 
 .post-view__body {

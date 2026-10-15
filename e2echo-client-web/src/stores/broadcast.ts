@@ -142,6 +142,20 @@ export const useBroadcastStore = defineStore('broadcast', () => {
   const feedAnchorId = ref('')
 
   /**
+   * 取走时间线锚点：读出来的同时清掉。
+   *
+   * <p>锚点只在"从列表点进详情再返回"这一次有效。不清掉的话它会在 store 里一直留着，之后随便切到
+   * 别的地方再回来，页面又会按旧锚点跳一次——用户明明没点任何东西却被滚到中间。</p>
+   *
+   * @returns 锚点内容 ID，没有时为空的
+   */
+  function consumeFeedAnchor(): string {
+    const id = feedAnchorId.value
+    feedAnchorId.value = ''
+    return id
+  }
+
+  /**
    * 加载时间线。
    *
    * @param reset 是否重新从头加载（刷新），否则接着往后翻
@@ -215,6 +229,17 @@ export const useBroadcastStore = defineStore('broadcast', () => {
   const postAnchorId = ref('')
 
   /**
+   * 取走帖子详情的锚点（评论 ID），读出来即清掉，理由同 {@link consumeFeedAnchor}。
+   *
+   * @returns 锚点内容 ID
+   */
+  function consumePostAnchor(): string {
+    const id = postAnchorId.value
+    postAnchorId.value = ''
+    return id
+  }
+
+  /**
    * 用户主页的定位锚点：从主页里点开某条帖子再返回时，把那条帖子滚回中间。
    *
    * <p>锚点带上是哪个人的主页（见 {@link profileAnchorUid}）：换一个人看时，上一个主页的锚点
@@ -224,6 +249,19 @@ export const useBroadcastStore = defineStore('broadcast', () => {
 
   /** 主页锚点所属的用户公钥。 */
   const profileAnchorUid = ref('')
+
+  /**
+   * 取走用户主页的锚点：只有锚点还属于这个人的主页时才返回，取走即清掉。
+   *
+   * @param uid 当前打开的主页所属公钥
+   * @returns 锚点内容 ID
+   */
+  function consumeProfileAnchor(uid: string): string {
+    const id = profileAnchorUid.value === uid ? profileAnchorId.value : ''
+    profileAnchorUid.value = ''
+    profileAnchorId.value = ''
+    return id
+  }
 
   /**
    * 加载帖子。
@@ -380,8 +418,10 @@ export const useBroadcastStore = defineStore('broadcast', () => {
     profiles, loadProfile, profileOf, saveProfile,
     posts, postsLoading, postsHasMore, loadPosts, refreshPosts, createPost,
     feedAnchorId,
+    consumeFeedAnchor,
     post, postLoading, comments, commentsLoading, commentsHasMore,
     commentsOrder, postAnchorId, profileAnchorId, profileAnchorUid,
+    consumePostAnchor, consumeProfileAnchor,
     loadPost, openPost, loadComments, createComment, findComment,
     userPosts, userPostsLoading, userPostsHasMore, loadUserPosts,
   }
