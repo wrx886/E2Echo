@@ -10,6 +10,7 @@ import com.github.wrx886.e2echo.client.vo.resp.BroadcastMessageRespVo;
 import com.github.wrx886.e2echo.client.vo.resp.BroadcastUserinfoRespVo;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -18,7 +19,7 @@ import org.springframework.web.bind.annotation.*;
  * 广播接口。
  *
  * <p>客户端自己的 HTTP 接口：读取或发布广播类的数据——用户资料、帖子与评论。广播只存服务端、不落
- * 本地库，所以这里都是直接与服务器交互。</p>
+ * 本地库，所以这里都是直接与服务器交互。按订阅拉取帖子也在这里。</p>
  */
 @Validated
 @RestController
@@ -90,6 +91,23 @@ public class BroadcastController {
     @PostMapping("message/list")
     public Result<PageData<BroadcastMessageRespVo>> listMessage(@Valid @RequestBody BroadcastMessageListReq req) {
         return Result.ok(service.listMessage(req));
+    }
+
+    /**
+     * 拉取订阅流：当前用户订阅的这些作者的帖子，按消息 ID 倒序分页。
+     *
+     * @param pageNum  页码，从 1 开始
+     * @param pageSize 每页条数
+     * @param endId    结束消息 ID，仅返回 ID 小于该值的消息，为空表示第一页
+     * @return 广播帖子分页结果
+     */
+    @PostMapping("message/listSubscribe")
+    public Result<PageData<BroadcastMessageRespVo>> listSubscribeMessage(
+            @NotNull Integer pageNum,
+            @NotNull Integer pageSize,
+            String endId
+    ) {
+        return Result.ok(service.listSubscribeMessage(pageNum, pageSize, endId));
     }
 
 }

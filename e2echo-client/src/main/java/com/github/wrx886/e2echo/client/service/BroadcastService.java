@@ -22,7 +22,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import tools.jackson.databind.ObjectMapper;
 
+import java.util.ArrayList;
 import java.util.List;
+
+import static com.github.wrx886.e2echo.client.util.CommonUtil.currentOwner;
+
 
 /**
  * 广播业务逻辑层。
@@ -30,6 +34,9 @@ import java.util.List;
  * <p>广播只存服务端、不落本地库，所以这里都是直接和服务端打交道：读取按通道与类型查询，再用消息里
  * 的签名确认数据没有被篡改。广播分三种用途，都靠通道或 {@code to} 区分：用户资料（通道
  * {@code BROADCAST_USERINFO_NONE}）、帖子（{@code to = *}）、评论（{@code to = 帖子的消息 ID}）。</p>
+ *
+ * <p>订阅流也在这里：订阅关系存在本地库（见 {@code BroadcastSubscribe}），拉取时把当前用户订阅的
+ * 作者当作 {@code from} 传给服务端过滤。</p>
  */
 @Slf4j
 @Service
@@ -56,11 +63,16 @@ public class BroadcastService {
     private final ObjectMapper objectMapper;
 
     /**
+     * 订阅业务对象：拉取订阅流时要拿到当前用户订阅的作者。
+     */
+    private final BroadcastSubscribeService subscribeService;
+
+    /**
      * 查询某个用户的资料：取该用户最新的一条用户资料广播。
      *
      * @param uid 用户公钥
      * @return 用户资料及消息信息（作者看签名过的 {@code from}），没有资料或签名校验不通过时返回
-     *         {@code null}
+     * {@code null}
      */
     public BroadcastUserinfoRespVo userinfo(@NotBlank String uid) {
         // 不用按类型过滤：用户资料与广播消息分属不同通道，通道已经把它们分开了
@@ -232,5 +244,36 @@ public class BroadcastService {
                 // 分页信息直接沿用服务端的：正文只是做了验签与解析，条数没变
                 eccMessages.page()
         );
+    }
+
+    /**
+     * 拉取订阅流：当前用户订阅的这些作者的帖子，外加自己的帖子，按消息 ID 倒序分页。
+     *
+     * <p>服务端不知道订阅关系，所以这里把订阅的作者列表当成 {@code from} 过滤条件传下去；{@code to}
+     * 固定传 {@code *}，只取帖子、不含评论。{@code endId} 是倒序翻页的游标（只取 ID 更小的）。</p>
+     *
+     * <p>列表里一定会带上自己：服务端把空的 {@code from} 当作"不过滤"，不带占位就会拉到所有人的帖子；
+     * 拿自己当占位，订阅流默认也就包含了自己的帖子。</p>
+     *
+     * @param pageNum  页码，从 1 开始
+     * @param pageSize 每页条数
+     * @param endId    结束消息 ID，仅返回 ID 小于该值的消息，为空表示第一页
+     * @return 广播帖子分页结果
+     */
+    public PageData<BroadcastMessageRespVo> listSubscribeMessage(int pageNum, int pageSize, String endId) {
+        List<String> subscribedPublicKey = new ArrayList<>(subscribeService.listSubscribedPublicKey());
+        // 服务端把空的 from 当成不过滤（会拉到所有人），所以至少要放一个；这里放自己，订阅流默认也有自己的帖子
+        subscribedPublicKey.add(currentOwner());
+        return listMessage(new BroadcastMessageListReq(
+                subscribedPublicKey,
+                List.of(POST_TO),
+                null,
+                null,
+                null,
+                endId,
+                "DESC",
+                pageNum,
+                pageSize
+        ));
     }
 }
