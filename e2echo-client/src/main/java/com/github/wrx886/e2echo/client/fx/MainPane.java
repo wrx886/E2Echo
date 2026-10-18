@@ -40,7 +40,7 @@ public class MainPane extends VBox {
     private static final double COPY_BUTTON_WIDTH = 70;
 
     /**
-     * 宿主服务，用于调用系统默认浏览器打开网页。
+     * 宿主服务，用于系统浏览器命令不可用时兜底打开网页。
      */
     private final HostServices hostServices;
 
@@ -63,7 +63,7 @@ public class MainPane extends VBox {
      * 构建主界面。
      *
      * @param onExit       退出动作
-     * @param hostServices 宿主服务
+     * @param hostServices 宿主服务，用于打开网页失败时兜底
      * @param environment  内嵌 Web 容器的运行环境
      * @param authService  认证业务逻辑
      * @param timestampApi 时间戳接口
@@ -167,14 +167,15 @@ public class MainPane extends VBox {
      *
      * <p>登录地址为 {@code http://localhost:{端口}/auth/{票据}}，其中端口是内嵌 Web 容器的真实端口
      * （配置为 0 时为随机端口），票据是每次点击都重新生成的一次性 auth 票据。浏览器访问该地址后
-     * 由服务端完成认证，并自动跳转到站点首页。</p>
+     * 由服务端完成认证，并自动跳转到站点首页。打开浏览器时优先使用操作系统自带的命令，
+     * {@link HostServices} 只作为兜底。</p>
      */
     private void onOpenWeb() {
 
         String port = environment.getProperty("local.server.port");
         String auth = authService.newAndGetAuth();
 
-        hostServices.showDocument("http://localhost:" + port + "/auth/" + auth);
+        BrowserLauncher.open("http://localhost:" + port + "/auth/" + auth, hostServices);
     }
 
     /**
