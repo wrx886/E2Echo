@@ -290,6 +290,8 @@ watch(contentEl, (element) => {
 onUnmounted(() => {
   contentObserver?.disconnect()
   contentObserver = null
+  // 离开聊天页后不能再把最后打开的会话当成“正在查看”：否则通知刷新会继续拉取并清零它的未读。
+  messageStore.reset()
 })
 
 /**

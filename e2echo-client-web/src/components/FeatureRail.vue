@@ -24,7 +24,7 @@ interface Feature {
 /**
  * 左侧功能栏。
  *
- * <p>目前只有「聊天」一个功能，高亮按当前路由是否在该功能的路径下判断。</p>
+ * <p>高亮按当前路由是否在该功能的路径下判断；未读数只属于聊天功能。</p>
  */
 const features: Feature[] = [
   { key: 'chat', label: '聊天', path: '/chat', icon: ChatDotRound },
@@ -54,7 +54,7 @@ const activeKey = computed(() =>
         class="feature__badge"
         :value="conversationStore.unreadTotal"
         :max="99"
-        :hidden="conversationStore.unreadTotal <= 0"
+        :hidden="item.key !== 'chat' || conversationStore.unreadTotal <= 0"
       >
         <el-icon :size="22">
           <component :is="item.icon" />
