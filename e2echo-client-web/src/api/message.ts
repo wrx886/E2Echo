@@ -12,6 +12,7 @@ import type {
   ChatFileMessageVo,
   ChatGroupKeyMessageVo,
   ChatTextMessageVo,
+  MessageFromDto,
   MessageVo,
   Page,
   SendTextMessageReq,
@@ -44,6 +45,34 @@ export function findConversationMessages(
     pageNum,
     pageSize,
     endSeq: endSeq === undefined ? undefined : String(endSeq),
+  })
+}
+
+/**
+ * 分页查询当前会话中出现过的发送者。
+ *
+ * <p>返回结果同时包含公钥与会话别名。@ 功能只用公钥写入正文，渲染时再按公钥取别名展示。</p>
+ *
+ * @param peer             会话对方：私聊时为对方公钥、群聊时为群聊标识
+ * @param publicKeyOrAlias 公钥或别名模糊搜索词，空串表示不过滤
+ * @param pageNum          页码，从 1 开始
+ * @param pageSize         每页条数
+ * @param startPublicKey   公钥升序翻页游标，首页不传
+ * @returns 发送者分页结果
+ */
+export function listMessageFroms(
+  peer: string,
+  publicKeyOrAlias = '',
+  pageNum = 1,
+  pageSize = 20,
+  startPublicKey?: string,
+): Promise<Page<MessageFromDto>> {
+  return get<Page<MessageFromDto>>('/api/message/listFrom', {
+    peer,
+    publicKeyOrAlias,
+    startPublicKey,
+    pageNum,
+    pageSize,
   })
 }
 

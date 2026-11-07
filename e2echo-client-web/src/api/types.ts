@@ -292,6 +292,18 @@ export interface MessageVo {
 }
 
 /**
+ * 会话发送者，对应 {@code MessageFromDto}。
+ *
+ * <p>用于输入框里的 @ 人员列表：发送时使用 {@link publicKey}，界面展示 {@link alias}。</p>
+ */
+export interface MessageFromDto {
+  /** 发送者公钥。 */
+  publicKey: string
+  /** 当前用户为发送者设置的会话别名，没有设置时为 null。 */
+  alias: string | null
+}
+
+/**
  * 本地消息实体，对应 {@code Message}。
  *
  * <p>会话列表里的 latestMessage 就是这个结构，其中的 {@code message} 是未反序列化的正文 JSON

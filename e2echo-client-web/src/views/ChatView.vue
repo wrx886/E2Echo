@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { Setting } from '@element-plus/icons-vue'
 import { getConversation } from '@/api'
 import type { ConversationDto, MessageVo } from '@/api'
+import ChatUserCard from '@/components/ChatUserCard.vue'
 import MessageBubble from '@/components/MessageBubble.vue'
 import MessageComposer from '@/components/MessageComposer.vue'
 import { useConversationStore } from '@/stores/conversation'
@@ -53,12 +54,14 @@ const fallbackConversation = ref<ConversationDto | null>(null)
 const missing = ref(false)
 
 /**
- * 用户小卡片开在哪条消息上，空串表示没有。
+ * 用户小卡片的目标人员与锚点。
  *
- * <p>卡片（含 el-popover）整页同时只保留一张，开在哪条消息上由这里决定：每条消息各自挂一套
- * el-popover 的话，切换会话要卸载再挂载整个消息列表的组件树，几十上百条消息就会卡主线程。</p>
+ * <p>整页只创建一个 popover，头像和 @ 别名都复用它，避免每条消息各挂一套定位组件。</p>
  */
-const cardMessageId = ref('')
+const cardTarget = ref<{ uid: string; anchor: HTMLElement } | null>(null)
+
+/** 用户小卡片是否显示。 */
+const cardVisible = ref(false)
 
 /** 正在恢复滚动位置，期间不触发自动滚到底部。 */
 const restoring = ref(false)
@@ -256,26 +259,33 @@ function pinToBottomIfSticky(): void {
 provide(CHAT_PIN_TO_BOTTOM, pinToBottomIfSticky)
 
 /**
- * 把用户小卡片开在某条消息上。
+ * 打开用户小卡片：头像传消息发送者，@ 别名传被提及者。
  *
- * @param messageId 消息 ID
+ * @param target 目标人员与点击锚点
  */
-function openUserCard(messageId: string): void {
-  cardMessageId.value = messageId
+function openUserCard(target: { uid: string; anchor: HTMLElement }): void {
+  cardTarget.value = target
+  cardVisible.value = true
 }
 
 /**
- * 关掉用户小卡片。
+ * 同步 popover 的显隐状态。
  *
- * <p>只认当前那条消息发来的关闭：点另一条消息的头像时，旧卡片会被「点外部」关掉，它的关闭通知
- * 不能把刚打开的新卡片一起清掉。</p>
- *
- * @param messageId 消息 ID
+ * @param visible 是否显示
  */
-function closeUserCard(messageId: string): void {
-  if (cardMessageId.value === messageId) {
-    cardMessageId.value = ''
+function onUserCardVisibleChange(visible: boolean): void {
+  cardVisible.value = visible
+  if (!visible) {
+    cardTarget.value = null
   }
+}
+
+/**
+ * 主动关闭用户小卡片。
+ */
+function closeUserCard(): void {
+  cardVisible.value = false
+  cardTarget.value = null
 }
 
 // 用 ref 的 watch 而不是 onMounted：会话从「不存在」切到正常会话时，列表容器是后出现的
@@ -389,7 +399,7 @@ watch(peer, async (value) => {
     conversationStore.list.find((item) => item.peer === value) ?? null
   missing.value = false
   // 换会话时把上一会话开着的小卡片收掉
-  cardMessageId.value = ''
+  closeUserCard()
   if (value.length === 0) {
     messageStore.reset()
     return
@@ -454,9 +464,7 @@ watch(peer, async (value) => {
                 :mine="isMine(item.message)"
                 :group="group"
                 :mine-avatar="userStore.avatarText"
-                :card-open="item.message.id === cardMessageId"
-                @avatar-click="openUserCard(item.message.id)"
-                @card-close="closeUserCard(item.message.id)"
+                @user-card-click="openUserCard"
               />
             </template>
           </template>
@@ -468,12 +476,28 @@ watch(peer, async (value) => {
         :sending="messageStore.sending"
         :sending-file="messageStore.sendingFile"
         :file-percent="messageStore.fileProgress"
+        :peer="peer"
+        :peer-name="title"
+        :mention-enabled="conversation?.group === false"
+        @mention-click="openUserCard"
         @submit="onSend"
         @submit-file="onSendFile"
         @submit-image="onSendImage"
         @submit-video="onSendVideo"
         @submit-audio="onSendAudio"
       />
+
+      <el-popover
+        v-if="cardTarget"
+        :visible="cardVisible"
+        :virtual-ref="cardTarget.anchor"
+        virtual-triggering
+        :width="300"
+        placement="top-start"
+        @update:visible="onUserCardVisibleChange"
+      >
+        <ChatUserCard :uid="cardTarget.uid" @close="closeUserCard" />
+      </el-popover>
     </template>
   </section>
 </template>

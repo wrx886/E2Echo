@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, watch } from 'vue'
 import { Document, Download } from '@element-plus/icons-vue'
 import {
   MESSAGE_TYPE_CHAT_FILE,
@@ -17,12 +17,12 @@ import {
 } from '@/api'
 import type { MessageVo } from '@/api'
 import AudioMessage from '@/components/AudioMessage.vue'
-import ChatUserCard from '@/components/ChatUserCard.vue'
 import ImageMessage from '@/components/ImageMessage.vue'
 import GroupKeyMessage from '@/components/GroupKeyMessage.vue'
 import VideoMessage from '@/components/VideoMessage.vue'
 import { safeFileName } from '@/utils/filename'
 import { shortKey } from '@/utils/display'
+import { mentionPublicKeys, splitMentions } from '@/utils/mentions'
 import { useConversationStore } from '@/stores/conversation'
 
 /**
@@ -41,19 +41,11 @@ const props = defineProps<{
   group: boolean
   /** 自己的头像文字；为空时按发送者公钥算。 */
   mineAvatar?: string
-  /**
-   * 用户小卡片是否开在这条消息上。
-   *
-   * <p>整页同一时刻只有一张卡片，开在哪条消息上由聊天页决定：只有它的气泡会创建 el-popover。</p>
-   */
-  cardOpen?: boolean
 }>()
 
 const emit = defineEmits<{
-  /** 点了对方的头像，请求把用户卡片开在这条消息上。 */
-  'avatarClick': []
-  /** 用户卡片自己关掉了（点外部、按 Esc 或点了卡片里的关闭）。 */
-  'cardClose': []
+  /** 查看某人的用户卡片：头像传消息发送者，@ 标签传被提及者。 */
+  'userCardClick': [target: { uid: string; anchor: HTMLElement }]
 }>()
 
 const conversationStore = useConversationStore()
@@ -74,25 +66,37 @@ watch(() => props.message.from, (from) => {
   }
 }, { immediate: true })
 
-/** 已创建出来的用户小卡片是否显示，挂上 el-popover 即为打开。 */
-const cardVisible = ref(false)
-
-// 聊天页把卡片指到这条消息时，挂上来的 popover 要直接是打开状态，用户不用再点一次头像
-watch(() => props.cardOpen === true, (open) => {
-  if (open) {
-    cardVisible.value = true
-  }
-}, { immediate: true })
-
-// 任何方式关掉都要告诉聊天页清掉「卡片开在哪条消息上」，否则 v-if 不会卸载 popover
-watch(cardVisible, (value) => {
-  if (!value) {
-    emit('cardClose')
-  }
-})
-
 /** 文字正文，非文字消息为空。 */
 const text = computed(() => chatTextOf(props.message))
+
+/**
+ * 把文字正文拆成普通文字与 @ 公钥片段。
+ *
+ * <p>原始正文不修改，只在渲染时把完整公钥替换成会话别名。</p>
+ */
+const textSegments = computed(() => splitMentions(text.value ?? ''))
+
+/** 正文里出现的公钥，用于补齐尚未加载的会话别名。 */
+const mentionedKeys = computed(() => mentionPublicKeys(text.value ?? ''))
+
+/**
+ * 取 @ 人员的展示名称。
+ *
+ * @param publicKey 被提及人员的公钥
+ * @returns 会话别名；没有别名时退回公钥末位
+ */
+function mentionLabel(publicKey: string): string {
+  return conversationStore.aliasOf(publicKey) ?? shortKey(publicKey)
+}
+
+// @ 的人员可能还不在会话列表里，按公钥补齐别名；取到后 aliasCache 变化会让气泡自动重绘
+watch(mentionedKeys, (keys) => {
+  for (const key of keys) {
+    if (!conversationStore.aliasOf(key)) {
+      void conversationStore.resolveAlias(key)
+    }
+  }
+}, { immediate: true })
 
 /** 群聊密钥消息的正文，不是这类消息时为空。 */
 const groupKey = computed(() => groupKeyOf(props.message))
@@ -151,10 +155,26 @@ const avatar = computed(() =>
  *
  * <p>自己的头像没有卡片可看，直接忽略。</p>
  */
-function onAvatarClick(): void {
+function onAvatarClick(event: MouseEvent): void {
   if (!props.mine) {
-    emit('avatarClick')
+    emit('userCardClick', {
+      uid: props.message.from,
+      anchor: event.currentTarget as HTMLElement,
+    })
   }
+}
+
+/**
+ * 点击 @ 别名：打开被提及人员的用户卡片。
+ *
+ * @param publicKey 被提及人员公钥
+ * @param event     点击事件
+ */
+function onMentionClick(publicKey: string, event: Event): void {
+  emit('userCardClick', {
+    uid: publicKey,
+    anchor: event.currentTarget as HTMLElement,
+  })
 }
 
 /**
@@ -176,37 +196,7 @@ function onDownloadFile(): void {
 
 <template>
   <div class="bubble-row" :class="mine ? 'bubble-row--mine' : 'bubble-row--other'">
-    <!--
-      点对方头像弹出用户卡片：看别名与公钥，并按有没有会话给出对应操作。
-
-      这里用 v-if 把 el-popover 限定在「卡片正开在这条消息上」时才创建：el-popover 挂的是
-      ElTooltip + 触发器 + 定位 + FocusTrap 一整套组件，一条消息一套的话，切换会话要卸载再挂载
-      整个消息列表，200 条消息就能在主线程上卡出 600ms 的长任务（实测 200 条约 700ms）。
-      整页同时最多只会有一张卡片，所以只会多出一个 popover。
-    -->
-    <el-popover
-      v-if="cardOpen === true"
-      v-model:visible="cardVisible"
-      :width="300"
-      placement="top-start"
-      trigger="click"
-    >
-      <template #reference>
-        <el-avatar
-          :size="32"
-          class="bubble-row__avatar"
-          :class="{ 'bubble-row__avatar--mine': mine }"
-          :title="mine ? '' : '查看对方信息'"
-        >
-          {{ avatar }}
-        </el-avatar>
-      </template>
-
-      <ChatUserCard :uid="message.from" @close="cardVisible = false" />
-    </el-popover>
-
     <el-avatar
-      v-else
       :size="32"
       class="bubble-row__avatar"
       :class="{ 'bubble-row__avatar--mine': mine }"
@@ -278,7 +268,26 @@ function onDownloadFile(): void {
 
       <div v-else-if="attachmentBroken" class="bubble">{{ attachmentBroken }}</div>
 
-      <div v-else class="bubble">{{ text ?? '[暂不支持的消息类型]' }}</div>
+      <div v-else class="bubble">
+        <template v-if="text !== null">
+          <template v-for="(segment, index) in textSegments" :key="index">
+            <span
+              v-if="segment.kind === 'mention' && segment.publicKey"
+              class="bubble__mention"
+              :title="segment.text"
+              role="button"
+              tabindex="0"
+              @click.stop="onMentionClick(segment.publicKey, $event)"
+              @keydown.enter.prevent="onMentionClick(segment.publicKey, $event)"
+              @keydown.space.prevent="onMentionClick(segment.publicKey, $event)"
+            >
+              @{{ mentionLabel(segment.publicKey) }}
+            </span>
+            <template v-else>{{ segment.text }}</template>
+          </template>
+        </template>
+        <template v-else>[暂不支持的消息类型]</template>
+      </div>
     </div>
   </div>
 </template>
@@ -356,6 +365,21 @@ function onDownloadFile(): void {
 
 .bubble-row--mine .bubble {
   background: #95ec69;
+}
+
+.bubble__mention {
+  color: #337ecc;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.bubble__mention:hover,
+.bubble__mention:focus-visible {
+  text-decoration: underline;
+}
+
+.bubble-row--mine .bubble__mention {
+  color: #176b36;
 }
 
 .file {

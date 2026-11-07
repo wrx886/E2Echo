@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Plus, Search } from '@element-plus/icons-vue'
 import { latestMessagePreview } from '@/api'
 import type { ConversationDto } from '@/api'
 import { useConversationStore } from '@/stores/conversation'
-import { conversationTitle, formatTime } from '@/utils/display'
+import { conversationTitle, formatTime, shortKey } from '@/utils/display'
 import { showError } from '@/utils/feedback'
+import { mentionPublicKeys, splitMentions } from '@/utils/mentions'
 import { afterPaint } from '@/utils/paint'
 
 /**
@@ -150,6 +151,40 @@ function previewOf(conversation: ConversationDto): string {
 }
 
 /**
+ * 把消息摘要拆成普通文字与 @ 公钥片段。
+ *
+ * @param conversation 会话
+ * @returns 摘要片段
+ */
+function previewSegments(conversation: ConversationDto): ReturnType<typeof splitMentions> {
+  return splitMentions(previewOf(conversation))
+}
+
+/**
+ * 取摘要里 @ 人员的展示名称。
+ *
+ * @param publicKey 被提及人员的公钥
+ * @returns 会话别名；没有别名时退回公钥末位
+ */
+function mentionLabel(publicKey: string): string {
+  return conversationStore.aliasOf(publicKey) ?? shortKey(publicKey)
+}
+
+// 最新消息摘要里的 @ 也需要展示别名；会话列表只加载一条摘要时，按公钥补查
+watch(
+  () => conversationStore.list.map((item) => previewOf(item)),
+  (texts) => {
+    const keys = new Set(texts.flatMap((text) => mentionPublicKeys(text)))
+    for (const key of keys) {
+      if (!conversationStore.aliasOf(key)) {
+        void conversationStore.resolveAlias(key)
+      }
+    }
+  },
+  { immediate: true },
+)
+
+/**
  * 取会话最新消息的时间。
  *
  * @param conversation 会话
@@ -235,7 +270,17 @@ function timeOf(conversation: ConversationDto): string {
               <span class="conversation__time">{{ timeOf(item) }}</span>
             </div>
             <div class="conversation__row">
-              <span class="conversation__preview">{{ previewOf(item) }}</span>
+              <span class="conversation__preview">
+                <template v-for="(segment, index) in previewSegments(item)" :key="index">
+                  <span
+                    v-if="segment.kind === 'mention' && segment.publicKey"
+                    class="conversation__mention"
+                  >
+                    @{{ mentionLabel(segment.publicKey) }}
+                  </span>
+                  <template v-else>{{ segment.text }}</template>
+                </template>
+              </span>
             </div>
           </div>
         </div>
@@ -373,6 +418,10 @@ function timeOf(conversation: ConversationDto): string {
   color: #909399;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+.conversation__mention {
+  color: #337ecc;
 }
 
 .conversations__more {

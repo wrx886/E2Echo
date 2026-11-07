@@ -105,6 +105,17 @@ export const useConversationStore = defineStore('conversation', () => {
   }
 
   /**
+   * 记下接口返回的别名，供消息正文里的 @ 立即展示。
+   *
+   * @param peer  公钥或群标识
+   * @param alias 别名；空值表示该会话确实没有别名
+   */
+  function rememberAlias(peer: string, alias: string | null | undefined): void {
+    const value = alias?.trim() ?? ''
+    aliasCache.value.set(peer, value.length > 0 ? value : null)
+  }
+
+  /**
    * 取某一页并写入列表。
    *
    * @param page   页码，从 1 开始
@@ -219,7 +230,7 @@ export const useConversationStore = defineStore('conversation', () => {
     list, loading, hasMore, loaded, currentPeer, current,
     keyword, search,
     unreadTotal, refreshUnread, markRead,
-    aliasCache, aliasOf, resolveAlias,
+    aliasCache, aliasOf, resolveAlias, rememberAlias,
     loadIfNeeded, refresh, loadMore, save, select,
   }
 })
