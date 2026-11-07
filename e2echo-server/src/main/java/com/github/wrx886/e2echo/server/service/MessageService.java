@@ -36,6 +36,11 @@ import lombok.RequiredArgsConstructor;
 public class MessageService {
 
     /**
+     * 消息 ID 中时间戳部分的十六进制位数。
+     */
+    private static final int ID_TIMESTAMP_LENGTH = 16;
+
+    /**
      * 页码上限：offset 越深查询越慢，更靠后的数据应该用游标翻页。
      */
     private static final int MAX_PAGE_NUM = 16;
@@ -58,18 +63,17 @@ public class MessageService {
     /**
      * 保存消息。
      *
-     * <p>先校验消息的必填字段、签名与发送时间，再转换为实体保存；实体时间戳取自消息 ID 前 16 位
-     * 十六进制时间戳，便于后续按时间查询。保存成功后，通知订阅了该消息接收者的客户端。</p>
+     * <p>先校验消息的必填字段、签名与发送时间，再转换为实体保存；消息 ID 前 16 位已包含生成时间，
+     * 无需额外保存时间字段。保存成功后，通知订阅了该消息接收者的客户端。</p>
      *
      * @param eccMessage 待保存的消息视图
      * @return 保存后的消息视图
      * @throws E2EchoException 必填字段为空、消息校验失败、ID 格式错误或发送时间偏差过大
      */
     public EccMessage save(EccMessage eccMessage) {
-        long timestamp = verify(eccMessage);
+        verify(eccMessage);
         Message message = toEntity(eccMessage);
         message.setId(null);
-        message.setTimestamp(timestamp);
         EccMessage ret = toView(messageRepository.save(message));
         noticeService.notice(ret.getTo());
         return ret;
@@ -91,23 +95,31 @@ public class MessageService {
     /**
      * 按条件分页查询消息列表。
      *
-     * <p>过滤条件均为可选，条件为空时不参与过滤。结果按消息 ID 排序：ID 前 16 位为定长的
+     * <p>{@code channel} 必须提供，{@code from}、{@code to} 等其余过滤条件可选，条件为空时不参与
+     * 过滤。结果按消息 ID 排序：ID 前 16 位为定长的
      * 十六进制时间戳，其字典序与时间顺序一致，因此无需额外按时间戳排序即可保证时间先后。
-     * 升序即从老到新，降序即从新到老。消息 ID 之后还会按主键排序，保证是完整的全序、翻页时
-     * 每页边界稳定（消息 ID 已唯一，正常情况下不会并列，这里作为兜底）。</p>
+     * 升序即从老到新，降序即从新到老。消息 ID 已全局唯一，本身就能保证完整全序和翻页稳定性，
+     * 无需再按主键排序。</p>
      *
      * <p>{@code startId}、{@code endId} 是分页游标，按排序方向选用：升序时把上一页最后一条的 ID
      * 作为 {@code startId}（只取更大的），降序时作为 {@code endId}（只取更小的），这样翻页不会
      * 取到已经取过的消息。</p>
+     *
+     * <p>{@code startTimestamp}、{@code endTimestamp} 仍按毫秒时间语义接收，服务层会将它们转换为
+     * 消息 ID 的字典序上下界，从而继续使用 {@code message_id} 上的索引。</p>
      *
      * <p>分页深度有限制：页码不超过 {@value #MAX_PAGE_NUM}、每页条数不超过
      * {@value #MAX_PAGE_SIZE}，限制的是 offset 深翻页的开销，取更靠后的数据应该用游标。</p>
      *
      * @param reqVo 分页查询参数
      * @return 分页后的消息视图
-     * @throws E2EchoException 时间戳格式错误、排序方向非法、页码或每页条数超出范围
+     * @throws E2EchoException 通道为空、时间戳格式错误、排序方向非法、页码或每页条数超出范围
      */
     public Page<EccMessage> list(MessageListReqVo reqVo) {
+        if (reqVo.channel() == null || reqVo.channel().isBlank()) {
+            throw new E2EchoException("消息通道不能为空！");
+        }
+
         // 页码与每页条数是必填项：缺省按 0 处理，与越界一样落到下面的范围校验
         int pageNum = reqVo.pageNum() == null ? 0 : reqVo.pageNum();
         int pageSize = reqVo.pageSize() == null ? 0 : reqVo.pageSize();
@@ -125,8 +137,8 @@ public class MessageService {
             throw new E2EchoException("每页条数不能超过 " + MAX_PAGE_SIZE + "！");
         }
 
-        Long start = parseTimestamp(reqVo.startTimestamp());
-        Long end = parseTimestamp(reqVo.endTimestamp());
+        String startIdFromTimestamp = toMessageIdLowerBound(parseTimestamp(reqVo.startTimestamp()));
+        String endIdFromTimestamp = toMessageIdUpperBound(parseTimestamp(reqVo.endTimestamp()));
         Sort.Direction direction = parseOrder(reqVo.order());
 
         Specification<Message> specification = (root, query, cb) -> {
@@ -137,14 +149,12 @@ public class MessageService {
             if (reqVo.toList() != null && !reqVo.toList().isEmpty()) {
                 predicates.add(root.get("to").in(reqVo.toList()));
             }
-            if (reqVo.channel() != null && !reqVo.channel().isBlank()) {
-                predicates.add(cb.equal(root.get("channel"), reqVo.channel()));
+            predicates.add(cb.equal(root.get("channel"), reqVo.channel()));
+            if (startIdFromTimestamp != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("messageId"), startIdFromTimestamp));
             }
-            if (start != null) {
-                predicates.add(cb.greaterThanOrEqualTo(root.get("timestamp"), start));
-            }
-            if (end != null) {
-                predicates.add(cb.lessThanOrEqualTo(root.get("timestamp"), end));
+            if (endIdFromTimestamp != null) {
+                predicates.add(cb.lessThan(root.get("messageId"), endIdFromTimestamp));
             }
             if (reqVo.startId() != null && !reqVo.startId().isBlank()) {
                 predicates.add(cb.greaterThan(root.get("messageId"), reqVo.startId()));
@@ -155,9 +165,8 @@ public class MessageService {
             return cb.and(predicates.toArray(new Predicate[0]));
         };
 
-        // 消息 ID 之后按主键再排一次：翻页靠 offset 定位，排序键唯一才能保证每页边界稳定；
-        // 消息 ID 本身已唯一，这里补上主键是兜底，排序键换成可能重复的列时也是一套全序
-        Sort sort = Sort.by(direction, "messageId").and(Sort.by(direction, "id"));
+        // 消息 ID 已全局唯一，单一排序键即可保证完整全序和稳定的分页边界
+        Sort sort = Sort.by(direction, "messageId");
         Pageable pageable = PageRequest.of(pageNum - 1, pageSize, sort);
         return messageRepository.findAll(specification, pageable).map(this::toView);
     }
@@ -169,10 +178,9 @@ public class MessageService {
      * 持久化层，也能给调用方一个明确的错误提示。</p>
      *
      * @param eccMessage 待校验的消息
-     * @return 消息 ID 中携带的时间戳（毫秒）
      * @throws E2EchoException 必填字段为空、签名校验失败、ID 格式错误或发送时间偏差过大
      */
-    private long verify(EccMessage eccMessage) {
+    private void verify(EccMessage eccMessage) {
         // 必填字段：与 message 表的非空约束保持一致
         requireText(eccMessage.getFrom(), "from");
         requireText(eccMessage.getTo(), "to");
@@ -189,7 +197,7 @@ public class MessageService {
         // 时间：取自 id 前 16 位十六进制时间戳
         long timestamp;
         try {
-            timestamp = Long.parseLong(eccMessage.getId().substring(0, 16), 16);
+            timestamp = Long.parseLong(eccMessage.getId().substring(0, ID_TIMESTAMP_LENGTH), 16);
         } catch (Exception e) {
             throw new E2EchoException("消息 ID 格式错误！");
         }
@@ -200,7 +208,6 @@ public class MessageService {
             throw new E2EchoException("发送时间与服务器当前时间差距过大！");
         }
 
-        return timestamp;
     }
 
     /**
@@ -224,17 +231,63 @@ public class MessageService {
      *
      * @param value 时间戳字符串，为空时返回 {@code null}
      * @return 解析后的时间戳，或 {@code null}
-     * @throws E2EchoException 字符串不是合法的十进制数字
+     * @throws E2EchoException 字符串不是合法的十进制数字，或时间戳为负数
      */
     private Long parseTimestamp(String value) {
         if (value == null || value.isBlank()) {
             return null;
         }
         try {
-            return Long.parseLong(value);
+            long timestamp = Long.parseLong(value);
+            if (timestamp < 0) {
+                throw new E2EchoException("时间戳不能为负数：" + value);
+            }
+            return timestamp;
         } catch (NumberFormatException e) {
             throw new E2EchoException("时间戳格式错误：" + value);
         }
+    }
+
+    /**
+     * 将时间戳转换为消息 ID 的字典序下界。
+     *
+     * <p>消息 ID 前 16 位为定长十六进制毫秒时间戳。前缀本身按字典序小于所有以它开头的 ID，
+     * 因此无需补全 32 位 UUID。</p>
+     *
+     * @param timestamp 毫秒时间戳，为 {@code null} 时返回 {@code null}
+     * @return 消息 ID 的下界（包含），或 {@code null}
+     */
+    private String toMessageIdLowerBound(Long timestamp) {
+        return timestamp == null ? null : messageIdPrefix(timestamp);
+    }
+
+    /**
+     * 将时间戳转换为消息 ID 的字典序上界。
+     *
+     * <p>将时间戳前缀的最后一位加一后作为开区间上界：消息 ID 在该位后面还有 UUID，因此所有以原
+     * 前缀开头的 ID 都小于它。这里不需要处理十六进制进位，{@code f} 加一直接得到字典序更大的
+     * {@code g} 即可。</p>
+     *
+     * @param timestamp 毫秒时间戳，为 {@code null} 时返回 {@code null}
+     * @return 消息 ID 的上界（不包含），或 {@code null}
+     */
+    private String toMessageIdUpperBound(Long timestamp) {
+        if (timestamp == null) {
+            return null;
+        }
+        String prefix = messageIdPrefix(timestamp);
+        return prefix.substring(0, ID_TIMESTAMP_LENGTH - 1)
+                + (char) (prefix.charAt(ID_TIMESTAMP_LENGTH - 1) + 1);
+    }
+
+    /**
+     * 生成消息 ID 的 16 位十六进制时间戳前缀。
+     *
+     * @param timestamp 毫秒时间戳
+     * @return 定长十六进制时间戳前缀
+     */
+    private String messageIdPrefix(long timestamp) {
+        return String.format("%0" + ID_TIMESTAMP_LENGTH + "x", timestamp);
     }
 
     /**

@@ -5,12 +5,14 @@ import java.util.List;
 /**
  * 分页查询消息列表的请求体。
  *
- * <p>过滤条件均为可选，为 {@code null} 或空白时不参与过滤。翻页按排序方向选游标：升序用
- * {@code startId}（只取更大的），降序用 {@code endId}（只取更小的）。</p>
+ * <p>{@code channel} 必填，其余过滤条件可选，为 {@code null} 或空白时不参与过滤。翻页按排序方向
+ * 选游标：升序用 {@code startId}（只取更大的），降序用 {@code endId}（只取更小的）。</p>
+ *
+ * <p>时间戳参数仍按毫秒语义接收；服务端会将其转换为消息 ID 的字典序范围处理，不额外保存时间字段。</p>
  *
  * @param fromList       发送者公钥列表，为空表示不过滤
  * @param toList         接收者信息列表，为空表示不过滤
- * @param channel        消息通道，为空表示不过滤
+ * @param channel        消息通道（必填）
  * @param startTimestamp 起始时间戳（毫秒，含），为空表示不限制
  * @param endTimestamp   结束时间戳（毫秒，含），为空表示不限制
  * @param startId        起始消息 ID，仅返回 ID 大于该值的消息，为空表示不限制

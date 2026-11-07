@@ -11,8 +11,8 @@ import lombok.EqualsAndHashCode;
 /**
  * 消息实体，对应数据库 {@code message} 表。
  *
- * <p>字段与 {@link com.github.wrx886.e2echo.ecc.EccMessage} 基本一致，并额外保存
- * {@code timestamp}（由消息 ID 前 16 位十六进制时间戳解析而来），用于按时间查询。</p>
+ * <p>字段与 {@link com.github.wrx886.e2echo.ecc.EccMessage} 基本一致。消息 ID 的前 16 位本身就是
+ * 十六进制毫秒时间戳，因此不再单独保存时间字段；按时间区间查询时由服务层转换为消息 ID 的范围。</p>
  *
  * <p>主键与消息 ID 是两回事：继承 {@link BaseEntity} 得到的 {@code id} 是数据库主键，由服务端
  * 生成；{@code messageId} 是客户端生成的消息 ID，单独保存且全局唯一，查询与排序都以它为准。
@@ -22,17 +22,19 @@ import lombok.EqualsAndHashCode;
  *
  * <p>{@code from}、{@code to} 是数据库保留字，因此对应列名改为 {@code from_}、{@code to_}。</p>
  *
- * <p>为 {@code MessageService.list} 的过滤条件建立索引：{@code from_}、{@code to_}、
- * {@code channel}、{@code timestamp}；消息 ID 的唯一索引同时用于排序与增量拉取。</p>
+ * <p>列表查询必须带 {@code channel}，{@code from_}、{@code to_} 可选，并始终按 {@code message_id}
+ * 过滤游标或排序，因此为四种组合建立索引：{@code channel}、{@code channel+from_}、
+ * {@code channel+to_}、{@code channel+from_+to_}，消息 ID 均放在最后。消息 ID 的唯一约束保证其
+ * 全局唯一，并支持不带通道的按 ID 查询。</p>
  */
 @Data
 @EqualsAndHashCode(callSuper = true)
 @Entity
 @Table(name = "message", indexes = {
-        @Index(name = "idx_message_from", columnList = "from_"),
-        @Index(name = "idx_message_to", columnList = "to_"),
-        @Index(name = "idx_message_channel", columnList = "channel"),
-        @Index(name = "idx_message_timestamp", columnList = "timestamp")
+        @Index(name = "idx_message_channel_message_id", columnList = "channel, message_id"),
+        @Index(name = "idx_message_channel_from_message_id", columnList = "channel, from_, message_id"),
+        @Index(name = "idx_message_channel_to_message_id", columnList = "channel, to_, message_id"),
+        @Index(name = "idx_message_channel_from_to_message_id", columnList = "channel, from_, to_, message_id"),
 }, uniqueConstraints = {
         @UniqueConstraint(name = "uk_message_message_id", columnNames = "message_id")
 })
@@ -74,12 +76,6 @@ public class Message extends BaseEntity {
      */
     @Column(nullable = false)
     private String channel;
-
-    /**
-     * 消息发送时间（毫秒），取自消息 ID 前 16 位十六进制时间戳，用于按时间查询。
-     */
-    @Column(nullable = false)
-    private long timestamp;
 
     /**
      * 消息附加信息，由业务方自行定义。

@@ -133,7 +133,7 @@ class MessageControllerTest {
      * @return 写入数据库的消息实体
      */
     private Message persistMessage(long timestamp, int sequence, String channel) {
-        // ID 前 16 位是十六进制时间戳，后 32 位保证同一次测试内不重复，且序号部分保证 ID 有序
+        // ID 前 16 位是十六进制时间戳，后 32 位保证同一次测试内不重复
         String id = String.format("%016x", timestamp)
                 + UUID.randomUUID().toString().replace("-", "").substring(0, 24)
                 + String.format("%08x", sequence);
@@ -147,7 +147,6 @@ class MessageControllerTest {
         message.setChannel(channel);
         message.setInfo("extra-info");
         message.setSign("sign");
-        message.setTimestamp(timestamp);
 
         createdIds.add(id);
         return messageRepository.save(message);
@@ -156,7 +155,7 @@ class MessageControllerTest {
     /**
      * 按本次测试的接收者公钥与条件分页查询，把结果限定在本次测试写入的数据上。
      *
-     * @param channel        消息通道，可为 {@code null}
+     * @param channel        消息通道，传入 {@code null} 或空白可用于校验必填限制
      * @param startTimestamp 起始时间戳（毫秒），可为 {@code null}
      * @param endTimestamp   结束时间戳（毫秒），可为 {@code null}
      * @param startId        起始消息 ID，可为 {@code null}
@@ -188,7 +187,7 @@ class MessageControllerTest {
     class Save {
 
         /**
-         * 校验保存成功后消息确实写入了数据库，且各字段与消息 ID 中的时间戳都被正确保存。
+         * 校验保存成功后消息确实写入了数据库，且各字段都被正确保存。
          *
          * @throws Exception 消息生成失败
          */
@@ -213,9 +212,6 @@ class MessageControllerTest {
             assertThat(stored.getChannel()).isEqualTo(PRIVATE_CHANNEL);
             assertThat(stored.getInfo()).isEqualTo("extra-info");
             assertThat(stored.getSign()).isEqualTo(sent.getSign());
-            // 时间戳取自消息 ID 前 16 位十六进制数，用于后续按时间查询
-            assertThat(stored.getTimestamp())
-                    .isEqualTo(Long.parseLong(sent.getId().substring(0, 16), 16));
             // 审计字段由 JPA 审计自动填充
             assertThat(stored.getCreateTime()).isNotNull();
             assertThat(stored.getUpdateTime()).isNotNull();
@@ -372,16 +368,17 @@ class MessageControllerTest {
             long base = System.currentTimeMillis();
             Message first = persistMessage(base, 1, PRIVATE_CHANNEL);
             Message second = persistMessage(base + 1_000, 2, PRIVATE_CHANNEL);
+            Message secondInSameMillisecond = persistMessage(base + 1_000, 4, PRIVATE_CHANNEL);
             persistMessage(base + 2_000, 3, PRIVATE_CHANNEL);
 
-            // 起始与结束时间戳均包含边界
-            Page<EccMessage> ranged = list(null, Long.toString(second.getTimestamp()),
-                    Long.toString(second.getTimestamp()), null, null, 1, 10);
+            // 起始与结束时间戳均包含边界，同一毫秒内的消息也要全部命中
+            Page<EccMessage> ranged = list(PRIVATE_CHANNEL, Long.toString(base + 1_000),
+                    Long.toString(base + 1_000), null, null, 1, 10);
             assertThat(ranged.getContent()).extracting(EccMessage::getId)
-                    .containsExactly(second.getMessageId());
+                    .containsExactlyInAnyOrder(second.getMessageId(), secondInSameMillisecond.getMessageId());
 
             // 只返回 ID 大于该值的消息
-            Page<EccMessage> afterFirst = list(null, null, null, first.getMessageId(), null, 1, 10);
+            Page<EccMessage> afterFirst = list(PRIVATE_CHANNEL, null, null, first.getMessageId(), null, 1, 10);
             assertThat(afterFirst.getTotalElements()).isEqualTo(2);
             assertThat(afterFirst.getContent()).extracting(EccMessage::getId)
                     .allSatisfy(id -> assertThat(id).isGreaterThan(first.getMessageId()));
@@ -492,7 +489,7 @@ class MessageControllerTest {
             Message second = persistMessage(base + 1_000, 2, PRIVATE_CHANNEL);
             Message third = persistMessage(base + 2_000, 3, PRIVATE_CHANNEL);
 
-            Page<EccMessage> pageOne = list(null, null, null, null, null, 1, 2);
+            Page<EccMessage> pageOne = list(PRIVATE_CHANNEL, null, null, null, null, 1, 2);
             assertThat(pageOne.getContent()).extracting(EccMessage::getId)
                     .containsExactly(first.getMessageId(), second.getMessageId());
             assertThat(pageOne.getTotalElements()).isEqualTo(3);
@@ -500,7 +497,7 @@ class MessageControllerTest {
             assertThat(pageOne.getNumber()).isZero();
             assertThat(pageOne.getSize()).isEqualTo(2);
 
-            Page<EccMessage> pageTwo = list(null, null, null, null, null, 2, 2);
+            Page<EccMessage> pageTwo = list(PRIVATE_CHANNEL, null, null, null, null, 2, 2);
             assertThat(pageTwo.getContent()).extracting(EccMessage::getId)
                     .containsExactly(third.getMessageId());
         }
@@ -511,31 +508,43 @@ class MessageControllerTest {
         @Test
         @DisplayName("参数非法：抛出业务异常")
         void throwsWhenArgumentsInvalid() {
-            assertThatThrownBy(() -> list(null, null, null, null, null, 0, 10))
+            assertThatThrownBy(() -> list(null, null, null, null, null, 1, 10))
+                    .isInstanceOf(E2EchoException.class)
+                    .hasMessage("消息通道不能为空！");
+
+            assertThatThrownBy(() -> list(" ", null, null, null, null, 1, 10))
+                    .isInstanceOf(E2EchoException.class)
+                    .hasMessage("消息通道不能为空！");
+
+            assertThatThrownBy(() -> list(PRIVATE_CHANNEL, null, null, null, null, 0, 10))
                     .isInstanceOf(E2EchoException.class)
                     .hasMessage("页码必须大于等于 1！");
 
-            assertThatThrownBy(() -> list(null, null, null, null, null, 1, 0))
+            assertThatThrownBy(() -> list(PRIVATE_CHANNEL, null, null, null, null, 1, 0))
                     .isInstanceOf(E2EchoException.class)
                     .hasMessage("每页条数必须大于等于 1！");
 
             // 分页深度限制：页码不超过 16、每页条数不超过 256
-            assertThatThrownBy(() -> list(null, null, null, null, null, 17, 10))
+            assertThatThrownBy(() -> list(PRIVATE_CHANNEL, null, null, null, null, 17, 10))
                     .isInstanceOf(E2EchoException.class)
                     .hasMessage("页码不能超过 16！");
 
-            assertThatThrownBy(() -> list(null, null, null, null, null, 1, 257))
+            assertThatThrownBy(() -> list(PRIVATE_CHANNEL, null, null, null, null, 1, 257))
                     .isInstanceOf(E2EchoException.class)
                     .hasMessage("每页条数不能超过 256！");
 
             // 边界值本身允许：最后一页与最大每页条数不会报错
-            assertThat(list(null, null, null, null, null, 16, 256).getContent()).isEmpty();
+            assertThat(list(PRIVATE_CHANNEL, null, null, null, null, 16, 256).getContent()).isEmpty();
 
-            assertThatThrownBy(() -> list(null, "abc", null, null, null, 1, 10))
+            assertThatThrownBy(() -> list(PRIVATE_CHANNEL, "abc", null, null, null, 1, 10))
                     .isInstanceOf(E2EchoException.class)
                     .hasMessage("时间戳格式错误：abc");
 
-            assertThatThrownBy(() -> list(null, null, null, null, "unknown", 1, 10))
+            assertThatThrownBy(() -> list(PRIVATE_CHANNEL, "-1", null, null, null, 1, 10))
+                    .isInstanceOf(E2EchoException.class)
+                    .hasMessage("时间戳不能为负数：-1");
+
+            assertThatThrownBy(() -> list(PRIVATE_CHANNEL, null, null, null, "unknown", 1, 10))
                     .isInstanceOf(E2EchoException.class)
                     .hasMessage("排序方向只能是 asc 或 desc：unknown");
         }

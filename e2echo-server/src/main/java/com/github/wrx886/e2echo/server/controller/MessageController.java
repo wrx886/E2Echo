@@ -56,8 +56,8 @@ public class MessageController {
     /**
      * 按条件分页查询消息列表。
      *
-     * <p>过滤条件均为可选，未传时表示不参与过滤；结果默认按时间从老到新返回，可通过
-     * {@code order} 改为从新到老——例如查询某个用户最新的用户信息时，可传
+     * <p>{@code channel} 必填，其余过滤条件未传时表示不参与过滤；结果默认按时间从老到新返回，
+     * 可通过 {@code order} 改为从新到老——例如查询某个用户最新的用户信息时，可传
      * {@code channel=USERINFO}、{@code fromList={用户公钥}}、{@code order=desc}、
      * {@code pageSize=1}。</p>
      *
