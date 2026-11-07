@@ -6,7 +6,7 @@
 
     <groupId>com.github.wrx886</groupId>
     <artifactId>e2echo-parent</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>2.0-SNAPSHOT</version>
     <packaging>pom</packaging>
     <modules>
         <module>e2echo-ecc</module>
@@ -57,7 +57,7 @@
             <dependency>
                 <groupId>com.github.wrx886</groupId>
                 <artifactId>e2echo-ecc</artifactId>
-                <version>1.0-SNAPSHOT</version>
+                <version>2.0-SNAPSHOT</version>
             </dependency>
 
             <dependency>
