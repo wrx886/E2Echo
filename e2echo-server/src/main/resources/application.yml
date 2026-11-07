@@ -38,7 +38,7 @@ spring:
 # 自定义的 S3 配置
 s3:
   endpoint: http://localhost:9000  # 你的 RustFS 服务地址
-  access-key: admin
-  secret-key: admin
+  access-key: rustfsadmin
+  secret-key: rustfsadmin
   region: us-east-1  # 对于 S3 兼容存储，通常使用 us-east-1
-  bucket-name: e2echo  # 可选，设置默认桶
+  bucket-name: e2echo-server  # 可选，设置默认桶

@@ -1,5 +1,6 @@
 package com.github.wrx886.e2echo.client.controller;
 
+import com.github.wrx886.e2echo.client.dto.MessageFromDto;
 import com.github.wrx886.e2echo.client.enums.MessageTypeEnum;
 import com.github.wrx886.e2echo.client.exception.E2EchoException;
 import com.github.wrx886.e2echo.client.handler.ChatFileMessageHandler;
@@ -21,7 +22,7 @@ import org.springframework.web.multipart.MultipartFile;
 /**
  * 消息接口。
  *
- * <p>客户端自己的 HTTP 接口，供前端使用：查询某个会话的消息、发送文字聊天消息。</p>
+ * <p>客户端自己的 HTTP 接口，供前端使用：查询某个会话的消息与发送者、发送文字聊天消息。</p>
  */
 @Validated
 @RestController
@@ -70,6 +71,27 @@ public class MessageController {
             }
         }
         return Result.ok(messageService.findConversation(peer, endSeqLong, pageNum, pageSize));
+    }
+
+    /**
+     * 分页查询某个会话中出现过的发送者，按公钥升序排列并去重。
+     *
+     * @param peer             会话对方，私聊时为对方公钥、群聊时为群聊标识
+     * @param publicKeyOrAlias 发送者公钥或个人别名模糊匹配词，为空表示不过滤
+     * @param startPublicKey   发送者公钥游标（不含），为空表示从头开始
+     * @param pageNum          页码，从 1 开始
+     * @param pageSize         每页条数
+     * @return 含公钥与会话别名的发送者分页结果
+     */
+    @GetMapping("listFrom")
+    public Result<Page<MessageFromDto>> listFrom(
+            String peer,
+            String publicKeyOrAlias,
+            String startPublicKey,
+            @NotNull Integer pageNum,
+            @NotNull Integer pageSize
+    ) {
+        return Result.ok(messageService.listFrom(peer, publicKeyOrAlias, startPublicKey, pageNum, pageSize));
     }
 
     /**

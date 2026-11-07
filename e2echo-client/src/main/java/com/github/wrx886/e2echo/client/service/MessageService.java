@@ -9,6 +9,7 @@ import com.github.wrx886.e2echo.client.common.Const;
 import com.github.wrx886.e2echo.client.common.MessageHandler;
 import com.github.wrx886.e2echo.client.config.MessageConfig;
 import com.github.wrx886.e2echo.client.dto.AesKeyDto;
+import com.github.wrx886.e2echo.client.dto.MessageFromDto;
 import com.github.wrx886.e2echo.client.entity.Message;
 import com.github.wrx886.e2echo.client.enums.ChannelEnum;
 import com.github.wrx886.e2echo.client.enums.SysParamEnum;
@@ -32,6 +33,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import reactor.core.Disposable;
 import reactor.core.scheduler.Schedulers;
 import tools.jackson.databind.ObjectMapper;
@@ -547,6 +549,44 @@ public class MessageService {
         return messageRepository.findFirstByOwnerOrderBySeqDesc(currentOwner())
                 .map(Message::getSeq)
                 .orElse(0L);
+    }
+
+    /**
+     * 分页查询某个会话中出现过的发送者，按公钥升序排列并去重。
+     *
+     * <p>会话条件与 {@link #findConversation} 一致：私聊按收发双方匹配，群聊按接收者和群聊通道
+     * 匹配；发送者对应的个人会话别名由 {@link ConversationService} 批量填充。</p>
+     *
+     * <p>{@code startPublicKey} 是升序翻页游标，只返回公钥大于该值的发送者。它和 {@code pageNum}
+     * 可以配合使用：传入上一页最后一个公钥后，从该游标之后继续取第 {@code pageNum} 页。</p>
+     *
+     * @param peer             会话对方，私聊时为对方公钥、群聊时为群聊标识
+     * @param publicKeyOrAlias 发送者公钥或个人别名模糊匹配词，为空表示不过滤
+     * @param startPublicKey   发送者公钥游标（不含），为空表示从头开始
+     * @param pageNum          页码，从 1 开始
+     * @param pageSize         每页条数
+     * @return 去重后的发送者分页结果
+     */
+    public Page<MessageFromDto> listFrom(
+            String peer,
+            String publicKeyOrAlias,
+            String startPublicKey,
+            int pageNum,
+            int pageSize
+    ) {
+        if (pageNum < 1 || pageSize < 1) {
+            throw new E2EchoException("页码和每页条数必须大于0！");
+        }
+
+        String keyword = "%" + (publicKeyOrAlias == null ? "" : publicKeyOrAlias.trim().toLowerCase(Locale.ROOT)) + "%";
+        return messageRepository.listFrom(
+                currentOwner(),
+                peer,
+                keyword,
+                StringUtils.hasText(startPublicKey) ? startPublicKey : null,
+                ChannelEnum.CHAT_PRIVATE_ECC.name(),
+                ChannelEnum.CHAT_GROUP_AES.name(),
+                PageRequest.of(pageNum - 1, pageSize));
     }
 
 }
