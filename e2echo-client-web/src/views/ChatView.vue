@@ -2,7 +2,8 @@
 import { computed, nextTick, onUnmounted, provide, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Setting } from '@element-plus/icons-vue'
-import { getConversation } from '@/api'
+import { ElMessage } from 'element-plus'
+import { chatTextBodyOf, getConversation } from '@/api'
 import type { ConversationDto, MessageVo } from '@/api'
 import ChatUserCard from '@/components/ChatUserCard.vue'
 import MessageBubble from '@/components/MessageBubble.vue'
@@ -47,6 +48,18 @@ const contentEl = ref<HTMLDivElement>()
 /** 输入框内容。 */
 const draft = ref('')
 
+/** 输入区实例，选中引用后把焦点放回输入框。 */
+const composerRef = ref<InstanceType<typeof MessageComposer>>()
+
+/** 正在引用的消息；为空表示不引用。 */
+const quoteTarget = ref<MessageVo | null>(null)
+
+/** 刚从引用块定位到的消息 ID，用于短暂高亮。 */
+const highlightMessageId = ref('')
+
+/** 高亮自动消失的定时器。 */
+let highlightTimer: ReturnType<typeof setTimeout> | null = null
+
 /** 会话列表里还没有该会话时单独查到的会话。 */
 const fallbackConversation = ref<ConversationDto | null>(null)
 
@@ -86,6 +99,10 @@ const title = computed(() => conversationTitle(conversation.value, peer.value))
 
 /** 是否群聊会话。 */
 const group = computed(() => conversation.value?.group === true)
+
+/** 已加载消息按 ID 建立索引，供引用摘要与定位使用。 */
+const messageLookup = computed(() =>
+  new Map(messageStore.messages.map((message) => [message.id, message])))
 
 /**
  * 展示条目：消息与时间分隔。
@@ -288,6 +305,85 @@ function closeUserCard(): void {
   cardTarget.value = null
 }
 
+/**
+ * 取一条消息引用的原消息。
+ *
+ * @param message 当前消息
+ * @returns 原消息；没有引用或原消息还没加载时返回 null
+ */
+function quotedMessageOf(message: MessageVo): MessageVo | null {
+  const id = chatTextBodyOf(message)?.quote
+  return id ? messageLookup.value.get(id) ?? null : null
+}
+
+/**
+ * 引用一条文字消息，并把焦点放回输入框。
+ *
+ * @param message 被引用的消息
+ */
+function startQuote(message: MessageVo): void {
+  quoteTarget.value = message
+  void nextTick(() => composerRef.value?.focus())
+}
+
+/**
+ * 取消当前引用。
+ */
+function cancelQuote(): void {
+  quoteTarget.value = null
+}
+
+/**
+ * 短暂高亮一条消息。
+ *
+ * @param messageId 消息 ID
+ */
+function flashMessage(messageId: string): void {
+  if (highlightTimer !== null) {
+    clearTimeout(highlightTimer)
+  }
+  highlightMessageId.value = messageId
+  highlightTimer = setTimeout(() => {
+    highlightTimer = null
+    highlightMessageId.value = ''
+  }, 1600)
+}
+
+/**
+ * 定位被引用的原消息；当前页之后的历史还没加载时，逐页向前补齐。
+ *
+ * @param messageId 被引用消息的 ID
+ */
+async function openQuotedMessage(messageId: string): Promise<void> {
+  let target = messageLookup.value.get(messageId) ?? null
+  try {
+    while (!target && messageStore.hasMore && !messageStore.loadingOlder) {
+      const previousLength = messageStore.messages.length
+      await messageStore.loadOlder()
+      target = messageLookup.value.get(messageId) ?? null
+      if (messageStore.messages.length === previousLength) {
+        break
+      }
+    }
+  } catch (error) {
+    showError(error, '加载被引用的消息失败')
+    return
+  }
+
+  if (!target) {
+    ElMessage.warning('没有找到被引用的消息')
+    return
+  }
+
+  await nextTick()
+  const element = scroller()?.querySelector<HTMLElement>(`[data-message-id="${messageId}"]`)
+  if (!element) {
+    return
+  }
+  flashMessage(messageId)
+  element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+}
+
 // 用 ref 的 watch 而不是 onMounted：会话从「不存在」切到正常会话时，列表容器是后出现的
 watch(contentEl, (element) => {
   contentObserver?.disconnect()
@@ -300,6 +396,9 @@ watch(contentEl, (element) => {
 onUnmounted(() => {
   contentObserver?.disconnect()
   contentObserver = null
+  if (highlightTimer !== null) {
+    clearTimeout(highlightTimer)
+  }
   // 离开聊天页后不能再把最后打开的会话当成“正在查看”：否则通知刷新会继续拉取并清零它的未读。
   messageStore.reset()
 })
@@ -313,8 +412,9 @@ async function onSend(): Promise<void> {
     return
   }
   try {
-    await messageStore.send(text, group.value)
+    await messageStore.send(text, group.value, quoteTarget.value?.id)
     draft.value = ''
+    quoteTarget.value = null
     await scrollToBottom()
   } catch (error) {
     // 发送失败保留输入内容，方便直接重试
@@ -400,6 +500,8 @@ watch(peer, async (value) => {
   missing.value = false
   // 换会话时把上一会话开着的小卡片收掉
   closeUserCard()
+  quoteTarget.value = null
+  highlightMessageId.value = ''
   if (value.length === 0) {
     messageStore.reset()
     return
@@ -464,7 +566,11 @@ watch(peer, async (value) => {
                 :mine="isMine(item.message)"
                 :group="group"
                 :mine-avatar="userStore.avatarText"
+                :quoted-message="quotedMessageOf(item.message)"
+                :highlighted="item.message.id === highlightMessageId"
                 @user-card-click="openUserCard"
+                @quote="startQuote"
+                @open-quote="openQuotedMessage"
               />
             </template>
           </template>
@@ -472,6 +578,7 @@ watch(peer, async (value) => {
       </div>
 
       <MessageComposer
+        ref="composerRef"
         v-model="draft"
         :sending="messageStore.sending"
         :sending-file="messageStore.sendingFile"
@@ -479,7 +586,9 @@ watch(peer, async (value) => {
         :peer="peer"
         :peer-name="title"
         :mention-enabled="conversation?.group === false"
+        :quoted-message="quoteTarget"
         @mention-click="openUserCard"
+        @cancel-quote="cancelQuote"
         @submit="onSend"
         @submit-file="onSendFile"
         @submit-image="onSendImage"

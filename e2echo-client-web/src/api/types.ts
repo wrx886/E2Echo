@@ -234,6 +234,8 @@ export interface BroadcastMessageListReq {
 export interface ChatTextMessageVo {
   /** 消息正文。 */
   text: string
+  /** 被引用消息的 ID；null 或空字符串表示没有引用。 */
+  quote?: string | null
 }
 
 /**
@@ -393,4 +395,6 @@ export interface SendTextMessageReq {
   group: boolean
   /** 消息正文。 */
   text: string
+  /** 被引用消息的 ID；不引用时为空。 */
+  quote?: string | null
 }

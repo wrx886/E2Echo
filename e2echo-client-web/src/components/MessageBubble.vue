@@ -1,18 +1,21 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue'
-import { Document, Download } from '@element-plus/icons-vue'
+import { ChatDotRound, Document, Download } from '@element-plus/icons-vue'
 import {
   MESSAGE_TYPE_CHAT_FILE,
   MESSAGE_TYPE_CHAT_FILE_AUDIO,
   MESSAGE_TYPE_CHAT_FILE_IMAGE,
   MESSAGE_TYPE_CHAT_FILE_VIDEO,
+  MESSAGE_TYPE_CHAT_TEXT,
   audioMessageOf,
+  chatTextBodyOf,
   chatTextOf,
   chatFileUrl,
   fileMessageOf,
   groupKeyOf,
   imageMessageOf,
   isTrustedGroupKey,
+  messagePreviewText,
   videoMessageOf,
 } from '@/api'
 import type { MessageVo } from '@/api'
@@ -41,11 +44,19 @@ const props = defineProps<{
   group: boolean
   /** 自己的头像文字；为空时按发送者公钥算。 */
   mineAvatar?: string
+  /** 当前消息引用的原消息；尚未加载时为 null。 */
+  quotedMessage?: MessageVo | null
+  /** 是否刚从引用块定位过来，需要短暂高亮。 */
+  highlighted?: boolean
 }>()
 
 const emit = defineEmits<{
   /** 查看某人的用户卡片：头像传消息发送者，@ 标签传被提及者。 */
   'userCardClick': [target: { uid: string; anchor: HTMLElement }]
+  /** 引用这条文字消息。 */
+  'quote': [message: MessageVo]
+  /** 定位这条消息引用的原消息。 */
+  'openQuote': [messageId: string]
 }>()
 
 const conversationStore = useConversationStore()
@@ -69,6 +80,9 @@ watch(() => props.message.from, (from) => {
 /** 文字正文，非文字消息为空。 */
 const text = computed(() => chatTextOf(props.message))
 
+/** 被引用消息的 ID，普通文字消息未引用时为空。 */
+const quoteId = computed(() => chatTextBodyOf(props.message)?.quote ?? '')
+
 /**
  * 把文字正文拆成普通文字与 @ 公钥片段。
  *
@@ -76,8 +90,34 @@ const text = computed(() => chatTextOf(props.message))
  */
 const textSegments = computed(() => splitMentions(text.value ?? ''))
 
-/** 正文里出现的公钥，用于补齐尚未加载的会话别名。 */
-const mentionedKeys = computed(() => mentionPublicKeys(text.value ?? ''))
+/** 被引用消息的展示名称。 */
+const quoteName = computed(() => {
+  const target = props.quotedMessage
+  return target ? conversationStore.aliasOf(target.from) ?? shortKey(target.from) : ''
+})
+
+/** 被引用消息的单行摘要。 */
+const quoteSegments = computed(() => {
+  const target = props.quotedMessage
+  if (!target) {
+    return [{ kind: 'text' as const, text: '原消息尚未加载，点击查看' }]
+  }
+  if (target.type === MESSAGE_TYPE_CHAT_TEXT) {
+    return splitMentions(chatTextOf(target) ?? '')
+  }
+  return [{ kind: 'text' as const, text: messagePreviewText(target) }]
+})
+
+/** 引用块的完整提示文字。 */
+const quoteTitle = computed(() => quoteSegments.value.map((segment) => segment.text).join(''))
+
+/** 正文和引用摘要里出现的公钥，用于补齐尚未加载的会话别名。 */
+const mentionedKeys = computed(() => {
+  const quoteKeys = quoteSegments.value
+    .filter((segment) => segment.kind === 'mention' && segment.publicKey)
+    .map((segment) => segment.publicKey as string)
+  return [...new Set([...mentionPublicKeys(text.value ?? ''), ...quoteKeys])]
+})
 
 /**
  * 取 @ 人员的展示名称。
@@ -95,6 +135,13 @@ watch(mentionedKeys, (keys) => {
     if (!conversationStore.aliasOf(key)) {
       void conversationStore.resolveAlias(key)
     }
+  }
+}, { immediate: true })
+
+// 引用块的发送者可能还没在本地会话列表里，补查一次别名
+watch(() => props.quotedMessage?.from, (from) => {
+  if (from && !conversationStore.aliasOf(from)) {
+    void conversationStore.resolveAlias(from)
   }
 }, { immediate: true })
 
@@ -195,7 +242,14 @@ function onDownloadFile(): void {
 </script>
 
 <template>
-  <div class="bubble-row" :class="mine ? 'bubble-row--mine' : 'bubble-row--other'">
+  <div
+    class="bubble-row"
+    :class="[
+      mine ? 'bubble-row--mine' : 'bubble-row--other',
+      { 'bubble-row--highlighted': highlighted },
+    ]"
+    :data-message-id="message.id"
+  >
     <el-avatar
       :size="32"
       class="bubble-row__avatar"
@@ -288,12 +342,48 @@ function onDownloadFile(): void {
         </template>
         <template v-else>[暂不支持的消息类型]</template>
       </div>
+
+      <button
+        v-if="quoteId"
+        type="button"
+        class="bubble__quote"
+        :title="quoteTitle"
+        @click.stop="emit('openQuote', quoteId)"
+      >
+        <span class="bubble__quote-name">
+          {{ quoteName ? `@${quoteName}` : '引用消息' }}
+        </span>
+        <span class="bubble__quote-text">
+          <template v-for="(segment, index) in quoteSegments" :key="index">
+            <span
+              v-if="segment.kind === 'mention' && segment.publicKey"
+              class="bubble__mention"
+              @click.stop="onMentionClick(segment.publicKey, $event)"
+            >
+              @{{ mentionLabel(segment.publicKey) }}
+            </span>
+            <template v-else>{{ segment.text }}</template>
+          </template>
+        </span>
+      </button>
+
+      <el-button
+        class="bubble-row__quote"
+        text
+        size="small"
+        title="引用这条消息"
+        :icon="ChatDotRound"
+        @click="emit('quote', message)"
+      >
+        引用
+      </el-button>
     </div>
   </div>
 </template>
 
 <style scoped>
 .bubble-row {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 8px;
@@ -313,6 +403,33 @@ function onDownloadFile(): void {
 .bubble-row__avatar--mine {
   background: #07c160;
   color: #fff;
+}
+
+.bubble-row__quote {
+  align-self: flex-start;
+  max-height: 0;
+  margin: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  overflow: hidden;
+  opacity: 0;
+  color: #909399;
+  pointer-events: none;
+  transition: opacity 0.15s, max-height 0.15s, margin 0.15s, padding 0.15s;
+}
+
+.bubble-row:hover .bubble-row__quote,
+.bubble-row:focus-within .bubble-row__quote {
+  max-height: 26px;
+  margin-top: 2px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.bubble-row--mine .bubble-row__quote {
+  align-self: flex-end;
 }
 
 /* 对方头像可点：打开与 TA 的会话 */
@@ -365,6 +482,66 @@ function onDownloadFile(): void {
 
 .bubble-row--mine .bubble {
   background: #95ec69;
+}
+
+.bubble-row--highlighted .bubble {
+  outline: 2px solid #409eff;
+  outline-offset: 2px;
+  animation: quote-highlight 1.2s ease-out;
+}
+
+.bubble__quote {
+  display: flex;
+  width: fit-content;
+  max-width: 100%;
+  align-self: flex-start;
+  align-items: center;
+  gap: 5px;
+  margin-top: 5px;
+  padding: 4px 9px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 4px;
+  background: #ededed;
+  color: #909399;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.bubble-row--mine .bubble__quote {
+  align-self: flex-end;
+}
+
+.bubble__quote:hover {
+  background: #e3e3e3;
+}
+
+.bubble__quote-name {
+  flex: none;
+  max-width: 40%;
+  overflow: hidden;
+  font-size: 12px;
+  color: #909399;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.bubble__quote-text {
+  flex: 1;
+  min-width: 0;
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 12px;
+  color: #909399;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.bubble__quote .bubble__mention,
+.bubble-row--mine .bubble__quote .bubble__mention {
+  color: #337ecc;
 }
 
 .bubble__mention {
@@ -422,5 +599,15 @@ function onDownloadFile(): void {
 /* 来源没通过校验的密钥消息：红框突出，避免被当成真的群密钥 */
 .bubble--untrusted {
   border: 1px solid #f56c6c;
+}
+
+@keyframes quote-highlight {
+  from {
+    outline-color: #409eff;
+  }
+
+  to {
+    outline-color: transparent;
+  }
 }
 </style>

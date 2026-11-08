@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { Headset, Paperclip, Picture, VideoCamera } from '@element-plus/icons-vue'
+import { Close, Headset, Paperclip, Picture, VideoCamera } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import {
   FILE_MAX_SIZE_BYTE,
   FILE_MAX_SIZE_MESSAGE,
   PUBLIC_KEY_LENGTH,
   listMessageFroms,
+  messagePreviewText,
 } from '@/api'
-import type { MessageFromDto } from '@/api'
+import type { MessageFromDto, MessageVo } from '@/api'
 import EmojiPicker from '@/components/EmojiPicker.vue'
 import { useConversationStore } from '@/stores/conversation'
 import { useUserStore } from '@/stores/user'
@@ -45,6 +46,8 @@ const props = defineProps<{
   peerName: string
   /** 是否启用 @ 提及；目前只在私聊里启用。 */
   mentionEnabled: boolean
+  /** 当前正在引用的消息；为空表示不引用。 */
+  quotedMessage?: MessageVo | null
 }>()
 
 /** 富文本输入区：普通文字可编辑，@ 人员是不可拆分的标签。 */
@@ -56,6 +59,7 @@ const userStore = useUserStore()
 const emit = defineEmits<{
   'update:modelValue': [value: string]
   'submit': []
+  'cancelQuote': []
   'mentionClick': [target: { uid: string; anchor: HTMLElement }]
   'submitFile': [file: File]
   'submitImage': [file: File]
@@ -146,6 +150,19 @@ const composingActive = ref(false)
 const placeholder = computed(() => props.mentionEnabled
   ? '输入消息，输入 @ 提及对方，Enter 发送，Shift + Enter 换行'
   : '输入消息，Enter 发送，Shift + Enter 换行')
+
+/** 被引用消息的发送者名称。 */
+const quotedName = computed(() => {
+  const target = props.quotedMessage
+  return target ? conversationStore.aliasOf(target.from) ?? shortKey(target.from, 8) : ''
+})
+
+/** 被引用消息的一行摘要，保留 @ 公钥分段以便展示别名。 */
+const quotedSegments = computed(() =>
+  props.quotedMessage ? splitMentions(messagePreviewText(props.quotedMessage)) : [])
+
+/** 引用摘要的完整悬停提示。 */
+const quotedTitle = computed(() => quotedSegments.value.map((segment) => segment.text).join(''))
 
 /**
  * 取可编辑区域。
@@ -988,6 +1005,33 @@ onMounted(() => {
 })
 
 /**
+ * 聚焦输入区：选择引用后由聊天页调用。
+ */
+function focus(): void {
+  focusEditor()
+}
+
+defineExpose({ focus })
+
+// 引用摘要里的发送者与 @ 人员也补齐别名
+watch(
+  () => [
+    props.quotedMessage?.from ?? '',
+    ...quotedSegments.value
+      .filter((segment) => segment.kind === 'mention' && segment.publicKey)
+      .map((segment) => segment.publicKey as string),
+  ],
+  (keys) => {
+    for (const key of keys) {
+      if (key && !conversationStore.aliasOf(key)) {
+        void conversationStore.resolveAlias(key)
+      }
+    }
+  },
+  { immediate: true },
+)
+
+/**
  * 编辑器或父组件内容变化时，确保标签文字与原始正文一致。
  */
 watch(() => conversationStore.aliasCache, updateMentionLabels, { deep: true })
@@ -1183,6 +1227,28 @@ onUnmounted(() => {
 
 <template>
   <div class="composer">
+    <div v-if="quotedMessage" class="composer__quote" :title="quotedTitle">
+      <div class="composer__quote-content">
+        <span class="composer__quote-name">引用 @{{ quotedName }}</span>
+        <span class="composer__quote-text">
+          <template v-for="(segment, index) in quotedSegments" :key="index">
+            <span v-if="segment.kind === 'mention' && segment.publicKey" class="composer__quote-mention">
+              @{{ mentionDisplayName(segment.publicKey) }}
+            </span>
+            <template v-else>{{ segment.text }}</template>
+          </template>
+        </span>
+      </div>
+      <el-button
+        text
+        circle
+        size="small"
+        :icon="Close"
+        title="取消引用"
+        @click="emit('cancelQuote')"
+      />
+    </div>
+
     <div class="composer__input">
       <div
         ref="editorRef"
@@ -1331,6 +1397,46 @@ onUnmounted(() => {
   padding: 10px 16px 14px;
   border-top: 1px solid #e4e7ed;
   background: #fafafa;
+}
+
+.composer__quote {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 6px 8px 6px 10px;
+  border-left: 3px solid #409eff;
+  border-radius: 4px;
+  background: #f0f7ff;
+}
+
+.composer__quote-content {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.composer__quote-name {
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 500;
+  color: #337ecc;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.composer__quote-text {
+  overflow: hidden;
+  font-size: 12px;
+  color: #606266;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.composer__quote-mention {
+  color: #337ecc;
 }
 
 .composer__input {

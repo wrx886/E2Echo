@@ -150,15 +150,16 @@ export const useMessageStore = defineStore('message', () => {
    *
    * @param text  正文
    * @param group 是否群聊会话
+   * @param quote 被引用消息的 ID，不引用时为空
    */
-  async function send(text: string, group: boolean): Promise<void> {
+  async function send(text: string, group: boolean, quote?: string | null): Promise<void> {
     const to = peer.value
     if (!to) {
       return
     }
     sending.value = true
     try {
-      await sendTextMessage({ to, group, text })
+      await sendTextMessage({ to, group, text, quote: quote ?? null })
       await refreshLatest()
     } finally {
       sending.value = false

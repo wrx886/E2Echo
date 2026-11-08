@@ -238,11 +238,56 @@ function toMessageBody(value: unknown): Record<string, unknown> | null {
  * @returns 正文；不是文字聊天消息或正文结构异常时返回 null
  */
 export function chatTextOf(message: MessageVo): string | null {
+  return chatTextBodyOf(message)?.text ?? null
+}
+
+/**
+ * 取文字聊天消息的完整正文，包含可选的引用消息 ID。
+ *
+ * @param message 会话消息
+ * @returns 正文；不是文字聊天消息或正文结构异常时返回 null
+ */
+export function chatTextBodyOf(message: MessageVo): ChatTextMessageVo | null {
   if (message.type !== MESSAGE_TYPE_CHAT_TEXT) {
     return null
   }
   const body = toMessageBody(message.message) as ChatTextMessageVo | null
-  return body && typeof body.text === 'string' ? body.text : null
+  if (!body || typeof body.text !== 'string') {
+    return null
+  }
+  return {
+    text: body.text,
+    quote: typeof body.quote === 'string' && body.quote.trim().length > 0 ? body.quote : null,
+  }
+}
+
+/**
+ * 取消息的一行摘要，用于引用块和输入区。
+ *
+ * @param message 被引用的消息
+ * @returns 可展示的摘要
+ */
+export function messagePreviewText(message: MessageVo): string {
+  if (message.type === MESSAGE_TYPE_CHAT_TEXT) {
+    return chatTextOf(message) ?? ''
+  }
+  if (message.type === MESSAGE_TYPE_CHAT_FILE_IMAGE) {
+    return '[图片]'
+  }
+  if (message.type === MESSAGE_TYPE_CHAT_FILE_VIDEO) {
+    return '[视频]'
+  }
+  if (message.type === MESSAGE_TYPE_CHAT_FILE_AUDIO) {
+    return '[音频]'
+  }
+  if (message.type === MESSAGE_TYPE_CHAT_FILE) {
+    const file = fileMessageOf(message)
+    return file ? `[文件] ${file.filename}` : '[文件]'
+  }
+  if (message.type === MESSAGE_TYPE_CHAT_GROUP_KEY) {
+    return '[群聊密钥]'
+  }
+  return '[消息]'
 }
 
 /**
