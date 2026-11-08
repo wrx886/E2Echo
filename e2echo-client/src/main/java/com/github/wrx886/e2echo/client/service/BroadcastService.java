@@ -145,6 +145,9 @@ public class BroadcastService {
     /**
      * 发布一条广播消息：帖子或评论。
      *
+     * <p>{@code to} 为空时创建一级帖子；此时正文的 {@code replyToId} 是转发引用的一级帖子 ID。
+     * {@code to} 非空时创建评论，正文的 {@code replyToId} 按现有语义表示被回复的评论。</p>
+     *
      * @param messageVo 广播正文（文本 + 附件）
      * @param to        发布目标：空字符串是发帖，帖子的消息 ID 则是在该帖子下评论
      * @throws E2EchoException 签名失败，或发送失败

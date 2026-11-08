@@ -10,7 +10,7 @@ import {
   getBroadcastSubscribe,
   uploadBroadcastFile,
 } from '@/api'
-import type { BroadcastSubscribeDto, BroadcastUserinfo } from '@/api'
+import type { BroadcastMessageRespVo, BroadcastSubscribeDto, BroadcastUserinfo } from '@/api'
 import BroadcastPostCard from '@/components/BroadcastPostCard.vue'
 import ImagePreviewDialog from '@/components/ImagePreviewDialog.vue'
 import { useBroadcastStore } from '@/stores/broadcast'
@@ -438,6 +438,27 @@ function openUser(value: string, itemId: string): void {
   }
   void router.push({ name: 'broadcast-profile', params: { uid: value } })
 }
+
+/**
+ * 转发一条广播：进入发帖页，发布后生成一级帖子。
+ *
+ * @param item 被转发的广播
+ */
+function startForward(item: BroadcastMessageRespVo): void {
+  void router.push({ name: 'broadcast-create', query: { forward: item.id } })
+}
+
+/**
+ * 打开一条广播转发引用的原内容。
+ *
+ * @param target   原广播
+ * @param sourceId 触发跳转的转发帖 ID，返回主页时用它定位
+ */
+function openForward(target: BroadcastMessageRespVo, sourceId: string): void {
+  broadcastStore.profileAnchorUid = uid.value
+  broadcastStore.profileAnchorId = sourceId
+  void router.push({ name: 'broadcast-post', params: { id: target.id } })
+}
 </script>
 
 <template>
@@ -589,6 +610,8 @@ function openUser(value: string, itemId: string): void {
           @open="openPost(item.id)"
           @open-user="openUser"
           @reply="openPost(item.id)"
+          @forward="startForward"
+          @open-forward="openForward"
         />
 
         <div class="profile__more">

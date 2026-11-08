@@ -13,8 +13,9 @@ import java.util.List;
  * {@code to}：发帖不指向任何消息（客户端会填个占位符），评论指向被评论的帖子。所以正文结构完全共用，
  * 一个 VO 就够。</p>
  *
- * <p>评论是单级的：回复某条评论（二级回复）不改变层级，只是把 {@link #replyToId} 指向被回复的那条
- * 评论；帖子本身、以及直接评论帖子的评论，这个字段都为空。</p>
+ * <p>{@link #replyToId} 的含义由外层 {@code EccMessage.to} 决定：{@code to = *} 的一级帖子中它表示
+ * 被转发的一级帖子 ID；评论（{@code to = 帖子 ID}）中它表示被回复的评论 ID。评论是单级的，直接评论
+ * 帖子时这个字段为空。转发只针对一级帖子，不支持转发评论。</p>
  *
  * <p>广播只存服务端、不落本地库，所以这里只放业务信息：一段文本，加上若干附件。发送者不在这里
  * ——它由 {@code from}（签名者）表示；时间可以从消息 ID 前 16 位的时间戳解析出来，都不重复存。</p>
@@ -25,7 +26,7 @@ import java.util.List;
  *
  * @param text      正文文本
  * @param files     附件列表，没有附件时传空列表（这里不能为空）
- * @param replyToId 被回复评论的消息 ID：二级回复时填，帖子和直接评论帖子时为空
+ * @param replyToId 一级帖子为被转发帖子的消息 ID；评论为被回复评论的消息 ID，直接评论帖子时为空
  */
 public record BroadcastMessageVo(
         @NotBlank String text,

@@ -180,7 +180,11 @@ export interface BroadcastMessageVo {
   text: string
   /** 附件列表。 */
   files: BroadcastFileVo[]
-  /** 被回复评论的消息 ID：二级回复时填，帖子和直接评论帖子时为空。 */
+  /**
+   * 一级帖子中是被转发的一级帖子 ID；评论中是被回复评论的 ID。
+   *
+   * <p>具体含义由外层广播的 {@code to} 区分：{@code *} 为一级帖子，帖子 ID 为评论。</p>
+   */
   replyToId?: string | null
 }
 

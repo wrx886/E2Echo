@@ -174,6 +174,26 @@ function openUser(uid: string, itemId: string): void {
 }
 
 /**
+ * 转发一条广播：无论来源是帖子还是评论，都创建一个新的一级帖子。
+ *
+ * @param item 被转发的广播
+ */
+function startForward(item: BroadcastMessageRespVo): void {
+  void router.push({ name: 'broadcast-create', query: { forward: item.id } })
+}
+
+/**
+ * 打开一条广播转发引用的原内容。
+ *
+ * @param target   原广播
+ * @param sourceId 触发跳转的转发内容 ID，返回时用它定位
+ */
+function openForward(target: BroadcastMessageRespVo, sourceId: string): void {
+  broadcastStore.postAnchorId = sourceId
+  void router.push({ name: 'broadcast-post', params: { id: target.id } })
+}
+
+/**
  * 发表评论或回复。
  *
  * @param text  正文
@@ -261,6 +281,8 @@ async function onLoadMore(): Promise<void> {
           :item="broadcastStore.post"
           @open-user="openUser"
           @reply="cancelReply"
+          @forward="startForward"
+          @open-forward="openForward"
         />
 
         <div class="post-view__section">
@@ -291,6 +313,8 @@ async function onLoadMore(): Promise<void> {
             :reply-to="item.message.replyToId ? (replyTargets.get(item.message.replyToId) ?? null) : null"
             @open-user="openUser"
             @reply="startReply(item)"
+            @forward="startForward"
+            @open-forward="openForward"
           />
 
           <div class="post-view__more">

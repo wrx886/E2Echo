@@ -128,6 +128,26 @@ function openUser(uid: string, itemId: string): void {
   broadcastStore.feedAnchorId = itemId
   void router.push({ name: 'broadcast-profile', params: { uid } })
 }
+
+/**
+ * 转发一条广播：进入发帖页，发布后生成一级帖子。
+ *
+ * @param item 被转发的广播
+ */
+function startForward(item: BroadcastMessageRespVo): void {
+  void router.push({ name: 'broadcast-create', query: { forward: item.id } })
+}
+
+/**
+ * 打开一条广播转发引用的原内容。
+ *
+ * @param target   原广播
+ * @param sourceId 触发跳转的转发帖 ID，返回列表时用它定位
+ */
+function openForward(target: BroadcastMessageRespVo, sourceId: string): void {
+  broadcastStore.feedAnchorId = sourceId
+  void router.push({ name: 'broadcast-post', params: { id: target.id } })
+}
 </script>
 
 <template>
@@ -181,6 +201,8 @@ function openUser(uid: string, itemId: string): void {
           @open="openPost(item)"
           @open-user="openUser"
           @reply="openPost(item)"
+          @forward="startForward"
+          @open-forward="openForward"
         />
 
         <div class="feed__more">

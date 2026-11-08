@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { ChatDotRound, DocumentCopy } from '@element-plus/icons-vue'
+import { ChatDotRound, DocumentCopy, Share } from '@element-plus/icons-vue'
 import { BROADCAST_POST_TO, avatarSrc } from '@/api'
 import type { BroadcastMessageRespVo } from '@/api'
 import BroadcastAttachments from '@/components/BroadcastAttachments.vue'
@@ -33,6 +33,10 @@ const emit = defineEmits<{
   'open': []
   /** 回复这条内容。 */
   'reply': []
+  /** 转发这条内容：始终创建一个新的一级帖子。 */
+  'forward': [item: BroadcastMessageRespVo]
+  /** 打开当前帖子转发的那条原广播。 */
+  'openForward': [target: BroadcastMessageRespVo, sourceId: string]
   /** 打开某人的主页：带上这条内容的 ID，调用方返回时用它定位。 */
   'openUser': [uid: string, itemId: string]
 }>()
@@ -78,6 +82,36 @@ const replyExcerpt = computed(() => {
 /** 是不是帖子：评论的 {@code to} 是帖子 ID。 */
 const isPost = computed(() => props.item.to === BROADCAST_POST_TO)
 
+/** 一级帖子转发时所引用的原广播 ID。 */
+const forwardId = computed(() =>
+  isPost.value ? props.item.message?.replyToId ?? '' : '')
+
+/** 被转发的原广播。 */
+const forwardTarget = ref<BroadcastMessageRespVo | null>(null)
+
+/** 原广播是否正在加载。 */
+const forwardLoading = ref(false)
+
+/** 原广播是否不存在或读取失败。 */
+const forwardMissing = ref(false)
+
+/** 被转发内容的作者展示名。 */
+const forwardName = computed(() => {
+  const target = forwardTarget.value
+  if (!target) {
+    return ''
+  }
+  return subscribeStore.aliasOf(target.from)
+    || broadcastStore.profileOf(target.from)?.nickname
+    || shortKey(target.from, 5)
+})
+
+/** 被转发内容的正文摘要。 */
+const forwardExcerpt = computed(() => {
+  const text = forwardTarget.value?.message?.text ?? ''
+  return text.length > 80 ? `${text.slice(0, 80)}…` : text
+})
+
 /**
  * 复制帖子 ID。
  */
@@ -98,9 +132,53 @@ function loadProfiles(): void {
   if (props.replyTo) {
     void broadcastStore.loadProfile(props.replyTo.from).catch(() => {})
   }
+  if (forwardTarget.value) {
+    void broadcastStore.loadProfile(forwardTarget.value.from).catch(() => {})
+  }
 }
 
-watch(() => [props.item.from, props.replyTo?.from], loadProfiles, { immediate: true })
+/**
+ * 加载一级帖子转发的原广播。
+ */
+async function loadForward(): Promise<void> {
+  const id = forwardId.value
+  forwardTarget.value = null
+  forwardMissing.value = false
+  if (!id) {
+    return
+  }
+  forwardLoading.value = true
+  try {
+    const target = await broadcastStore.findMessage(id)
+    const post = target?.to === BROADCAST_POST_TO ? target : null
+    forwardTarget.value = post
+    forwardMissing.value = post === null
+    if (post) {
+      void broadcastStore.loadProfile(post.from).catch(() => {})
+    }
+  } catch {
+    forwardMissing.value = true
+  } finally {
+    forwardLoading.value = false
+  }
+}
+
+/**
+ * 点开被转发的原广播。
+ */
+async function onOpenForward(): Promise<void> {
+  let target = forwardTarget.value
+  if (!target && forwardId.value) {
+    await loadForward()
+    target = forwardTarget.value
+  }
+  if (target) {
+    emit('openForward', target, props.item.id)
+  }
+}
+
+watch(() => [props.item.from, props.replyTo?.from, forwardTarget.value?.from], loadProfiles, { immediate: true })
+watch(forwardId, loadForward, { immediate: true })
 </script>
 
 <template>
@@ -137,9 +215,34 @@ watch(() => [props.item.from, props.replyTo?.from], loadProfiles, { immediate: t
       <!-- 附件区不整体拦截点击：空白处仍然可以点开帖子，只有图片、播放器、下载链接自己拦 -->
       <BroadcastAttachments :files="item.message?.files ?? []" />
 
+      <button
+        v-if="forwardId"
+        type="button"
+        class="post__forward"
+        @click.stop="onOpenForward"
+      >
+        <span class="post__forward-head">
+          转发 @{{ forwardName || '原广播' }}
+        </span>
+        <span class="post__forward-text">
+          <template v-if="forwardLoading">正在加载转发内容…</template>
+          <template v-else-if="forwardMissing">原帖子不存在、不是一级帖子或暂时无法读取</template>
+          <template v-else>{{ forwardExcerpt }}</template>
+        </span>
+      </button>
+
       <div class="post__actions">
         <el-button text size="small" :icon="ChatDotRound" @click.stop="emit('reply')">
           回复
+        </el-button>
+        <el-button
+          v-if="isPost"
+          text
+          size="small"
+          :icon="Share"
+          @click.stop="emit('forward', item)"
+        >
+          转发
         </el-button>
 
         <template v-if="isPost">
@@ -216,6 +319,44 @@ watch(() => [props.item.from, props.replyTo?.from], loadProfiles, { immediate: t
   font-size: 12px;
   line-height: 1.6;
   color: #909399;
+}
+
+.post__forward {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 6px;
+  padding: 7px 9px;
+  overflow: hidden;
+  border: 0;
+  border-left: 3px solid #a0cfff;
+  border-radius: 3px;
+  background: #f5f7fa;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.post__forward:hover {
+  background: #edf2f8;
+}
+
+.post__forward-head {
+  overflow: hidden;
+  font-size: 12px;
+  color: #409eff;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.post__forward-text {
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #909399;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .post__text {

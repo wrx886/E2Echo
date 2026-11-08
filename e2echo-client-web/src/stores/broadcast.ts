@@ -34,6 +34,53 @@ function isUsable(item: BroadcastMessageRespVo | null): item is BroadcastMessage
  */
 export const useBroadcastStore = defineStore('broadcast', () => {
 
+  // ---------------- 广播消息缓存 ----------------
+
+  /** 已加载或单独查过的广播消息，按消息 ID 缓存。 */
+  const messageIndex = ref(new Map<string, BroadcastMessageRespVo>())
+
+  /** 正在按 ID 查询的广播消息，避免同一条内容被并发请求多次。 */
+  const messageRequests = new Map<string, Promise<BroadcastMessageRespVo | null>>()
+
+  /**
+   * 缓存一条广播消息。
+   *
+   * @param item 广播消息
+   */
+  function rememberMessage(item: BroadcastMessageRespVo): void {
+    messageIndex.value.set(item.id, item)
+  }
+
+  /**
+   * 按消息 ID 取广播消息：先看缓存，没有时再查服务端。
+   *
+   * @param id 广播消息 ID
+   * @returns 广播消息，不存在时为 null
+   */
+  async function findMessage(id: string): Promise<BroadcastMessageRespVo | null> {
+    const cached = messageIndex.value.get(id)
+    if (cached) {
+      return cached
+    }
+    const running = messageRequests.get(id)
+    if (running) {
+      return running
+    }
+    const task = (async () => {
+      const item = await getBroadcastMessage(id)
+      if (item) {
+        rememberMessage(item)
+      }
+      return item
+    })()
+    messageRequests.set(id, task)
+    try {
+      return await task
+    } finally {
+      messageRequests.delete(id)
+    }
+  }
+
   // ---------------- 用户资料 ----------------
 
   /** 用户公钥 -> 资料；null 表示查过但没有。 */
@@ -118,8 +165,12 @@ export const useBroadcastStore = defineStore('broadcast', () => {
       pageNum: 1,
       pageSize: PAGE_SIZE,
     })
+    const items = page.content.filter(isUsable)
+    for (const item of items) {
+      rememberMessage(item)
+    }
     return {
-      items: page.content.filter(isUsable),
+      items,
       hasMore: page.content.length >= PAGE_SIZE,
     }
   }
@@ -191,10 +242,15 @@ export const useBroadcastStore = defineStore('broadcast', () => {
    * 发帖，随后刷新时间线。
    *
    * @param text  正文
-   * @param files 附件
+   * @param files       附件
+   * @param forwardToId 被转发广播的消息 ID，普通发帖时为空
    */
-  async function createPost(text: string, files: BroadcastFileVo[]): Promise<void> {
-    await publishBroadcastMessage('', { text, files })
+  async function createPost(
+    text: string,
+    files: BroadcastFileVo[],
+    forwardToId?: string | null,
+  ): Promise<void> {
+    await publishBroadcastMessage('', { text, files, replyToId: forwardToId ?? null })
     await refreshPosts()
   }
 
@@ -276,6 +332,9 @@ export const useBroadcastStore = defineStore('broadcast', () => {
     post.value = null
     try {
       post.value = await getBroadcastMessage(id)
+      if (post.value) {
+        rememberMessage(post.value)
+      }
     } finally {
       postLoading.value = false
     }
@@ -332,6 +391,7 @@ export const useBroadcastStore = defineStore('broadcast', () => {
       const items = page.content.filter(isUsable)
       comments.value = reset ? items : [...comments.value, ...items]
       for (const item of items) {
+        rememberMessage(item)
         commentIndex.value.set(item.id, item)
       }
       commentsHasMore.value = page.content.length >= PAGE_SIZE
@@ -370,7 +430,7 @@ export const useBroadcastStore = defineStore('broadcast', () => {
     if (cached) {
       return cached
     }
-    const item = await getBroadcastMessage(id)
+    const item = await findMessage(id)
     if (item) {
       commentIndex.value.set(item.id, item)
     }
@@ -416,6 +476,7 @@ export const useBroadcastStore = defineStore('broadcast', () => {
 
   return {
     profiles, loadProfile, profileOf, saveProfile,
+    findMessage,
     posts, postsLoading, postsHasMore, loadPosts, refreshPosts, createPost,
     feedAnchorId,
     consumeFeedAnchor,

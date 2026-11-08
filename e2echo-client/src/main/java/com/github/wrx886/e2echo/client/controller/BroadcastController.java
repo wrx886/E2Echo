@@ -58,8 +58,8 @@ public class BroadcastController {
     }
 
     /**
-     * 发布广播消息：{@code to} 传空字符串是发帖，填帖子消息 ID 是在该帖子下评论（回复某条评论时在
-     * 正文的 {@code replyToId} 里指回去）。
+     * 发布广播消息：{@code to} 传空字符串是发帖，填帖子消息 ID 是在该帖子下评论。一级帖子的
+     * {@code replyToId} 表示被转发的一级帖子；评论的 {@code replyToId} 表示被回复的评论。
      *
      * @param req 发布目标与广播正文
      * @return 空结果
