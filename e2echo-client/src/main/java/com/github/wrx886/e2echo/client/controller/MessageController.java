@@ -97,12 +97,12 @@ public class MessageController {
     /**
      * 发送文字聊天消息。
      *
-     * @param sendTestMessageReqVo 接收者、是否群聊与消息正文
+     * @param sendTestMessageReqVo 接收者、是否群聊、消息正文与可选的被引用消息 ID
      * @return 空结果
      */
     @PostMapping("sendTextMessage")
     public Result<Void> sendTextMessage(@Valid @RequestBody SendTestMessageReqVo sendTestMessageReqVo) {
-        chatTextMessageHandler.send(sendTestMessageReqVo.to(), sendTestMessageReqVo.group(), sendTestMessageReqVo.text());
+        chatTextMessageHandler.send(sendTestMessageReqVo.to(), sendTestMessageReqVo.group(), sendTestMessageReqVo.text(), sendTestMessageReqVo.quote());
         return Result.ok();
     }
 

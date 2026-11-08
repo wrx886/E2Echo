@@ -14,8 +14,8 @@ import tools.jackson.databind.ObjectMapper;
 /**
  * 文字聊天消息处理器。
  *
- * <p>负责文字聊天消息的收发：发送时把正文序列化成 {@link ChatTextMessageVo} 的 JSON 交给业务层，
- * 接收时不需要额外处理（正文入库即可）。</p>
+ * <p>负责文字聊天消息的收发：发送时把正文和可选的被引用消息 ID 序列化成
+ * {@link ChatTextMessageVo} 的 JSON 交给业务层，接收时不需要额外处理（正文入库即可）。</p>
  */
 @Component
 @RequiredArgsConstructor
@@ -56,12 +56,13 @@ public class ChatTextMessageHandler implements MessageHandler {
      * @param to    接收者，私聊时为对方公钥、群聊时为群聊标识
      * @param group 是否群聊
      * @param text  消息正文
+     * @param quote 被引用消息的 ID，为空表示未引用消息
      */
-    public void send(String to, boolean group, String text) {
+    public void send(String to, boolean group, String text, String quote) {
         Message message = new Message();
         message.setFrom(Ecc.getPublicKey());
         message.setTo(to);
-        message.setMessage(objectMapper.writeValueAsString(new ChatTextMessageVo(text)));
+        message.setMessage(objectMapper.writeValueAsString(new ChatTextMessageVo(text, quote)));
         message.setType(MessageTypeEnum.CHAT_TEXT.name());
         message.setChannel(group ? ChannelEnum.CHAT_GROUP_AES.name() : ChannelEnum.CHAT_PRIVATE_ECC.name());
         // info 不可为空：服务端会校验，空白值会被直接拒绝
