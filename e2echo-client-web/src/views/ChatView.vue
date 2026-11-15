@@ -578,7 +578,8 @@ watch(peer, async (value) => {
         :file-percent="messageStore.fileProgress"
         :peer="peer"
         :peer-name="title"
-        :mention-enabled="conversation?.group === false"
+        :mention-enabled="conversation !== null"
+        :group="group"
         :quoted-message="quoteTarget"
         @mention-click="openUserCard"
         @cancel-quote="cancelQuote"
@@ -593,7 +594,7 @@ watch(peer, async (value) => {
         v-if="cardTarget"
         :uid="cardTarget.uid"
         :anchor="cardTarget.anchor"
-        :mentionable="!group"
+        mentionable
         @mention="mentionFromUserCard"
         @close="closeUserCard"
       />

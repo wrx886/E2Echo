@@ -44,8 +44,10 @@ const props = defineProps<{
   peer: string
   /** 当前会话展示名称，用于私聊里还没消息时直接提及对方。 */
   peerName: string
-  /** 是否启用 @ 提及；目前只在私聊里启用。 */
+  /** 是否启用 @ 提及。 */
   mentionEnabled: boolean
+  /** 当前是否群聊会话。 */
+  group: boolean
   /** 当前正在引用的消息；为空表示不引用。 */
   quotedMessage?: MessageVo | null
 }>()
@@ -148,7 +150,9 @@ const composingActive = ref(false)
 
 /** 输入框提示文字。 */
 const placeholder = computed(() => props.mentionEnabled
-  ? '输入消息，输入 @ 提及对方，Enter 发送，Shift + Enter 换行'
+  ? (props.group
+      ? '输入消息，输入 @ 提及群成员，Enter 发送，Shift + Enter 换行'
+      : '输入消息，输入 @ 提及对方，Enter 发送，Shift + Enter 换行')
   : '输入消息，Enter 发送，Shift + Enter 换行')
 
 /** 被引用消息的发送者名称。 */
@@ -515,10 +519,10 @@ function matchesMention(candidate: MentionCandidate): boolean {
 }
 
 /**
- * 合并接口结果与当前私聊对方，生成人员列表。
+ * 合并接口结果，生成人员列表。
  *
- * <p>私聊还没发过消息时 listFrom 可能为空，因此始终保留当前会话对方作为兜底候选；自己不会出现在
- * 可提及名单里。</p>
+ * <p>私聊还没发过消息时 listFrom 可能为空，因此保留会话对方作为兜底；群聊只使用 listFrom 返回的
+ * 群消息发送者。自己不会出现在可提及名单里。</p>
  */
 const mentionCandidates = computed<MentionCandidate[]>(() => {
   if (!props.mentionEnabled || !props.peer) {
@@ -530,7 +534,9 @@ const mentionCandidates = computed<MentionCandidate[]>(() => {
     aliases.set(item.publicKey, item.alias)
   }
 
-  const keys = [props.peer, ...mentionSources.value.map((item) => item.publicKey)]
+  const keys = props.group
+    ? mentionSources.value.map((item) => item.publicKey)
+    : [props.peer, ...mentionSources.value.map((item) => item.publicKey)]
   const seen = new Set<string>()
   const result: MentionCandidate[] = []
 
@@ -540,7 +546,7 @@ const mentionCandidates = computed<MentionCandidate[]>(() => {
     }
     seen.add(key)
     const alias = aliases.get(key)?.trim() ?? ''
-    const fallback = key === props.peer ? props.peerName.trim() : ''
+    const fallback = !props.group && key === props.peer ? props.peerName.trim() : ''
     const candidate: MentionCandidate = {
       publicKey: key,
       label: alias || fallback || shortKey(key, 8),
