@@ -18,7 +18,7 @@ import { useBroadcastStore } from '@/stores/broadcast'
 import { useSubscribeStore } from '@/stores/subscribe'
 import { shortKey } from '@/utils/display'
 import { showError } from '@/utils/feedback'
-import { splitMentions } from '@/utils/mentions'
+import { deleteMentionBeforeCaret, splitMentions } from '@/utils/mentions'
 
 /**
  * 广播发布框：发帖和评论共用。
@@ -698,6 +698,13 @@ function onCompositionEnd(): void {
  */
 function onKeydown(event: KeyboardEvent): void {
   if (composing || event.isComposing || event.keyCode === 229) {
+    return
+  }
+  const root = editor()
+  if (event.key === 'Backspace' && root && deleteMentionBeforeCaret(root)) {
+    event.preventDefault()
+    syncEditor()
+    refreshMentions()
     return
   }
   if (mentionVisible.value) {

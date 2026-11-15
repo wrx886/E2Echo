@@ -68,3 +68,80 @@ export function mentionPublicKeys(text: string): string[] {
   }
   return [...keys]
 }
+
+/**
+ * 删除光标前面的 @ 标签。
+ *
+ * <p>@ 标签本身是 {@code contenteditable=false}，不同浏览器在标签后的空格处按退格时处理不一致。
+ * 这里统一把标签及其后最多一个分隔空格整体删除。</p>
+ *
+ * @param root 编辑区
+ * @returns 确实删除了标签时返回 true
+ */
+export function deleteMentionBeforeCaret(root: HTMLElement): boolean {
+  const selection = window.getSelection()
+  if (!selection || selection.rangeCount === 0 || !selection.isCollapsed) {
+    return false
+  }
+  const range = selection.getRangeAt(0)
+  if (!root.contains(range.startContainer)) {
+    return false
+  }
+
+  const startElement = range.startContainer.nodeType === Node.ELEMENT_NODE
+    ? range.startContainer as HTMLElement
+    : range.startContainer.parentElement
+  const inside = startElement?.closest<HTMLElement>('[data-public-key]')
+  let mention = inside && root.contains(inside) ? inside : null
+
+  if (!mention) {
+    let previous: Node | null = null
+    if (range.startContainer.nodeType === Node.TEXT_NODE) {
+      const text = range.startContainer.nodeValue ?? ''
+      const before = text.slice(0, range.startOffset)
+      if (before.trim().length > 0) {
+        return false
+      }
+      previous = range.startContainer.previousSibling
+    } else {
+      previous = range.startContainer.childNodes[range.startOffset - 1] ?? null
+      if (previous?.nodeType === Node.TEXT_NODE && (previous.nodeValue ?? '').trim().length === 0) {
+        previous = previous.previousSibling
+      }
+    }
+    while (previous?.nodeType === Node.TEXT_NODE && (previous.nodeValue ?? '').length === 0) {
+      previous = previous.previousSibling
+    }
+    if (previous?.nodeType === Node.ELEMENT_NODE
+      && (previous as HTMLElement).dataset.publicKey) {
+      mention = previous as HTMLElement
+    }
+  }
+
+  if (!mention?.parentNode) {
+    return false
+  }
+
+  const parent = mention.parentNode
+  const index = Array.from(parent.childNodes).indexOf(mention)
+  let next = mention.nextSibling
+  parent.removeChild(mention)
+  if (next?.nodeType === Node.TEXT_NODE) {
+    const text = next.nodeValue ?? ''
+    if (text.startsWith(' ') || text.startsWith('\n') || text.startsWith('\t')) {
+      if (text.length === 1) {
+        parent.removeChild(next)
+        next = null
+      } else {
+        next.nodeValue = text.slice(1)
+      }
+    }
+  }
+
+  const caret = document.createRange()
+  caret.setStart(parent, Math.min(index, parent.childNodes.length))
+  caret.collapse(true)
+  selection.removeAllRanges()
+  selection.addRange(caret)
+  return true
+}

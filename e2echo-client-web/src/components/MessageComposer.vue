@@ -14,7 +14,7 @@ import EmojiPicker from '@/components/EmojiPicker.vue'
 import { useConversationStore } from '@/stores/conversation'
 import { useUserStore } from '@/stores/user'
 import { shortKey } from '@/utils/display'
-import { splitMentions } from '@/utils/mentions'
+import { deleteMentionBeforeCaret, splitMentions } from '@/utils/mentions'
 
 /**
  * 消息输入区。
@@ -1202,6 +1202,14 @@ function submitAttachment(file: File | undefined, event: AttachmentEvent): void 
  */
 function onKeydown(event: KeyboardEvent): void {
   if (composing || event.isComposing || event.keyCode === 229) {
+    return
+  }
+
+  const root = editor()
+  if (event.key === 'Backspace' && root && deleteMentionBeforeCaret(root)) {
+    event.preventDefault()
+    syncEditorToParent()
+    refreshMentionState()
     return
   }
 
