@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import com.github.wrx886.e2echo.ecc.Ecc;
 import com.github.wrx886.e2echo.ecc.EccMessage;
+import com.github.wrx886.e2echo.ecc.util.IdUtil;
 import com.github.wrx886.e2echo.server.entity.Message;
 import com.github.wrx886.e2echo.server.exception.E2EchoException;
 import com.github.wrx886.e2echo.server.repository.MessageRepository;
@@ -34,11 +35,6 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class MessageService {
-
-    /**
-     * 消息 ID 中时间戳部分的十六进制位数。
-     */
-    private static final int ID_TIMESTAMP_LENGTH = 16;
 
     /**
      * 页码上限：offset 越深查询越慢，更靠后的数据应该用游标翻页。
@@ -68,12 +64,11 @@ public class MessageService {
      *
      * @param eccMessage 待保存的消息视图
      * @return 保存后的消息视图
-     * @throws E2EchoException 必填字段为空、消息校验失败、ID 格式错误或发送时间偏差过大
+     * @throws E2EchoException 必填字段为空、消息校验失败或发送时间偏差过大
      */
     public EccMessage save(EccMessage eccMessage) {
         verify(eccMessage);
         Message message = toEntity(eccMessage);
-        message.setId(null);
         EccMessage ret = toView(messageRepository.save(message));
         noticeService.notice(ret.getTo());
         return ret;
@@ -137,8 +132,8 @@ public class MessageService {
             throw new E2EchoException("每页条数不能超过 " + MAX_PAGE_SIZE + "！");
         }
 
-        String startIdFromTimestamp = toMessageIdLowerBound(parseTimestamp(reqVo.startTimestamp()));
-        String endIdFromTimestamp = toMessageIdUpperBound(parseTimestamp(reqVo.endTimestamp()));
+        String startIdFromTimestamp = parseTimestampPrefix(reqVo.startTimestamp(), 0);
+        String endIdFromTimestamp = parseTimestampPrefix(reqVo.endTimestamp(), 1);
         Sort.Direction direction = parseOrder(reqVo.order());
 
         Specification<Message> specification = (root, query, cb) -> {
@@ -178,7 +173,7 @@ public class MessageService {
      * 持久化层，也能给调用方一个明确的错误提示。</p>
      *
      * @param eccMessage 待校验的消息
-     * @throws E2EchoException 必填字段为空、签名校验失败、ID 格式错误或发送时间偏差过大
+     * @throws E2EchoException 必填字段为空、消息校验失败或发送时间偏差过大
      */
     private void verify(EccMessage eccMessage) {
         // 必填字段：与 message 表的非空约束保持一致
@@ -194,12 +189,12 @@ public class MessageService {
             throw new E2EchoException("消息校验失败！");
         }
 
-        // 时间：取自 id 前 16 位十六进制时间戳
+        // Ecc.verify 已校验 ID 字符串格式，这里只需兜底时间戳超出 long 范围的情况
         long timestamp;
         try {
-            timestamp = Long.parseLong(eccMessage.getId().substring(0, ID_TIMESTAMP_LENGTH), 16);
-        } catch (Exception e) {
-            throw new E2EchoException("消息 ID 格式错误！");
+            timestamp = IdUtil.timestampOf(eccMessage.getId());
+        } catch (IllegalArgumentException e) {
+            throw new E2EchoException("消息校验失败！");
         }
 
         // 允许接收的时间范围
@@ -227,13 +222,17 @@ public class MessageService {
     }
 
     /**
-     * 将十进制毫秒时间戳字符串解析为 {@link Long}。
+     * 将十进制毫秒时间戳字符串解析并转换为消息 ID 前缀。
      *
-     * @param value 时间戳字符串，为空时返回 {@code null}
-     * @return 解析后的时间戳，或 {@code null}
-     * @throws E2EchoException 字符串不是合法的十进制数字，或时间戳为负数
+     * <p>起始时间直接取当前毫秒前缀作为包含下界；结束时间加一后取前缀作为开区间上界，
+     * 从而覆盖结束毫秒内的所有消息 ID。</p>
+     *
+     * @param value           时间戳字符串，为空时返回 {@code null}
+     * @param timestampOffset 时间戳偏移量，起始边界为 0，结束边界为 1
+     * @return 消息 ID 前缀，或 {@code null}
+     * @throws E2EchoException 字符串不是合法的十进制数字、时间戳为负数或偏移后超出范围
      */
-    private Long parseTimestamp(String value) {
+    private String parseTimestampPrefix(String value, long timestampOffset) {
         if (value == null || value.isBlank()) {
             return null;
         }
@@ -242,52 +241,12 @@ public class MessageService {
             if (timestamp < 0) {
                 throw new E2EchoException("时间戳不能为负数：" + value);
             }
-            return timestamp;
+            return IdUtil.timestampPrefix(Math.addExact(timestamp, timestampOffset));
         } catch (NumberFormatException e) {
             throw new E2EchoException("时间戳格式错误：" + value);
+        } catch (ArithmeticException e) {
+            throw new E2EchoException("时间戳超出范围：" + value);
         }
-    }
-
-    /**
-     * 将时间戳转换为消息 ID 的字典序下界。
-     *
-     * <p>消息 ID 前 16 位为定长十六进制毫秒时间戳。前缀本身按字典序小于所有以它开头的 ID，
-     * 因此无需补全 32 位 UUID。</p>
-     *
-     * @param timestamp 毫秒时间戳，为 {@code null} 时返回 {@code null}
-     * @return 消息 ID 的下界（包含），或 {@code null}
-     */
-    private String toMessageIdLowerBound(Long timestamp) {
-        return timestamp == null ? null : messageIdPrefix(timestamp);
-    }
-
-    /**
-     * 将时间戳转换为消息 ID 的字典序上界。
-     *
-     * <p>将时间戳前缀的最后一位加一后作为开区间上界：消息 ID 在该位后面还有 UUID，因此所有以原
-     * 前缀开头的 ID 都小于它。这里不需要处理十六进制进位，{@code f} 加一直接得到字典序更大的
-     * {@code g} 即可。</p>
-     *
-     * @param timestamp 毫秒时间戳，为 {@code null} 时返回 {@code null}
-     * @return 消息 ID 的上界（不包含），或 {@code null}
-     */
-    private String toMessageIdUpperBound(Long timestamp) {
-        if (timestamp == null) {
-            return null;
-        }
-        String prefix = messageIdPrefix(timestamp);
-        return prefix.substring(0, ID_TIMESTAMP_LENGTH - 1)
-                + (char) (prefix.charAt(ID_TIMESTAMP_LENGTH - 1) + 1);
-    }
-
-    /**
-     * 生成消息 ID 的 16 位十六进制时间戳前缀。
-     *
-     * @param timestamp 毫秒时间戳
-     * @return 定长十六进制时间戳前缀
-     */
-    private String messageIdPrefix(long timestamp) {
-        return String.format("%0" + ID_TIMESTAMP_LENGTH + "x", timestamp);
     }
 
     /**

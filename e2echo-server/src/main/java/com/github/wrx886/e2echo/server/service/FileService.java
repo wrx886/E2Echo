@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Locale;
-import java.util.UUID;
 
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.HttpHeaders;
@@ -15,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.github.wrx886.e2echo.ecc.util.IdUtil;
 import com.github.wrx886.e2echo.server.config.S3Config;
 import com.github.wrx886.e2echo.server.exception.E2EchoException;
 
@@ -254,7 +254,7 @@ public class FileService {
      * @throws E2EchoException 生命周期取值非法
      */
     private static String objectKey(String lifecycle) {
-        return parseLifecycle(lifecycle) + "/" + newFileId();
+        return parseLifecycle(lifecycle) + "/" + IdUtil.newId();
     }
 
     /**
@@ -295,16 +295,6 @@ public class FileService {
                 throw new UncheckedIOException(e);
             }
         }, file.getSize(), MediaType.APPLICATION_OCTET_STREAM_VALUE);
-    }
-
-    /**
-     * 生成文件 ID：16 位十六进制时间戳 + 32 位无连字符 UUID，共 48 位。
-     *
-     * @return 文件 ID
-     */
-    private static String newFileId() {
-        return String.format("%016x", System.currentTimeMillis())
-                + UUID.randomUUID().toString().replace("-", "");
     }
 
 }

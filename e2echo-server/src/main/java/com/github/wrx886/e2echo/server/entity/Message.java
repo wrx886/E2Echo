@@ -1,5 +1,7 @@
 package com.github.wrx886.e2echo.server.entity;
 
+import com.github.wrx886.e2echo.ecc.util.IdUtil;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Index;
@@ -44,7 +46,7 @@ public class Message extends BaseEntity {
      * 消息 ID，由客户端生成（“16 位十六进制时间戳 + 32 位无连字符 UUID”，共 48 位），
      * 全局唯一，同一消息重复提交会因唯一约束被拒绝。
      */
-    @Column(name = "message_id", length = 48, nullable = false, updatable = false)
+    @Column(name = "message_id", length = IdUtil.ID_LENGTH, nullable = false, updatable = false)
     private String messageId;
 
     /**

@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,6 +19,7 @@ import com.github.wrx886.e2echo.ecc.Ecc;
 import com.github.wrx886.e2echo.ecc.EccMessage;
 import com.github.wrx886.e2echo.ecc.util.EccUtil;
 import com.github.wrx886.e2echo.ecc.util.EccUtil.KeyPairHex;
+import com.github.wrx886.e2echo.ecc.util.IdUtil;
 import com.github.wrx886.e2echo.server.entity.Message;
 import com.github.wrx886.e2echo.server.exception.E2EchoException;
 import com.github.wrx886.e2echo.server.repository.MessageRepository;
@@ -128,16 +128,11 @@ class MessageControllerTest {
      * 直接向数据库写入一条消息，用于构造查询用例所需的、时间可控的数据。
      *
      * @param timestamp 消息时间戳（毫秒）
-     * @param sequence  同一次测试内的序号，用于保证 ID 有序且不重复
      * @param channel   消息通道
      * @return 写入数据库的消息实体
      */
-    private Message persistMessage(long timestamp, int sequence, String channel) {
-        // ID 前 16 位是十六进制时间戳，后 32 位保证同一次测试内不重复
-        String id = String.format("%016x", timestamp)
-                + UUID.randomUUID().toString().replace("-", "").substring(0, 24)
-                + String.format("%08x", sequence);
-
+    private Message persistMessage(long timestamp, String channel) {
+        String id = IdUtil.newId(timestamp);
         Message message = new Message();
         message.setMessageId(id);
         message.setFrom(senderKeyPair.publicKeyHex());
@@ -236,6 +231,36 @@ class MessageControllerTest {
         }
 
         /**
+         * 校验消息 ID 格式或时间戳范围非法时拒绝保存，与签名失败一样视为消息校验失败。
+         *
+         * @throws Exception 消息生成失败
+         */
+        @Test
+        @DisplayName("消息 ID 非法：拒绝保存，且数据库中没有新记录")
+        void rejectsInvalidMessageId() throws Exception {
+            EccMessage invalid = newMessage("hello, e2echo");
+            invalid.setId("g" + invalid.getId().substring(1));
+            invalid.setSign(EccUtil.sign(invalid.toStringWithoutSign(), senderKeyPair.privateKeyHex()));
+
+            assertThatThrownBy(() -> messageController.save(invalid))
+                    .isInstanceOf(E2EchoException.class)
+                    .hasMessage("消息校验失败！");
+
+            assertThat(messageRepository.findByMessageId(invalid.getId())).isEmpty();
+
+            EccMessage invalidTimestamp = newMessage("hello, e2echo");
+            invalidTimestamp.setId("f".repeat(IdUtil.ID_LENGTH));
+            invalidTimestamp.setSign(EccUtil.sign(
+                    invalidTimestamp.toStringWithoutSign(), senderKeyPair.privateKeyHex()));
+
+            assertThatThrownBy(() -> messageController.save(invalidTimestamp))
+                    .isInstanceOf(E2EchoException.class)
+                    .hasMessage("消息校验失败！");
+
+            assertThat(messageRepository.findByMessageId(invalidTimestamp.getId())).isEmpty();
+        }
+
+        /**
          * 校验消息 ID 携带的发送时间与服务器当前时间差距过大时拒绝保存。
          *
          * @throws Exception 消息生成失败
@@ -245,8 +270,7 @@ class MessageControllerTest {
         void rejectsStaleMessage() throws Exception {
             EccMessage stale = newMessage("hello, e2echo");
             // 把 ID 中的时间戳改为 60 秒前，并重新签名，使签名有效但时间超限
-            stale.setId(String.format("%016x", System.currentTimeMillis() - 60_000)
-                    + stale.getId().substring(16));
+            stale.setId(IdUtil.newId(System.currentTimeMillis() - 60_000));
             stale.setSign(EccUtil.sign(stale.toStringWithoutSign(), senderKeyPair.privateKeyHex()));
 
             assertThatThrownBy(() -> messageController.save(stale))
@@ -312,7 +336,7 @@ class MessageControllerTest {
         @Test
         @DisplayName("消息不存在：抛出业务异常")
         void throwsWhenMessageNotFound() {
-            String missingId = String.format("%016x", System.currentTimeMillis()) + "f".repeat(32);
+            String missingId = IdUtil.newId();
 
             assertThatThrownBy(() -> messageController.getById(missingId))
                     .isInstanceOf(E2EchoException.class)
@@ -335,9 +359,9 @@ class MessageControllerTest {
         @DisplayName("按发送者、接收者与通道过滤")
         void filtersByFromToAndChannel() {
             long base = System.currentTimeMillis();
-            persistMessage(base, 1, PRIVATE_CHANNEL);
-            persistMessage(base, 2, PRIVATE_CHANNEL);
-            persistMessage(base, 3, "group");
+            persistMessage(base, PRIVATE_CHANNEL);
+            persistMessage(base, PRIVATE_CHANNEL);
+            persistMessage(base, "group");
 
             Page<EccMessage> privatePage = messageController.list(new MessageListReqVo(
                     List.of(senderKeyPair.publicKeyHex()),    // fromList
@@ -366,10 +390,10 @@ class MessageControllerTest {
         @DisplayName("按时间区间与起始 ID 过滤")
         void filtersByTimestampAndStartId() {
             long base = System.currentTimeMillis();
-            Message first = persistMessage(base, 1, PRIVATE_CHANNEL);
-            Message second = persistMessage(base + 1_000, 2, PRIVATE_CHANNEL);
-            Message secondInSameMillisecond = persistMessage(base + 1_000, 4, PRIVATE_CHANNEL);
-            persistMessage(base + 2_000, 3, PRIVATE_CHANNEL);
+            Message first = persistMessage(base, PRIVATE_CHANNEL);
+            Message second = persistMessage(base + 1_000, PRIVATE_CHANNEL);
+            Message secondInSameMillisecond = persistMessage(base + 1_000, PRIVATE_CHANNEL);
+            persistMessage(base + 2_000, PRIVATE_CHANNEL);
 
             // 起始与结束时间戳均包含边界，同一毫秒内的消息也要全部命中
             Page<EccMessage> ranged = list(PRIVATE_CHANNEL, Long.toString(base + 1_000),
@@ -392,9 +416,9 @@ class MessageControllerTest {
         @DisplayName("倒序查询：取某个用户最新的用户信息")
         void returnsLatestMessageWhenOrderDesc() {
             long base = System.currentTimeMillis();
-            Message first = persistMessage(base, 1, USERINFO_CHANNEL);
-            Message second = persistMessage(base + 1_000, 2, USERINFO_CHANNEL);
-            Message third = persistMessage(base + 2_000, 3, USERINFO_CHANNEL);
+            Message first = persistMessage(base, USERINFO_CHANNEL);
+            Message second = persistMessage(base + 1_000, USERINFO_CHANNEL);
+            Message third = persistMessage(base + 2_000, USERINFO_CHANNEL);
 
             // 倒序取第一条即最新一条
             Page<EccMessage> latest = messageController.list(new MessageListReqVo(
@@ -436,9 +460,9 @@ class MessageControllerTest {
         @DisplayName("降序翻页：结束 ID 作为游标继续取更早的消息")
         void pagesBackwardWithEndId() {
             long base = System.currentTimeMillis();
-            Message first = persistMessage(base, 1, PRIVATE_CHANNEL);
-            Message second = persistMessage(base + 1_000, 2, PRIVATE_CHANNEL);
-            Message third = persistMessage(base + 2_000, 3, PRIVATE_CHANNEL);
+            Message first = persistMessage(base, PRIVATE_CHANNEL);
+            Message second = persistMessage(base + 1_000, PRIVATE_CHANNEL);
+            Message third = persistMessage(base + 2_000, PRIVATE_CHANNEL);
 
             // 第一页：最新的两条，从新到老
             Page<EccMessage> firstPage = list(PRIVATE_CHANNEL, null, null, null, "desc", 1, 2);
@@ -485,9 +509,9 @@ class MessageControllerTest {
         @DisplayName("按 ID 升序返回，并正确分页")
         void sortsByIdAndPaginates() {
             long base = System.currentTimeMillis();
-            Message first = persistMessage(base, 1, PRIVATE_CHANNEL);
-            Message second = persistMessage(base + 1_000, 2, PRIVATE_CHANNEL);
-            Message third = persistMessage(base + 2_000, 3, PRIVATE_CHANNEL);
+            Message first = persistMessage(base, PRIVATE_CHANNEL);
+            Message second = persistMessage(base + 1_000, PRIVATE_CHANNEL);
+            Message third = persistMessage(base + 2_000, PRIVATE_CHANNEL);
 
             Page<EccMessage> pageOne = list(PRIVATE_CHANNEL, null, null, null, null, 1, 2);
             assertThat(pageOne.getContent()).extracting(EccMessage::getId)
@@ -543,6 +567,11 @@ class MessageControllerTest {
             assertThatThrownBy(() -> list(PRIVATE_CHANNEL, "-1", null, null, null, 1, 10))
                     .isInstanceOf(E2EchoException.class)
                     .hasMessage("时间戳不能为负数：-1");
+
+            assertThatThrownBy(() -> list(PRIVATE_CHANNEL, null, Long.toString(Long.MAX_VALUE),
+                    null, null, 1, 10))
+                    .isInstanceOf(E2EchoException.class)
+                    .hasMessage("时间戳超出范围：" + Long.MAX_VALUE);
 
             assertThatThrownBy(() -> list(PRIVATE_CHANNEL, null, null, null, "unknown", 1, 10))
                     .isInstanceOf(E2EchoException.class)

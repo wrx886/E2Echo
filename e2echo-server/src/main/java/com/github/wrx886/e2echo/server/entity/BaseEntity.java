@@ -1,11 +1,12 @@
 package com.github.wrx886.e2echo.server.entity;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
+import com.github.wrx886.e2echo.ecc.util.IdUtil;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.EntityListeners;
@@ -26,7 +27,7 @@ public abstract class BaseEntity {
      * 主键，由“16 位十六进制时间戳 + 32 位无连字符 UUID”组成，共 48 位。
      */
     @Id
-    @Column(length = 48, nullable = false, updatable = false)
+    @Column(length = IdUtil.ID_LENGTH, nullable = false, updatable = false)
     private String id;
 
     /**
@@ -49,8 +50,7 @@ public abstract class BaseEntity {
     @PrePersist
     protected void prePersist() {
         if (id == null) {
-            id = String.format("%016x", System.currentTimeMillis())
-                    + UUID.randomUUID().toString().replace("-", "");
+            id = IdUtil.newId();
         }
     }
 
