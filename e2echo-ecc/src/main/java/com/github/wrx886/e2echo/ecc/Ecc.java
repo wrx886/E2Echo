@@ -5,6 +5,7 @@ import java.util.UUID;
 import com.github.wrx886.e2echo.ecc.util.AesUtil;
 import com.github.wrx886.e2echo.ecc.util.EccUtil;
 import com.github.wrx886.e2echo.ecc.util.EccUtil.KeyPairHex;
+import com.github.wrx886.e2echo.ecc.util.IdUtil;
 
 /**
  * ECC / AES 加解密工具门面。
@@ -136,9 +137,7 @@ public final class Ecc {
 
         // 构造返回值
         EccMessage eccMessage = new EccMessage();
-        eccMessage.setId( // 两段式：时间戳 + UUID，共 48 位
-                String.format("%016x", System.currentTimeMillis()) +
-                        UUID.randomUUID().toString().replace("-", ""));
+        eccMessage.setId(IdUtil.newId());
         eccMessage.setFrom(message.getFrom());
         eccMessage.setTo(message.getTo());
         eccMessage.setMessage(EccUtil.encrypt(message.getMessage(), message.getTo()));
@@ -232,9 +231,7 @@ public final class Ecc {
 
         // 构造返回值
         EccMessage eccMessage = new EccMessage();
-        eccMessage.setId( // 两段式：时间戳 + UUID，共 48 位
-                String.format("%016x", System.currentTimeMillis()) +
-                        UUID.randomUUID().toString().replace("-", ""));
+        eccMessage.setId(IdUtil.newId());
         eccMessage.setFrom(message.getFrom());
         eccMessage.setTo(message.getTo());
         eccMessage.setMessage(message.getMessage());
@@ -250,7 +247,7 @@ public final class Ecc {
      * 使用消息 from 字段中的公钥验证消息签名，不依赖当前保存的密钥对。
      *
      * <p>
-     * 消息字段被篡改、签名缺失、公钥或签名格式非法时均返回 {@code false}。
+     * 消息 ID 格式非法、消息字段被篡改、签名缺失、公钥或签名格式非法时均返回 {@code false}。
      * </p>
      *
      * @param eccMessage 待验证的消息
@@ -258,7 +255,9 @@ public final class Ecc {
      */
     public static boolean verify(EccMessage eccMessage) {
         try {
-            return EccUtil.verify(
+            return eccMessage != null
+                    && IdUtil.isValid(eccMessage.getId())
+                    && EccUtil.verify(
                     eccMessage.toStringWithoutSign(),
                     eccMessage.getSign(),
                     eccMessage.getFrom());
