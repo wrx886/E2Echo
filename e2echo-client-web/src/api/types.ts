@@ -176,7 +176,7 @@ export interface BroadcastUserinfoRespVo {
  * 广播正文（帖子与评论共用），对应 {@code BroadcastMessageVo}。
  */
 export interface BroadcastMessageVo {
-  /** 正文文本。 */
+  /** 正文文本；@ 提及实际保存 {@code @公钥}，界面展示关注别名。 */
   text: string
   /** 附件列表。 */
   files: BroadcastFileVo[]

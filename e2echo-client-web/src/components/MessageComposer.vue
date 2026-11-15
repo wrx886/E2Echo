@@ -1011,7 +1011,38 @@ function focus(): void {
   focusEditor()
 }
 
-defineExpose({ focus })
+/**
+ * 通过公钥插入一个 @ 标签，供用户小卡片调用。
+ *
+ * @param publicKey 被提及者公钥
+ */
+async function insertMention(publicKey: string): Promise<void> {
+  const root = editor()
+  if (!root) {
+    return
+  }
+  await conversationStore.resolveAlias(publicKey)
+  focusEditor()
+  const selection = window.getSelection()
+  if (!selection || selection.rangeCount === 0) {
+    return
+  }
+  const range = selection.getRangeAt(0)
+  range.deleteContents()
+  const mention = createMentionElement(publicKey)
+  range.insertNode(mention)
+  const space = document.createTextNode(' ')
+  mention.parentNode?.insertBefore(space, mention.nextSibling)
+  range.setStartAfter(space)
+  range.collapse(true)
+  selection.removeAllRanges()
+  selection.addRange(range)
+  closeMention()
+  syncEditorToParent()
+  void nextTick(() => root.focus())
+}
+
+defineExpose({ focus, insertMention })
 
 // 引用摘要里的发送者与 @ 人员也补齐别名
 watch(

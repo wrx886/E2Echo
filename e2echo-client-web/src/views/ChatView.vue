@@ -5,7 +5,7 @@ import { Setting } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { chatTextBodyOf, getConversation } from '@/api'
 import type { ConversationDto, MessageVo } from '@/api'
-import ChatUserCard from '@/components/ChatUserCard.vue'
+import FloatingUserCard from '@/components/FloatingUserCard.vue'
 import MessageBubble from '@/components/MessageBubble.vue'
 import MessageComposer from '@/components/MessageComposer.vue'
 import { useConversationStore } from '@/stores/conversation'
@@ -72,9 +72,6 @@ const missing = ref(false)
  * <p>整页只创建一个 popover，头像和 @ 别名都复用它，避免每条消息各挂一套定位组件。</p>
  */
 const cardTarget = ref<{ uid: string; anchor: HTMLElement } | null>(null)
-
-/** 用户小卡片是否显示。 */
-const cardVisible = ref(false)
 
 /** 正在恢复滚动位置，期间不触发自动滚到底部。 */
 const restoring = ref(false)
@@ -282,27 +279,23 @@ provide(CHAT_PIN_TO_BOTTOM, pinToBottomIfSticky)
  */
 function openUserCard(target: { uid: string; anchor: HTMLElement }): void {
   cardTarget.value = target
-  cardVisible.value = true
-}
-
-/**
- * 同步 popover 的显隐状态。
- *
- * @param visible 是否显示
- */
-function onUserCardVisibleChange(visible: boolean): void {
-  cardVisible.value = visible
-  if (!visible) {
-    cardTarget.value = null
-  }
 }
 
 /**
  * 主动关闭用户小卡片。
  */
 function closeUserCard(): void {
-  cardVisible.value = false
   cardTarget.value = null
+}
+
+/**
+ * 从用户卡片 @ 对方：关掉卡片并把标签插到私聊输入框。
+ *
+ * @param uid 用户公钥
+ */
+function mentionFromUserCard(uid: string): void {
+  closeUserCard()
+  void nextTick(() => composerRef.value?.insertMention(uid))
 }
 
 /**
@@ -596,17 +589,14 @@ watch(peer, async (value) => {
         @submit-audio="onSendAudio"
       />
 
-      <el-popover
+      <FloatingUserCard
         v-if="cardTarget"
-        :visible="cardVisible"
-        :virtual-ref="cardTarget.anchor"
-        virtual-triggering
-        :width="300"
-        placement="top-start"
-        @update:visible="onUserCardVisibleChange"
-      >
-        <ChatUserCard :uid="cardTarget.uid" @close="closeUserCard" />
-      </el-popover>
+        :uid="cardTarget.uid"
+        :anchor="cardTarget.anchor"
+        :mentionable="!group"
+        @mention="mentionFromUserCard"
+        @close="closeUserCard"
+      />
     </template>
   </section>
 </template>

@@ -6,6 +6,7 @@ import { ArrowLeft } from '@element-plus/icons-vue'
 import { BROADCAST_POST_TO } from '@/api'
 import type { BroadcastFileVo, BroadcastMessageRespVo } from '@/api'
 import BroadcastComposer from '@/components/BroadcastComposer.vue'
+import BroadcastText from '@/components/BroadcastText.vue'
 import { useBroadcastStore } from '@/stores/broadcast'
 import { useSubscribeStore } from '@/stores/subscribe'
 import { shortKey } from '@/utils/display'
@@ -25,6 +26,9 @@ const subscribeStore = useSubscribeStore()
 
 /** 被转发广播的 ID，由发帖页 URL 传入。 */
 const forwardId = computed(() => String(route.query.forward ?? ''))
+
+/** 从头像快速 @ 时传入的公钥。 */
+const mentionId = computed(() => String(route.query.mention ?? ''))
 
 /** 是否处于转发模式：转发必定创建一级帖子。 */
 const forwarding = computed(() => forwardId.value.length > 0)
@@ -125,16 +129,21 @@ async function onPublish(text: string, files: BroadcastFileVo[]): Promise<void> 
         <template v-else-if="forwardMissing">被转发的帖子不存在、不是一级帖子或暂时无法读取</template>
         <template v-else-if="forwardTarget">
           <div class="create__forward-head">转发 @{{ forwardName }}</div>
-          <div class="create__forward-text">{{ forwardTarget.message?.text }}</div>
+          <BroadcastText
+            class="create__forward-text"
+            :text="forwardTarget.message?.text ?? ''"
+            :interactive="false"
+          />
         </template>
       </div>
 
       <BroadcastComposer
         ref="composer"
         autosize
-        :placeholder="forwarding ? '说说转发理由…' : '分享点什么…'"
+        :placeholder="forwarding ? '说说转发理由…，输入 @ 提及关注的人' : '分享点什么…，输入 @ 提及关注的人'"
         :submit-text="forwarding ? '转发' : '发布'"
         :submitting="publishing"
+        :initial-mention="mentionId"
         @submit="onPublish"
       />
     </div>

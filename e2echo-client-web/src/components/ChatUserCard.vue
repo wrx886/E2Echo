@@ -11,23 +11,35 @@ import { shortKey } from '@/utils/display'
 import { showError } from '@/utils/feedback'
 
 /**
- * 聊天里的用户小卡片。
+ * 聊天和广播共用的用户小卡片。
  *
- * <p>点消息头像或输入框、消息气泡里的 @ 别名弹出来：显示这个人的名称（有会话就用会话别名）与完整
- * 公钥，并给出能做的事——已经有会话就给「私聊」「修改会话」，还没有就给「添加到会话」。</p>
+ * <p>点头像或 @ 别名弹出来：显示这个人的名称与完整公钥，并提供 @、已有会话的「私聊」「修改会话」
+ * 或添加到会话；广播场景还可以进入用户主页，但会关闭会话操作，保持私聊和广播两个板块独立。</p>
  *
  * <p>群聊里除了群主，其它成员拿不到群成员名单，但每条消息都带着发送者公钥，所以点头像就是认识群成员
  * 的入口。</p>
  */
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   /** 对方公钥。 */
   uid: string
-}>()
+  /** 是否显示 @ 操作；私聊和广播输入框可用。 */
+  mentionable?: boolean
+  /** 外部已经解析好的展示名称，优先于会话别名。 */
+  preferredName?: string
+  /** 是否显示广播用户主页入口。 */
+  showProfile?: boolean
+  /** 是否显示私聊、修改会话、添加到会话等会话操作。 */
+  conversationActions?: boolean
+}>(), {
+  conversationActions: true,
+})
 
 const emit = defineEmits<{
   /** 做完操作或点外部时关掉卡片。 */
   'close': []
+  /** 在当前输入框 @ 这位用户。 */
+  'mention': [uid: string]
 }>()
 
 const router = useRouter()
@@ -40,7 +52,8 @@ const conversation = ref<ConversationDto | null>(null)
 const loading = ref(false)
 
 /** 展示名称：有会话就用别名，没有就退回公钥末几位。 */
-const name = computed(() => conversation.value?.alias ?? shortKey(props.uid, 5))
+const name = computed(() =>
+  props.preferredName?.trim() || conversation.value?.alias || shortKey(props.uid, 5))
 
 /**
  * 查会话：先看已加载的列表，没有再去 client 查一次。
@@ -60,8 +73,12 @@ async function load(): Promise<void> {
   }
 }
 
-watch(() => props.uid, () => {
+watch(() => [props.uid, props.conversationActions] as const, () => {
   conversation.value = null
+  loading.value = false
+  if (!props.conversationActions) {
+    return
+  }
   void load()
 }, { immediate: true })
 
@@ -90,6 +107,14 @@ function openCreate(): void {
 }
 
 /**
+ * 打开广播用户主页。
+ */
+function openProfile(): void {
+  emit('close')
+  void router.push({ name: 'broadcast-profile', params: { uid: props.uid } })
+}
+
+/**
  * 复制公钥。
  */
 async function copyKey(): Promise<void> {
@@ -99,6 +124,14 @@ async function copyKey(): Promise<void> {
   } else {
     ElMessage.error('复制失败，请手动选中复制')
   }
+}
+
+/**
+ * 在当前输入框插入这个人的 @。
+ */
+function mentionUser(): void {
+  emit('mention', props.uid)
+  emit('close')
 }
 </script>
 
@@ -110,15 +143,28 @@ async function copyKey(): Promise<void> {
     <div class="user-card__key">{{ uid }}</div>
 
     <div class="user-card__actions">
-      <!-- 还没查完会话前先不给操作，免得点了一半又变成"私聊" -->
-      <span v-if="loading" class="user-card__loading">查询会话中…</span>
-      <template v-else-if="conversation">
-        <el-button type="primary" size="small" @click="openChat">私聊</el-button>
-        <el-button size="small" @click="openSettings">修改会话</el-button>
-      </template>
-      <el-button v-else type="primary" size="small" @click="openCreate">
-        添加到会话
+      <el-button
+        v-if="mentionable"
+        size="small"
+        title="在输入框中 @ 这位用户"
+        @click="mentionUser"
+      >
+        @
       </el-button>
+      <el-button v-if="showProfile" type="primary" size="small" @click="openProfile">
+        主页
+      </el-button>
+      <template v-if="conversationActions">
+        <!-- 还没查完会话前先不给操作，免得点了一半又变成"私聊" -->
+        <span v-if="loading" class="user-card__loading">查询会话中…</span>
+        <template v-else-if="conversation">
+          <el-button type="primary" size="small" @click="openChat">私聊</el-button>
+          <el-button size="small" @click="openSettings">修改会话</el-button>
+        </template>
+        <el-button v-else type="primary" size="small" @click="openCreate">
+          添加到会话
+        </el-button>
+      </template>
       <el-button
         class="user-card__copy"
         size="small"
@@ -132,8 +178,11 @@ async function copyKey(): Promise<void> {
 
 <style scoped>
 .user-card__name {
+  overflow: hidden;
   font-size: 14px;
   font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .user-card__label {
@@ -149,15 +198,16 @@ async function copyKey(): Promise<void> {
   border-radius: 4px;
   background: #f5f7fa;
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-  font-size: 12px;
-  line-height: 1.5;
+  font-size: 11px;
+  line-height: 1.45;
   word-break: break-all;
 }
 
 .user-card__actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 6px;
   margin-top: 10px;
 }
 

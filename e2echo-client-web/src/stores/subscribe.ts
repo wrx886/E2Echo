@@ -51,10 +51,9 @@ export const useSubscribeStore = defineStore('subscribe', () => {
   let indexTask: Promise<void> | null = null
 
   /**
-   * 加载订阅索引：把订阅列表一次拉进来，供展示与判断"有没有订阅"用。
+   * 加载完整订阅索引：分页拉完，供展示、判断订阅和 @ 关注列表使用。
    *
-   * <p>幂等：加载过就直接返回，正在加载时复用同一个请求。订阅数量超过一页时只索引到第一页，
-   * 多出来的部分不显示别名（不影响订阅本身）。</p>
+   * <p>幂等：加载过就直接返回，正在加载时复用同一个请求。</p>
    *
    * @param force 是否强制重新加载
    */
@@ -66,13 +65,22 @@ export const useSubscribeStore = defineStore('subscribe', () => {
       return indexTask
     }
     indexTask = (async () => {
-      const page = await listBroadcastSubscribes({
+      const first = await listBroadcastSubscribes({
         pageNum: 1,
         pageSize: ALIAS_INDEX_SIZE,
         publicKeyOrAlias: '',
       })
+      const content = [...first.content]
+      for (let pageNum = 2; pageNum <= first.page.totalPages; pageNum += 1) {
+        const page = await listBroadcastSubscribes({
+          pageNum,
+          pageSize: ALIAS_INDEX_SIZE,
+          publicKeyOrAlias: '',
+        })
+        content.push(...page.content)
+      }
       const next = new Map<string, string>()
-      for (const item of page.content) {
+      for (const item of content) {
         next.set(item.publicKey, item.alias?.trim() ?? '')
       }
       aliases.value = next

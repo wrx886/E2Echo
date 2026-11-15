@@ -24,7 +24,7 @@ import java.util.List;
  * ——前端按附件的 {@code contentType} 决定内嵌展示（图片、播放器）还是显示成文件卡片，用户点开时再
  * 用附件的 {@code objectKey} 调广播文件下载接口。</p>
  *
- * @param text      正文文本
+ * @param text      正文文本；@ 提及使用 {@code @公钥}，展示名称由前端按关注别名解析
  * @param files     附件列表，没有附件时传空列表（这里不能为空）
  * @param replyToId 一级帖子为被转发帖子的消息 ID；评论为被回复评论的消息 ID，直接评论帖子时为空
  */

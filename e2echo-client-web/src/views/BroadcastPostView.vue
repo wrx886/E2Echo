@@ -183,6 +183,16 @@ function startForward(item: BroadcastMessageRespVo): void {
 }
 
 /**
+ * 从头像快速 @：直接插入底部评论框。
+ *
+ * @param uid 用户公钥
+ */
+async function quickMention(uid: string): Promise<void> {
+  await composer.value?.insertMention(uid)
+  composer.value?.focus()
+}
+
+/**
  * 打开一条广播转发引用的原内容。
  *
  * @param target   原广播
@@ -283,6 +293,7 @@ async function onLoadMore(): Promise<void> {
           @reply="cancelReply"
           @forward="startForward"
           @open-forward="openForward"
+          @mention-user="quickMention"
         />
 
         <div class="post-view__section">
@@ -315,6 +326,7 @@ async function onLoadMore(): Promise<void> {
             @reply="startReply(item)"
             @forward="startForward"
             @open-forward="openForward"
+            @mention-user="quickMention"
           />
 
           <div class="post-view__more">
@@ -341,7 +353,7 @@ async function onLoadMore(): Promise<void> {
       v-if="broadcastStore.post"
       ref="composer"
       class="post-view__composer"
-      placeholder="说点什么…"
+      placeholder="说点什么…，输入 @ 提及关注的人"
       submit-text="评论"
       :submitting="publishing"
       :reply-to-name="replyToName"

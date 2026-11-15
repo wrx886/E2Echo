@@ -5,6 +5,8 @@ import { ChatDotRound, DocumentCopy, Share } from '@element-plus/icons-vue'
 import { BROADCAST_POST_TO, avatarSrc } from '@/api'
 import type { BroadcastMessageRespVo } from '@/api'
 import BroadcastAttachments from '@/components/BroadcastAttachments.vue'
+import BroadcastText from '@/components/BroadcastText.vue'
+import FloatingUserCard from '@/components/FloatingUserCard.vue'
 import { useBroadcastStore } from '@/stores/broadcast'
 import { useSubscribeStore } from '@/stores/subscribe'
 import { copyText } from '@/utils/clipboard'
@@ -37,6 +39,8 @@ const emit = defineEmits<{
   'forward': [item: BroadcastMessageRespVo]
   /** 打开当前帖子转发的那条原广播。 */
   'openForward': [target: BroadcastMessageRespVo, sourceId: string]
+  /** 快速 @ 卡片作者。 */
+  'mentionUser': [uid: string]
   /** 打开某人的主页：带上这条内容的 ID，调用方返回时用它定位。 */
   'openUser': [uid: string, itemId: string]
 }>()
@@ -73,12 +77,6 @@ const time = computed(() => {
   return Number.isNaN(timestamp) ? '' : formatTime(timestamp)
 })
 
-/** 被回复内容的摘要。 */
-const replyExcerpt = computed(() => {
-  const text = props.replyTo?.message?.text ?? ''
-  return text.length > 40 ? `${text.slice(0, 40)}…` : text
-})
-
 /** 是不是帖子：评论的 {@code to} 是帖子 ID。 */
 const isPost = computed(() => props.item.to === BROADCAST_POST_TO)
 
@@ -95,6 +93,12 @@ const forwardLoading = ref(false)
 /** 原广播是否不存在或读取失败。 */
 const forwardMissing = ref(false)
 
+/** 头像用户卡片的锚点。 */
+const avatarCardAnchor = ref<HTMLElement | null>(null)
+
+/** 正文 @ 的用户卡片目标。 */
+const mentionCardTarget = ref<{ uid: string; anchor: HTMLElement } | null>(null)
+
 /** 被转发内容的作者展示名。 */
 const forwardName = computed(() => {
   const target = forwardTarget.value
@@ -104,12 +108,6 @@ const forwardName = computed(() => {
   return subscribeStore.aliasOf(target.from)
     || broadcastStore.profileOf(target.from)?.nickname
     || shortKey(target.from, 5)
-})
-
-/** 被转发内容的正文摘要。 */
-const forwardExcerpt = computed(() => {
-  const text = forwardTarget.value?.message?.text ?? ''
-  return text.length > 80 ? `${text.slice(0, 80)}…` : text
 })
 
 /**
@@ -177,6 +175,56 @@ async function onOpenForward(): Promise<void> {
   }
 }
 
+/**
+ * 点击正文里的 @ 名称，打开对应用户主页。
+ *
+ * @param uid    被提及者公钥
+ * @param anchor 点击的 @ 元素
+ */
+function onMentionClick(uid: string, anchor: HTMLElement): void {
+  mentionCardTarget.value = { uid, anchor }
+}
+
+/**
+ * 点击正文区域打开当前帖子，头像区域交给用户卡片处理。
+ *
+ * @param event 点击事件
+ */
+function onCardOpen(event: MouseEvent): void {
+  const target = event.target as HTMLElement
+  if (target.closest('.post__avatar-wrap')) {
+    return
+  }
+  emit('open')
+}
+
+/**
+ * 第一次点头像时挂载唯一一张用户卡片。
+ */
+function openAvatarCard(event: MouseEvent): void {
+  avatarCardAnchor.value = event.currentTarget as HTMLElement
+}
+
+/**
+ * 从用户卡片快速 @ 作者。
+ *
+ * @param uid 作者公钥
+ */
+function mentionCardUser(uid: string): void {
+  avatarCardAnchor.value = null
+  emit('mentionUser', uid)
+}
+
+/**
+ * 从正文 @ 用户卡片再次执行 @。
+ *
+ * @param uid 用户公钥
+ */
+function mentionFromCard(uid: string): void {
+  mentionCardTarget.value = null
+  emit('mentionUser', uid)
+}
+
 watch(() => [props.item.from, props.replyTo?.from, forwardTarget.value?.from], loadProfiles, { immediate: true })
 watch(forwardId, loadForward, { immediate: true })
 </script>
@@ -186,17 +234,19 @@ watch(forwardId, loadForward, { immediate: true })
     class="post"
     :class="{ 'post--clickable': clickable }"
     :data-item-id="item.id"
-    @click="emit('open')"
+    @click="onCardOpen"
   >
-    <el-avatar
-      :size="36"
-      class="post__avatar"
-      :src="avatarSrc(author?.avatarUrl)"
-      title="查看主页"
-      @click.stop="emit('openUser', item.from, item.id)"
-    >
-      {{ authorName.charAt(0) }}
-    </el-avatar>
+    <div class="post__avatar-wrap">
+      <el-avatar
+        :size="36"
+        class="post__avatar"
+        :src="avatarSrc(author?.avatarUrl)"
+        title="查看用户"
+        @click.stop="openAvatarCard"
+      >
+        {{ authorName.charAt(0) }}
+      </el-avatar>
+    </div>
 
     <div class="post__main">
       <div class="post__head">
@@ -207,19 +257,29 @@ watch(forwardId, loadForward, { immediate: true })
       </div>
 
       <div v-if="replyTo" class="post__reply">
-        回复 @{{ replyName }}：{{ replyExcerpt }}
+        回复 @{{ replyName }}：<BroadcastText
+          :text="replyTo.message?.text ?? ''"
+          @mention-click="onMentionClick"
+        />
       </div>
 
-      <div class="post__text">{{ item.message?.text }}</div>
+      <BroadcastText
+        class="post__text"
+        :text="item.message?.text ?? ''"
+        @mention-click="onMentionClick"
+      />
 
       <!-- 附件区不整体拦截点击：空白处仍然可以点开帖子，只有图片、播放器、下载链接自己拦 -->
       <BroadcastAttachments :files="item.message?.files ?? []" />
 
-      <button
+      <div
         v-if="forwardId"
-        type="button"
         class="post__forward"
+        role="button"
+        tabindex="0"
         @click.stop="onOpenForward"
+        @keydown.enter.prevent="onOpenForward"
+        @keydown.space.prevent="onOpenForward"
       >
         <span class="post__forward-head">
           转发 @{{ forwardName || '原广播' }}
@@ -227,9 +287,13 @@ watch(forwardId, loadForward, { immediate: true })
         <span class="post__forward-text">
           <template v-if="forwardLoading">正在加载转发内容…</template>
           <template v-else-if="forwardMissing">原帖子不存在、不是一级帖子或暂时无法读取</template>
-          <template v-else>{{ forwardExcerpt }}</template>
+          <BroadcastText
+            v-else
+            :text="forwardTarget?.message?.text ?? ''"
+            @mention-click="onMentionClick"
+          />
         </span>
-      </button>
+      </div>
 
       <div class="post__actions">
         <el-button text size="small" :icon="ChatDotRound" @click.stop="emit('reply')">
@@ -257,6 +321,32 @@ watch(forwardId, loadForward, { immediate: true })
         </template>
       </div>
     </div>
+
+    <FloatingUserCard
+      v-if="mentionCardTarget"
+      :uid="mentionCardTarget.uid"
+      :anchor="mentionCardTarget.anchor"
+      :preferred-name="subscribeStore.aliasOf(mentionCardTarget.uid)
+        || broadcastStore.profileOf(mentionCardTarget.uid)?.nickname
+        || shortKey(mentionCardTarget.uid, 5)"
+      mentionable
+      show-profile
+      :conversation-actions="false"
+      @mention="mentionFromCard"
+      @close="mentionCardTarget = null"
+    />
+
+    <FloatingUserCard
+      v-if="avatarCardAnchor"
+      :uid="item.from"
+      :anchor="avatarCardAnchor"
+      :preferred-name="authorName"
+      mentionable
+      show-profile
+      :conversation-actions="false"
+      @mention="mentionCardUser"
+      @close="avatarCardAnchor = null"
+    />
   </div>
 </template>
 
@@ -282,6 +372,11 @@ watch(forwardId, loadForward, { immediate: true })
   background: #07c160;
   color: #fff;
   cursor: pointer;
+}
+
+.post__avatar-wrap {
+  position: relative;
+  flex: none;
 }
 
 .post__main {
@@ -319,6 +414,9 @@ watch(forwardId, loadForward, { immediate: true })
   font-size: 12px;
   line-height: 1.6;
   color: #909399;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .post__forward {
@@ -359,7 +457,12 @@ watch(forwardId, loadForward, { immediate: true })
   text-overflow: ellipsis;
 }
 
+.post__forward-text :deep(.broadcast-text) {
+  white-space: nowrap;
+}
+
 .post__text {
+  display: block;
   margin-top: 6px;
   font-size: 14px;
   line-height: 1.6;

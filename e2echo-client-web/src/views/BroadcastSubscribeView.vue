@@ -111,6 +111,15 @@ function startForward(item: BroadcastMessageRespVo): void {
 }
 
 /**
+ * 从头像快速 @：进入发帖页并预填该用户。
+ *
+ * @param uid 用户公钥
+ */
+function startMention(uid: string): void {
+  void router.push({ name: 'broadcast-create', query: { mention: uid } })
+}
+
+/**
  * 打开一条广播转发引用的原内容。
  *
  * @param target   原广播
@@ -187,6 +196,7 @@ function openForward(target: BroadcastMessageRespVo, sourceId: string): void {
             @reply="openPost(item)"
             @forward="startForward"
             @open-forward="openForward"
+            @mention-user="startMention"
           />
 
           <div class="subscribe__more">
