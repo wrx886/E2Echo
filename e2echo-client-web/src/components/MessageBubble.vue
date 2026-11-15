@@ -284,63 +284,76 @@ function onDownloadFile(): void {
         </el-tag>
       </el-tooltip>
 
-      <!-- 群聊密钥：群主分发密钥时发的消息，密钥本身不展示，只说明是哪个群、哪个版本 -->
-      <div v-if="groupKey" class="bubble" :class="{ 'bubble--untrusted': !keyTrusted }">
-        <GroupKeyMessage :group="groupKey.group" :publish-time="groupKey.publishTime" />
-      </div>
-
-      <!-- 聊天图片：正文与文件相同，只是直接渲染出来 -->
-      <div v-else-if="imageBody" class="bubble bubble--media">
-        <ImageMessage :file="imageBody" />
-      </div>
-
-      <!-- 聊天视频：内嵌播放器，右上角可以点开弹窗放大播放 -->
-      <div v-else-if="videoBody" class="bubble bubble--media">
-        <VideoMessage :file="videoBody" />
-      </div>
-
-      <!-- 聊天音频：直接用浏览器原生播放器 -->
-      <div v-else-if="audioBody" class="bubble">
-        <AudioMessage :file="audioBody" />
-      </div>
-
-      <!-- 聊天文件：正文只带文件名与下载信息，文件本体由客户端取回解密后再交给浏览器保存 -->
-      <div v-else-if="fileBody" class="bubble">
-        <div class="file">
-          <el-icon class="file__icon" :size="22"><Document /></el-icon>
-          <span class="file__name" :title="fileBody.filename">{{ fileBody.filename }}</span>
-          <el-button
-            size="small"
-            type="primary"
-            :icon="Download"
-            @click="onDownloadFile"
-          >
-            下载
-          </el-button>
+      <div class="bubble-row__message">
+        <!-- 群聊密钥：群主分发密钥时发的消息，密钥本身不展示，只说明是哪个群、哪个版本 -->
+        <div v-if="groupKey" class="bubble" :class="{ 'bubble--untrusted': !keyTrusted }">
+          <GroupKeyMessage :group="groupKey.group" :publish-time="groupKey.publishTime" />
         </div>
-      </div>
 
-      <div v-else-if="attachmentBroken" class="bubble">{{ attachmentBroken }}</div>
+        <!-- 聊天图片：正文与文件相同，只是直接渲染出来 -->
+        <div v-else-if="imageBody" class="bubble bubble--media">
+          <ImageMessage :file="imageBody" />
+        </div>
 
-      <div v-else class="bubble">
-        <template v-if="text !== null">
-          <template v-for="(segment, index) in textSegments" :key="index">
-            <span
-              v-if="segment.kind === 'mention' && segment.publicKey"
-              class="bubble__mention"
-              :title="segment.text"
-              role="button"
-              tabindex="0"
-              @click.stop="onMentionClick(segment.publicKey, $event)"
-              @keydown.enter.prevent="onMentionClick(segment.publicKey, $event)"
-              @keydown.space.prevent="onMentionClick(segment.publicKey, $event)"
+        <!-- 聊天视频：内嵌播放器，右上角可以点开弹窗放大播放 -->
+        <div v-else-if="videoBody" class="bubble bubble--media">
+          <VideoMessage :file="videoBody" />
+        </div>
+
+        <!-- 聊天音频：直接用浏览器原生播放器 -->
+        <div v-else-if="audioBody" class="bubble">
+          <AudioMessage :file="audioBody" />
+        </div>
+
+        <!-- 聊天文件：正文只带文件名与下载信息，文件本体由客户端取回解密后再交给浏览器保存 -->
+        <div v-else-if="fileBody" class="bubble">
+          <div class="file">
+            <el-icon class="file__icon" :size="22"><Document /></el-icon>
+            <span class="file__name" :title="fileBody.filename">{{ fileBody.filename }}</span>
+            <el-button
+              size="small"
+              type="primary"
+              :icon="Download"
+              @click="onDownloadFile"
             >
-              @{{ mentionLabel(segment.publicKey) }}
-            </span>
-            <template v-else>{{ segment.text }}</template>
+              下载
+            </el-button>
+          </div>
+        </div>
+
+        <div v-else-if="attachmentBroken" class="bubble">{{ attachmentBroken }}</div>
+
+        <div v-else class="bubble">
+          <template v-if="text !== null">
+            <template v-for="(segment, index) in textSegments" :key="index">
+              <span
+                v-if="segment.kind === 'mention' && segment.publicKey"
+                class="bubble__mention"
+                :title="segment.text"
+                role="button"
+                tabindex="0"
+                @click.stop="onMentionClick(segment.publicKey, $event)"
+                @keydown.enter.prevent="onMentionClick(segment.publicKey, $event)"
+                @keydown.space.prevent="onMentionClick(segment.publicKey, $event)"
+              >
+                @{{ mentionLabel(segment.publicKey) }}
+              </span>
+              <template v-else>{{ segment.text }}</template>
+            </template>
           </template>
-        </template>
-        <template v-else>[暂不支持的消息类型]</template>
+          <template v-else>[暂不支持的消息类型]</template>
+        </div>
+
+        <el-button
+          class="bubble-row__quote"
+          text
+          size="small"
+          title="引用这条消息"
+          :icon="ChatDotRound"
+          @click="emit('quote', message)"
+        >
+          引用
+        </el-button>
       </div>
 
       <button
@@ -367,17 +380,8 @@ function onDownloadFile(): void {
         </span>
       </button>
 
-      <el-button
-        class="bubble-row__quote"
-        text
-        size="small"
-        title="引用这条消息"
-        :icon="ChatDotRound"
-        @click="emit('quote', message)"
-      >
-        引用
-      </el-button>
     </div>
+
   </div>
 </template>
 
@@ -406,30 +410,19 @@ function onDownloadFile(): void {
 }
 
 .bubble-row__quote {
-  align-self: flex-start;
-  max-height: 0;
-  margin: 0;
-  padding-top: 0;
-  padding-bottom: 0;
-  overflow: hidden;
+  flex: none;
+  align-self: flex-end;
+  margin-bottom: 2px;
   opacity: 0;
   color: #909399;
   pointer-events: none;
-  transition: opacity 0.15s, max-height 0.15s, margin 0.15s, padding 0.15s;
+  transition: opacity 0.15s;
 }
 
-.bubble-row:hover .bubble-row__quote,
-.bubble-row:focus-within .bubble-row__quote {
-  max-height: 26px;
-  margin-top: 2px;
-  padding-top: 4px;
-  padding-bottom: 4px;
+.bubble-row__message:hover .bubble-row__quote,
+.bubble-row__quote:focus-visible {
   opacity: 1;
   pointer-events: auto;
-}
-
-.bubble-row--mine .bubble-row__quote {
-  align-self: flex-end;
 }
 
 /* 对方头像可点：打开与 TA 的会话 */
@@ -446,6 +439,18 @@ function onDownloadFile(): void {
 
 .bubble-row--mine .bubble-row__body {
   align-items: flex-end;
+}
+
+.bubble-row__message {
+  display: flex;
+  min-width: 0;
+  max-width: 100%;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.bubble-row--mine .bubble-row__message {
+  flex-direction: row-reverse;
 }
 
 .bubble-row__name {
