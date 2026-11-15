@@ -30,7 +30,7 @@ import java.util.List;
  */
 public record BroadcastMessageVo(
         @NotBlank String text,
-        @NotNull @Valid List<BroadcastFileVo> files,
+        @NotNull List<@Valid BroadcastFileVo> files,
         String replyToId
 ) {
 }
