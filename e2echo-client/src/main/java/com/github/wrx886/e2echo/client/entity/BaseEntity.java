@@ -1,6 +1,6 @@
 package com.github.wrx886.e2echo.client.entity;
 
-import com.github.wrx886.e2echo.client.util.IdUtil;
+import com.github.wrx886.e2echo.ecc.util.IdUtil;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.springframework.data.annotation.CreatedBy;
@@ -23,7 +23,7 @@ public abstract class BaseEntity {
      * 主键，由“16 位十六进制时间戳 + 32 位无连字符 UUID”组成，共 48 位。
      */
     @Id
-    @Column(length = 48, nullable = false, updatable = false)
+    @Column(length = IdUtil.ID_LENGTH, nullable = false, updatable = false)
     private String id;
 
     /**

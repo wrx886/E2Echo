@@ -5,7 +5,7 @@ import java.util.List;
 
 import com.github.wrx886.e2echo.client.exception.E2EchoException;
 import com.github.wrx886.e2echo.client.util.ApiUtil;
-import com.github.wrx886.e2echo.client.util.IdUtil;
+import com.github.wrx886.e2echo.ecc.util.IdUtil;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.ParameterizedTypeReference;

@@ -179,8 +179,8 @@ public class BroadcastService {
      */
     public BroadcastMessageRespVo message(@NotBlank String id) {
         EccMessage eccMessage = messageApi.getById(id);
-        // 验证签名
-        if (eccMessage == null || !Ecc.verify(eccMessage)) {
+        // 验证消息 ID 与签名；空消息同样会被 Ecc.verify 判为无效
+        if (!Ecc.verify(eccMessage)) {
             return null;
         }
         return new BroadcastMessageRespVo(

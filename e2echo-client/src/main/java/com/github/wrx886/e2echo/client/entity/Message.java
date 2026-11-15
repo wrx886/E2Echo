@@ -1,6 +1,7 @@
 package com.github.wrx886.e2echo.client.entity;
 
 import com.github.wrx886.e2echo.ecc.EccMessage;
+import com.github.wrx886.e2echo.ecc.util.IdUtil;
 
 import jakarta.persistence.*;
 import lombok.Data;
@@ -34,7 +35,7 @@ public class Message extends BaseEntity implements Persistable<String> {
     /**
      * 服务端消息 ID，即 {@link EccMessage#getId()}，用于与服务端消息对应，同一用户下唯一。
      */
-    @Column(nullable = false, updatable = false)
+    @Column(length = IdUtil.ID_LENGTH, nullable = false, updatable = false)
     private String messageId;
 
     /**

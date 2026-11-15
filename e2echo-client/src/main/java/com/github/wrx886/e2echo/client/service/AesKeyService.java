@@ -3,6 +3,7 @@ package com.github.wrx886.e2echo.client.service;
 import com.github.wrx886.e2echo.client.dto.AesKeyDto;
 import com.github.wrx886.e2echo.client.entity.AesKey;
 import com.github.wrx886.e2echo.client.repository.AesKeyRepository;
+import com.github.wrx886.e2echo.ecc.util.IdUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -48,7 +49,7 @@ public class AesKeyService {
         aesKeyRepository.save(aesKey);
         // 新签发的密钥会影响“最新密钥”
         obj2AesKey.remove(currentOwner() + aesKey.getObj());
-        objPublishTime2AesKey.remove(currentOwner() + aesKey.getObj() + String.format("%016x", aesKey.getPublishTime()));
+        objPublishTime2AesKey.remove(currentOwner() + aesKey.getObj() + IdUtil.timestampPrefix(aesKey.getPublishTime()));
     }
 
     /**
@@ -59,7 +60,7 @@ public class AesKeyService {
      * @return 对应版本的密钥，不存在时返回 {@code null}
      */
     public AesKeyDto getOne(String obj, long publishTime) {
-        String key = currentOwner() + obj + String.format("%016x", publishTime);
+        String key = currentOwner() + obj + IdUtil.timestampPrefix(publishTime);
         objPublishTime2AesKey.computeIfAbsent(key, (k) -> Optional.ofNullable(
                         aesKeyRepository.findByOwnerAndObjAndPublishTime(currentOwner(), obj, publishTime)).
                 map(AesKeyDto::fromEntity)

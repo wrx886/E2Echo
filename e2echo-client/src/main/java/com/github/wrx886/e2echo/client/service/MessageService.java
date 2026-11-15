@@ -16,12 +16,12 @@ import com.github.wrx886.e2echo.client.enums.SysParamEnum;
 import com.github.wrx886.e2echo.client.exception.E2EchoException;
 import com.github.wrx886.e2echo.client.repository.MessageRepository;
 import com.github.wrx886.e2echo.client.result.PageData;
-import com.github.wrx886.e2echo.client.util.IdUtil;
 import com.github.wrx886.e2echo.client.vo.req.MessageListReqVo;
 import com.github.wrx886.e2echo.client.vo.message.MessageVo;
 import com.github.wrx886.e2echo.ecc.Ecc;
 
 import com.github.wrx886.e2echo.ecc.EccMessage;
+import com.github.wrx886.e2echo.ecc.util.IdUtil;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -332,7 +332,8 @@ public class MessageService {
                 AesKeyDto aesKey = aesKeyService.getLast(eccMessage.getTo());
                 if (aesKey == null) throw new E2EchoException("找不到对应的 AES KEY");
                 // 群聊密文 = 16 位十六进制密钥签发时间（密钥版本）+ 密文，解密方按它取同一版本的密钥
-                eccMessage.setMessage(String.format("%016x", aesKey.publishTime()) + Ecc.encryptAes(eccMessage.getMessage(), aesKey.aesKey()));
+                eccMessage.setMessage(IdUtil.timestampPrefix(aesKey.publishTime())
+                        + Ecc.encryptAes(eccMessage.getMessage(), aesKey.aesKey()));
                 // 签名
                 eccMessage = Ecc.sign(eccMessage);
             }
@@ -365,7 +366,8 @@ public class MessageService {
      * 接收并处理一条服务端消息：验签、检查时间与通道、去重，解密后入库，最后交给类型对应的处理器。
      *
      * @param eccMessage 服务端返回的消息
-     * @throws E2EchoException 尚未登入、验签失败、时间超限、通道不支持、消息已存在、密钥过期、解密失败或消息类型不支持
+     * @throws E2EchoException 尚未登入、验签失败、时间超限、通道不支持、消息已存在、密钥过期、
+     *                         解密失败或消息类型不支持
      */
     @Transactional
     public void receive(EccMessage eccMessage) {
@@ -375,7 +377,7 @@ public class MessageService {
         currentOwner();
 
         // 1. 验证消息
-        // 1.1 验证签名
+        // 1.1 验证消息 ID 与签名
         if (!Ecc.verify(eccMessage)) {
             throw new E2EchoException("消息验证失败！");
         }
@@ -383,9 +385,9 @@ public class MessageService {
         long lastPullTime = Long.parseLong(
                 Optional.ofNullable(sysParamService.find(SysParamEnum.LAST_PULL_TIME))
                         .orElse(Long.toString(System.currentTimeMillis())));
-        long messageTImeStamp = IdUtil.getTimestampFromId(eccMessage.getId());
-        if (lastPullTime - messageTImeStamp > Const.MAX_MESSAGE_DIFF_MS || // 历史消息
-                messageTImeStamp - System.currentTimeMillis() > Const.MAX_MESSAGE_DIFF_MS // 未来消息
+        long messageTimestamp = IdUtil.timestampOf(eccMessage.getId());
+        if (lastPullTime - messageTimestamp > Const.MAX_MESSAGE_DIFF_MS || // 历史消息
+                messageTimestamp - System.currentTimeMillis() > Const.MAX_MESSAGE_DIFF_MS // 未来消息
         ) {
             throw new E2EchoException("拒收历史和未来消息！");
         }
@@ -407,7 +409,7 @@ public class MessageService {
             } else {
                 // 密文前 16 位是加密时用的密钥签发时间，按“对象 + 签发时间”取对应版本的密钥
                 AesKeyDto aesKey = aesKeyService.getOne(eccMessage.getTo(),
-                        Long.parseLong(eccMessage.getMessage().substring(0, 16), 16)
+                        Long.parseLong(eccMessage.getMessage().substring(0, IdUtil.TIMESTAMP_HEX_LENGTH), 16)
                 );
                 if (aesKey == null) throw new E2EchoException("找不到对应的 AES KEY");
 
@@ -418,7 +420,9 @@ public class MessageService {
                     throw new E2EchoException("密钥已过期");
                 }
 
-                eccMessage.setMessage(Ecc.decryptAes(eccMessage.getMessage().substring(16), aesKey.aesKey()));
+                eccMessage.setMessage(Ecc.decryptAes(
+                        eccMessage.getMessage().substring(IdUtil.TIMESTAMP_HEX_LENGTH),
+                        aesKey.aesKey()));
             }
         } catch (E2EchoException e) {
             throw e;
