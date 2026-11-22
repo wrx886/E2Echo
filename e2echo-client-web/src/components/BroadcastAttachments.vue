@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import type { CSSProperties } from 'vue'
 import { Close, Document, Headset } from '@element-plus/icons-vue'
 import { broadcastFileUrl } from '@/api'
 import type { BroadcastFileVo } from '@/api'
@@ -14,6 +15,10 @@ import { safeFileName } from '@/utils/filename'
 export interface AttachmentItem extends BroadcastFileVo {
   /** 本地预览地址：还没上传的文件用它代替广播文件地址。 */
   localUrl?: string
+  /** 图片预览宽度（已按展示上限等比缩放）：用于加载前按比例占位，避免移除按钮跳动。 */
+  width?: number
+  /** 图片预览高度，见 width。 */
+  height?: number
 }
 
 /**
@@ -84,6 +89,28 @@ function isAudio(file: BroadcastFileVo): boolean {
 }
 
 /**
+ * 单图预览的占位样式：放在外层 item 上，而不是 img 上。
+ *
+ * <p>item 原本是 width: fit-content，若把百分比宽度放在 img 上会反过来依赖父级宽度，
+ * 图片解码前算不出来，解码后才撑开，移除按钮就会漂。这里直接给 item 一个确定宽度和比例，
+ * 图片再填满它，循环就断了。</p>
+ *
+ * <p>没有尺寸信息时（已发布的附件）返回 undefined，沿用 CSS 里的 max-width/max-height。</p>
+ *
+ * @param file 附件
+ * @returns 预览样式
+ */
+function previewBoxStyle(file: AttachmentItem): CSSProperties | undefined {
+  if (!file.width || !file.height) {
+    return undefined
+  }
+  return {
+    width: `min(${file.width}px, 100%)`,
+    aspectRatio: `${file.width} / ${file.height}`,
+  }
+}
+
+/**
  * 取附件地址：本地还没上传的用本地预览地址，已经上传的用广播文件地址。
  *
  * @param file 附件
@@ -124,7 +151,12 @@ function sizeText(size: number): string {
 <template>
   <div v-if="list.length > 0" class="attachments">
     <!-- 单张图片：按大图展示 -->
-    <div v-if="images.length === 1 && images[0]" class="attachments__item">
+    <div
+      v-if="images.length === 1 && images[0]"
+      class="attachments__item"
+      :class="{ 'attachments__item--sized': !!images[0].width && !!images[0].height }"
+      :style="previewBoxStyle(images[0])"
+    >
       <img
         class="attachments__image"
         :src="urlOf(images[0])"
@@ -279,8 +311,18 @@ function sizeText(size: number): string {
   display: block;
   max-width: min(320px, 100%);
   max-height: 320px;
+  height: auto;
   border-radius: 4px;
   cursor: zoom-in;
+}
+
+/* 有预览尺寸时，外层 item 已经确定了宽高和比例，图片只需填满它 */
+.attachments__item--sized .attachments__image {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  object-fit: contain;
 }
 
 /* 网格里的图片：正方形、居中裁切 */

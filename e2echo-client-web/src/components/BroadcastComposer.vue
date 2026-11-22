@@ -71,6 +71,9 @@ interface PendingAttachment {
   file: File
   /** 本地预览地址，移除或卸载时释放。 */
   localUrl: string
+  /** 图片预览宽高（已按 320 上限等比缩放）：用于加载前占位，容器尺寸不会突变。 */
+  width?: number
+  height?: number
   /** 上传结果：传过之后记下来，发布失败重试时不再重复上传。 */
   uploaded?: BroadcastFileVo
 }
@@ -85,6 +88,8 @@ const previewFiles = computed<AttachmentItem[]>(() => pending.value.map((item) =
   contentType: item.file.type || 'application/octet-stream',
   size: item.file.size,
   localUrl: item.localUrl,
+  width: item.width,
+  height: item.height,
 })))
 
 /** 是否有附件正在上传。 */
@@ -801,22 +806,65 @@ function pick(kind: 'image' | 'video' | 'audio' | 'file'): void {
   void nextTick(() => fileInput.value?.click())
 }
 
+/** 本地预览图片的最大边长，和附件展示区的上限一致。 */
+const PREVIEW_MAX_SIZE = 320
+
 /**
- * 选中文件。
+ * 读取图片按比例缩放后的预览尺寸。
+ *
+ * <p>只用于本地预览：把结果作为 img 的宽高与比例，浏览器在图片解码前就能算出盒子的最终大小，
+ * 附件右上角的移除按钮不会从左边漂到右边。读不到时返回 0，退化为原来的行为。</p>
+ *
+ * @param url 本地预览地址
+ * @returns 预览宽高
+ */
+function readImageSize(url: string): Promise<{ width: number; height: number }> {
+  return new Promise((resolve) => {
+    const image = new Image()
+    image.onload = () => {
+      const scale = Math.min(
+        1,
+        PREVIEW_MAX_SIZE / image.naturalWidth,
+        PREVIEW_MAX_SIZE / image.naturalHeight,
+      )
+      resolve({
+        width: Math.max(1, Math.round(image.naturalWidth * scale)),
+        height: Math.max(1, Math.round(image.naturalHeight * scale)),
+      })
+    }
+    image.onerror = () => resolve({ width: 0, height: 0 })
+    image.src = url
+  })
+}
+
+/**
+ * 选中文件：图片先读出原始尺寸再加入预览，保证一次渲染就占位准确。
  *
  * @param event 选择框事件
  */
-function onFilesChange(event: Event): void {
+async function onFilesChange(event: Event): Promise<void> {
   const input = event.target as HTMLInputElement
   const picked = Array.from(input.files ?? [])
   input.value = ''
+  const added: PendingAttachment[] = []
   for (const file of picked) {
     if (file.size > FILE_MAX_SIZE_BYTE) {
       ElMessage.warning(FILE_MAX_SIZE_MESSAGE)
       continue
     }
-    pending.value = [...pending.value, { file, localUrl: URL.createObjectURL(file) }]
+    const localUrl = URL.createObjectURL(file)
+    // 有些系统选出来的图片 MIME 为空，也试着读一次；非图片会加载失败，按 0 处理
+    const size = file.type.startsWith('image/') || file.type.length === 0
+      ? await readImageSize(localUrl)
+      : null
+    added.push({
+      file,
+      localUrl,
+      width: size && size.width > 0 ? size.width : undefined,
+      height: size && size.height > 0 ? size.height : undefined,
+    })
   }
+  pending.value = [...pending.value, ...added]
 }
 
 /**
